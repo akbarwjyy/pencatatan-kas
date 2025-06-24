@@ -1,0 +1,92 @@
+<?php
+// Sertakan header
+require_once '../../layout/header.php';
+
+// Pastikan hanya Admin yang bisa mengakses halaman ini
+if (!has_permission('Admin')) {
+    set_flash_message("Anda tidak memiliki izin untuk mengakses halaman ini.", "error");
+    redirect('../../modules/dashboard/index.php');
+}
+
+$id_akun_error = $nama_akun_error = "";
+$id_akun = $nama_akun = "";
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    // Sanitasi input
+    $id_akun = sanitize_input($_POST['id_akun']);
+    $nama_akun = sanitize_input($_POST['nama_akun']);
+
+    // Validasi input
+    if (empty($id_akun)) {
+        $id_akun_error = "ID Akun tidak boleh kosong.";
+    } elseif (strlen($id_akun) > 8) {
+        $id_akun_error = "ID Akun maksimal 8 karakter.";
+    }
+
+    if (empty($nama_akun)) {
+        $nama_akun_error = "Nama Akun tidak boleh kosong.";
+    } elseif (strlen($nama_akun) > 20) {
+        $nama_akun_error = "Nama Akun maksimal 20 karakter.";
+    }
+
+    // Jika tidak ada error validasi, coba simpan ke database
+    if (empty($id_akun_error) && empty($nama_akun_error)) {
+        // Cek apakah id_akun sudah ada di database
+        $check_sql = "SELECT id_akun FROM akun WHERE id_akun = ?";
+        $stmt_check = $conn->prepare($check_sql);
+        $stmt_check->bind_param("s", $id_akun);
+        $stmt_check->execute();
+        $stmt_check->store_result();
+
+        if ($stmt_check->num_rows > 0) {
+            $id_akun_error = "ID Akun sudah ada. Gunakan ID lain.";
+            set_flash_message("Gagal menambahkan akun: ID Akun sudah ada.", "error");
+        } else {
+            $stmt_check->close();
+
+            // Query untuk menambah data akun
+            $sql = "INSERT INTO akun (id_akun, nama_akun) VALUES (?, ?)";
+
+            // Gunakan prepared statement untuk keamanan
+            if ($stmt = $conn->prepare($sql)) {
+                $stmt->bind_param("ss", $id_akun, $nama_akun); // 'ss' karena kedua parameter adalah string
+
+                if ($stmt->execute()) {
+                    set_flash_message("Akun berhasil ditambahkan!", "success");
+                    redirect('index.php'); // Redirect ke halaman daftar akun
+                } else {
+                    set_flash_message("Gagal menambahkan akun: " . $stmt->error, "error");
+                }
+                $stmt->close();
+            } else {
+                set_flash_message("Error prepared statement: " . $conn->error, "error");
+            }
+        }
+    } else {
+        set_flash_message("Silakan perbaiki kesalahan pada formulir.", "error");
+    }
+}
+?>
+
+<h1>Tambah Akun Baru</h1>
+<p>Isi formulir di bawah ini untuk menambahkan akun kas baru.</p>
+
+<form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
+    <div class="form-group">
+        <label for="id_akun">ID Akun:</label>
+        <input type="text" id="id_akun" name="id_akun" value="<?php echo htmlspecialchars($id_akun); ?>" required maxlength="8">
+        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $id_akun_error; ?></span>
+    </div>
+    <div class="form-group">
+        <label for="nama_akun">Nama Akun:</label>
+        <input type="text" id="nama_akun" name="nama_akun" value="<?php echo htmlspecialchars($nama_akun); ?>" required maxlength="20">
+        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $nama_akun_error; ?></span>
+    </div>
+    <button type="submit" class="btn">Simpan</button>
+    <a href="index.php" class="btn btn-secondary">Batal</a>
+</form>
+
+<?php
+// Sertakan footer
+require_once '../../layout/footer.php';
+?>
