@@ -29,25 +29,23 @@ $user_role = isset($_SESSION['user_role']) ? $_SESSION['user_role'] : 'Guest';
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
-<body>
-    <div class="header bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-6 px-8 rounded-b-lg shadow-lg flex flex-col md:flex-row md:items-center md:justify-between mb-8">
-        <div class="flex items-center space-x-4">
-            <span class="text-4xl">🍬</span>
-            <div>
-                <h1 class="text-2xl md:text-3xl font-extrabold tracking-wide drop-shadow-lg">Aplikasi Pencatatan Kas Ampyang Cap Garuda</h1>
-                <p class="mt-1 text-base md:text-lg font-medium flex items-center">
-                    <span class="inline-block mr-2 text-xl">👤</span>
-                    Selamat datang, <span class="font-semibold underline decoration-white mx-1"><?php echo htmlspecialchars($user_name); ?></span>
-                    <span class="ml-2">(Jabatan: <span class="font-semibold text-yellow-200"><?php echo htmlspecialchars($user_role); ?></span>)</span>
-                </p>
+<body class="bg-gray-100 min-h-screen">
+    <header class="bg-gray-900 text-white shadow-lg">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between px-8 py-4">
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">🍬</span>
+                <h1 class="text-xl md:text-2xl font-extrabold tracking-wide">Aplikasi Pencatatan Kas Ampyang Cap Garuda</h1>
+            </div>
+            <div class="mt-2 md:mt-0 flex items-center gap-2">
+                <span class="text-lg">👤</span>
+                <span class="font-semibold">Selamat datang, <span class="underline decoration-white"><?php echo htmlspecialchars($user_name); ?></span></span>
+                <span class="ml-2 text-sm">(Jabatan: <span class="font-semibold text-yellow-200"><?php echo htmlspecialchars($user_role); ?></span>)</span>
             </div>
         </div>
-    </div>
-
-    <div class="wrapper">
-        <?php include 'sidebar.php'; // Sertakan sidebar di sini
+        <?php include 'sidebar.php'; // Navbar horizontal di bawah judul header 
         ?>
-
+    </header>
+    <div class="wrapper px-4 md:px-8 pt-6">
         <div class="main-content">
             <?php
             // Tampilkan pesan flash jika ada
