@@ -1,171 +1,118 @@
 <?php
-// Memulai sesi PHP
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
+// Sertakan header (ini akan melakukan session_start(), cek login, dan include koneksi/fungsi)
+require_once '../../layout/header.php';
+
+// Ambil data ringkasan untuk dashboard
+
+// 1. Total Kas Masuk Bulan Ini
+$bulan_ini_awal = date('Y-m-01');
+$bulan_ini_akhir = date('Y-m-t'); // t = jumlah hari di bulan ini
+$total_kas_masuk_bulan_ini = 0;
+$sql_kas_masuk_bulan_ini = "SELECT SUM(jumlah) AS total FROM kas_masuk WHERE tgl_kas_masuk BETWEEN ? AND ?";
+if ($stmt = $conn->prepare($sql_kas_masuk_bulan_ini)) {
+    $stmt->bind_param("ss", $bulan_ini_awal, $bulan_ini_akhir);
+    $stmt->execute();
+    $stmt->bind_result($total_kas_masuk_bulan_ini);
+    $stmt->fetch();
+    $stmt->close();
 }
 
-// Sertakan file koneksi database dan fungsi-fungsi umum
-require_once __DIR__ . '/config/db.php';
-require_once __DIR__ . '/includes/functions.php';
-require_once __DIR__ . '/includes/helpers.php';
-
-// Jika pengguna sudah login, arahkan ke dashboard
-if (is_logged_in()) {
-    redirect('modules/dashboard/index.php');
+// 2. Total Kas Keluar Bulan Ini
+$total_kas_keluar_bulan_ini = 0;
+$sql_kas_keluar_bulan_ini = "SELECT SUM(jumlah) AS total FROM kas_keluar WHERE tgl_kas_keluar BETWEEN ? AND ?";
+if ($stmt = $conn->prepare($sql_kas_keluar_bulan_ini)) {
+    $stmt->bind_param("ss", $bulan_ini_awal, $bulan_ini_akhir);
+    $stmt->execute();
+    $stmt->bind_result($total_kas_keluar_bulan_ini);
+    $stmt->fetch();
+    $stmt->close();
 }
 
-$username_error = $password_error = "";
-$username_input = ""; // Untuk menyimpan nilai username dari form jika ada error
-
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Sanitasi input
-    $username_input = sanitize_input($_POST['username']);
-    $password_input = $_POST['password']; // Password tidak perlu disanitasi HTML karena akan di-hash/verifikasi
-
-    // Validasi input
-    if (empty($username_input)) {
-        $username_error = "Username tidak boleh kosong.";
-    }
-    if (empty($password_input)) {
-        $password_error = "Password tidak boleh kosong.";
-    }
-
-    // Jika tidak ada error validasi input
-    if (empty($username_error) && empty($password_error)) {
-        // Query untuk mencari pengguna berdasarkan kolom 'username'
-        $sql = "SELECT id_pengguna, username, password, jabatan FROM pengguna WHERE username = ?";
-
-        if ($stmt = $conn->prepare($sql)) {
-            $stmt->bind_param("s", $username_input); // Bind input username dari form
-            $stmt->execute();
-            $stmt->store_result();
-
-            if ($stmt->num_rows == 1) {
-                $stmt->bind_result($db_id_pengguna, $db_username, $db_hashed_password, $db_jabatan);
-                $stmt->fetch();
-
-                // Verifikasi password
-                if (verify_password($password_input, $db_hashed_password)) {
-                    // Password cocok, set session
-                    $_SESSION['user_id'] = $db_id_pengguna;
-                    $_SESSION['user_name'] = $db_username; // MENGGUNAKAN USERNAME UNTUK DISPLAY
-                    $_SESSION['user_role'] = $db_jabatan; // Simpan jabatan di session
-
-                    // PERBAIKAN: Hapus baris flash message "Selamat datang" di sini
-                    // set_flash_message("Selamat datang, " . htmlspecialchars($db_username) . "!", "success"); 
-
-                    redirect('modules/dashboard/index.php'); // Arahkan ke dashboard
-                } else {
-                    // Password tidak cocok
-                    set_flash_message("Username atau password salah.", "error");
-                }
-            } else {
-                // Username tidak ditemukan
-                set_flash_message("Username atau password salah.", "error");
-            }
-            $stmt->close();
-        } else {
-            set_flash_message("Error prepared statement: " . $conn->error, "error");
-        }
-    } else {
-        set_flash_message("Silakan masukkan username dan password.", "error");
-    }
+// 3. Jumlah Pemesanan Belum Lunas
+$jumlah_pemesanan_belum_lunas = 0;
+$sql_pemesanan_belum_lunas = "SELECT COUNT(*) AS total FROM pemesanan WHERE sisa > 0";
+$result_pemesanan_belum_lunas = $conn->query($sql_pemesanan_belum_lunas);
+if ($result_pemesanan_belum_lunas && $row = $result_pemesanan_belum_lunas->fetch_assoc()) {
+    $jumlah_pemesanan_belum_lunas = $row['total'];
 }
+
+// 4. Saldo Kas Saat Ini (Estimasi sederhana: Total Kas Masuk - Total Kas Keluar secara keseluruhan)
+$total_all_kas_masuk = 0;
+$sql_all_kas_masuk = "SELECT SUM(jumlah) AS total FROM kas_masuk";
+$result_all_kas_masuk = $conn->query($sql_all_kas_masuk);
+if ($result_all_kas_masuk && $row = $result_all_kas_masuk->fetch_assoc()) {
+    $total_all_kas_masuk = $row['total'];
+}
+
+$total_all_kas_keluar = 0;
+$sql_all_kas_keluar = "SELECT SUM(jumlah) AS total FROM kas_keluar";
+$result_all_kas_keluar = $conn->query($sql_all_kas_keluar);
+if ($result_all_kas_keluar && $row = $result_all_kas_keluar->fetch_assoc()) {
+    $total_all_kas_keluar = $row['total'];
+}
+$saldo_kas_saat_ini = $total_all_kas_masuk - $total_all_kas_keluar;
+
 ?>
 
-<!DOCTYPE html>
-<html lang="id">
+<h1>Dashboard Utama</h1>
+<p>Selamat datang di Aplikasi Pencatatan Kas Industri Rumah Tangga Ampyang Cap Garuda.</p>
+<p>Di halaman ini Anda dapat melihat ringkasan singkat kondisi keuangan dan operasional terkini.</p>
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login User</title>
-    <link rel="stylesheet" href="assets/css/style.css">
-    <style>
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background-color: #f0f2f5;
-        }
-
-        .login-container {
-            background-color: #fff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-        }
-
-        .login-container h2 {
-            margin-bottom: 0px;
-            color: #333;
-            font-size: 1.8em;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .login-container .form-group {
-            margin-top: 25px;
-            margin-bottom: 20px;
-            text-align: left;
-            display: flex;
-            align-items: center;
-        }
-
-        .login-container .form-group label {
-            flex: 0 0 100px;
-            font-weight: normal;
-            text-align: right;
-            margin-right: 15px;
-            text-transform: lowercase;
-        }
-
-        .login-container .form-group input[type="text"],
-        .login-container .form-group input[type="password"] {
-            flex: 1;
-            width: auto;
-            padding: 8px;
-        }
-
-        .login-container .btn {
-            width: 100px;
-            padding: 8px 12px;
-            font-size: 1em;
-            margin-top: 30px;
-            margin-left: auto;
-            margin-right: auto;
-            display: block;
-        }
-
-        .login-container .message {
-            margin-bottom: 20px;
-        }
-    </style>
-</head>
-
-<body>
-    <div class="login-container">
-        <h2>LOGIN USER</h2>
-        <?php echo display_flash_message(); ?>
-        <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
-            <div class="form-group">
-                <label for="username">username</label>
-                <input type="text" id="username" name="username" value="<?php echo htmlspecialchars($username_input); ?>" required>
-                <span class="error" style="color: red; font-size: 0.9em;"><?php echo $username_error; ?></span>
-            </div>
-            <div class="form-group">
-                <label for="password">password</label>
-                <input type="password" id="password" name="password" required>
-                <span class="error" style="color: red; font-size: 0.9em;"><?php echo $password_error; ?></span>
-            </div>
-            <button type="submit" class="btn">Masuk</button>
-        </form>
+<div class="dashboard-summary">
+    <div class="card">
+        <h3>Kas Masuk Bulan Ini (<?php echo date('F Y'); ?>)</h3>
+        <p class="amount-large"><?php echo format_rupiah($total_kas_masuk_bulan_ini); ?></p>
     </div>
-</body>
+    <div class="card">
+        <h3>Kas Keluar Bulan Ini (<?php echo date('F Y'); ?>)</h3>
+        <p class="amount-large"><?php echo format_rupiah($total_kas_keluar_bulan_ini); ?></p>
+    </div>
+    <div class="card">
+        <h3>Pemesanan Belum Lunas</h3>
+        <p class="amount-large"><?php echo htmlspecialchars($jumlah_pemesanan_belum_lunas); ?> Pesanan</p>
+    </div>
+    <div class="card">
+        <h3>Estimasi Saldo Kas Total</h3>
+        <p class="amount-large"><?php echo format_rupiah($saldo_kas_saat_ini); ?></p>
+    </div>
+</div>
 
-</html>
+<style>
+    /* Styling khusus untuk Dashboard */
+    .dashboard-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-top: 30px;
+    }
+
+    .card {
+        background-color: #e8f5e9;
+        /* Light green */
+        border-left: 5px solid #4CAF50;
+        /* Green border */
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        text-align: center;
+    }
+
+    .card h3 {
+        color: #333;
+        font-size: 1.2em;
+        margin-top: 0;
+        margin-bottom: 10px;
+    }
+
+    .card p.amount-large {
+        font-size: 2em;
+        font-weight: bold;
+        color: #4CAF50;
+        margin: 0;
+    }
+</style>
+
+<?php
+// Sertakan footer
+require_once '../../layout/footer.php';
+?>

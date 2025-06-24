@@ -43,7 +43,7 @@ $user_role = isset($_SESSION['user_role']) ? $_SESSION['user_role'] : 'Guest';
             // Tampilkan pesan flash jika ada
             echo display_flash_message();
             ?>
-            ```
+            <!-- ```
 
             **Penjelasan `header.php`:**
 
@@ -56,4 +56,4 @@ $user_role = isset($_SESSION['user_role']) ? $_SESSION['user_role'] : 'Guest';
             * **`include 'sidebar.php';`**: Memanggil file sidebar di sini, sehingga sidebar akan selalu muncul di setiap halaman.
             * **`display_flash_message()`**: Menampilkan pesan sukses/error dari fungsi helper.
 
-            ---
+            --- -->
