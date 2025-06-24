@@ -54,60 +54,47 @@ $saldo_kas_saat_ini = $total_all_kas_masuk - $total_all_kas_keluar;
 
 ?>
 
-<h1>Dashboard Utama</h1>
-<p>Selamat datang di Aplikasi Pencatatan Kas Industri Rumah Tangga Ampyang Cap Garuda.</p>
-<p>Di halaman ini Anda dapat melihat ringkasan singkat kondisi keuangan dan operasional terkini.</p>
+<h1 class="text-2xl md:text-3xl font-extrabold text-gray-800 mt-4 mb-2 flex items-center gap-2">
+    <span>📊</span> Dashboard Utama
+</h1>
+<p class="text-gray-600 mb-2">Selamat datang di <span class="font-semibold text-green-700">Aplikasi Pencatatan Kas Industri Rumah Tangga Ampyang Cap Garuda</span>.</p>
+<p class="text-gray-500 mb-6">Di halaman ini Anda dapat melihat ringkasan singkat kondisi keuangan dan operasional terkini.</p>
 
-<div class="dashboard-summary">
-    <div class="card">
-        <h3>Kas Masuk Bulan Ini (<?php echo date('F Y'); ?>)</h3>
-        <p class="amount-large"><?php echo format_rupiah($total_kas_masuk_bulan_ini); ?></p>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 dashboard-summary">
+    <div class="card bg-gradient-to-br from-green-200 to-green-50 border-l-8 border-green-500 rounded-xl p-6 shadow-lg flex flex-col items-center">
+        <span class="text-4xl mb-2">💰</span>
+        <h3 class="text-lg font-bold text-gray-700 mb-1 text-center">Kas Masuk Bulan Ini<br><span class="text-xs font-normal">(<?php echo date('F Y'); ?>)</span></h3>
+        <p class="amount-large text-2xl font-extrabold text-green-700 mt-2"><?php echo format_rupiah($total_kas_masuk_bulan_ini); ?></p>
     </div>
-    <div class="card">
-        <h3>Kas Keluar Bulan Ini (<?php echo date('F Y'); ?>)</h3>
-        <p class="amount-large"><?php echo format_rupiah($total_kas_keluar_bulan_ini); ?></p>
+    <div class="card bg-gradient-to-br from-red-200 to-red-50 border-l-8 border-red-500 rounded-xl p-6 shadow-lg flex flex-col items-center">
+        <span class="text-4xl mb-2">💸</span>
+        <h3 class="text-lg font-bold text-gray-700 mb-1 text-center">Kas Keluar Bulan Ini<br><span class="text-xs font-normal">(<?php echo date('F Y'); ?>)</span></h3>
+        <p class="amount-large text-2xl font-extrabold text-red-700 mt-2"><?php echo format_rupiah($total_kas_keluar_bulan_ini); ?></p>
     </div>
-    <div class="card">
-        <h3>Pemesanan Belum Lunas</h3>
-        <p class="amount-large"><?php echo htmlspecialchars($jumlah_pemesanan_belum_lunas); ?> Pesanan</p>
+    <div class="card bg-gradient-to-br from-yellow-100 to-yellow-50 border-l-8 border-yellow-400 rounded-xl p-6 shadow-lg flex flex-col items-center">
+        <span class="text-4xl mb-2">📝</span>
+        <h3 class="text-lg font-bold text-gray-700 mb-1 text-center">Pemesanan Belum Lunas</h3>
+        <p class="amount-large text-2xl font-extrabold text-yellow-600 mt-2"><?php echo htmlspecialchars($jumlah_pemesanan_belum_lunas); ?> Pesanan</p>
     </div>
-    <div class="card">
-        <h3>Estimasi Saldo Kas Total</h3>
-        <p class="amount-large"><?php echo format_rupiah($saldo_kas_saat_ini); ?></p>
+    <div class="card bg-gradient-to-br from-blue-200 to-blue-50 border-l-8 border-blue-500 rounded-xl p-6 shadow-lg flex flex-col items-center">
+        <span class="text-4xl mb-2">🏦</span>
+        <h3 class="text-lg font-bold text-gray-700 mb-1 text-center">Estimasi Saldo Kas Total</h3>
+        <p class="amount-large text-2xl font-extrabold text-blue-700 mt-2"><?php echo format_rupiah($saldo_kas_saat_ini); ?></p>
     </div>
 </div>
 
 <style>
-    /* Styling khusus untuk Dashboard */
+    /* Styling legacy untuk fallback jika Tailwind tidak aktif */
     .dashboard-summary {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 20px;
         margin-top: 30px;
     }
 
-    .card {
-        background-color: #e8f5e9;
-        /* Light green */
-        border-left: 5px solid #4CAF50;
-        /* Green border */
-        border-radius: 8px;
-        padding: 20px;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        text-align: center;
-    }
-
     .card h3 {
-        color: #333;
-        font-size: 1.2em;
         margin-top: 0;
         margin-bottom: 10px;
     }
 
     .card p.amount-large {
-        font-size: 2em;
-        font-weight: bold;
-        color: #4CAF50;
         margin: 0;
     }
 </style>
