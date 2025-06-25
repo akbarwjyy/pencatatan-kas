@@ -5,11 +5,15 @@ if (session_status() == PHP_SESSION_NONE) {
 }
 
 // Sertakan file koneksi database dan fungsi-fungsi umum
+// Jalur ini sudah benar karena login.php berada di root, dan config/includes di root juga.
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/helpers.php';
 
 // Jika pengguna sudah login, arahkan ke dashboard
+// Perbaikan: arahkan ke halaman dashboard yang benar di 'modules/dashboard/index.php'
+// Jika sebelumnya di redirect('index.php'), itu akan kembali ke root index.php, yang akan redirect lagi,
+// potensi membuat loop jika ada masalah konfigurasi. Langsung ke dashboard modules adalah lebih eksplisit.
 if (is_logged_in()) {
     redirect('modules/dashboard/index.php');
 }
@@ -20,7 +24,7 @@ $username_input = ""; // Untuk menyimpan nilai username dari form jika ada error
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Sanitasi input
     $username_input = sanitize_input($_POST['username']);
-    $password_input = $_POST['password']; // Password tidak perlu disanitasi HTML karena akan di-hash/verifikasi
+    $password_input = $_POST['password'];
 
     // Validasi input
     if (empty($username_input)) {
@@ -32,7 +36,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // Jika tidak ada error validasi input
     if (empty($username_error) && empty($password_error)) {
-        // PERUBAHAN DI SINI: SELECT 'username' sebagai pengganti 'nama'
+        // Query untuk mencari pengguna berdasarkan kolom 'username'
         $sql = "SELECT id_pengguna, username, password, jabatan FROM pengguna WHERE username = ?";
 
         if ($stmt = $conn->prepare($sql)) {
@@ -41,7 +45,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $stmt->store_result();
 
             if ($stmt->num_rows == 1) {
-                // PERUBAHAN DI SINI: bind_result disesuaikan dengan 'username'
                 $stmt->bind_result($db_id_pengguna, $db_username, $db_hashed_password, $db_jabatan);
                 $stmt->fetch();
 
@@ -49,11 +52,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 if (verify_password($password_input, $db_hashed_password)) {
                     // Password cocok, set session
                     $_SESSION['user_id'] = $db_id_pengguna;
-                    $_SESSION['user_name'] = $db_username; // MENGGUNAKAN USERNAME UNTUK DISPLAY
-                    $_SESSION['user_role'] = $db_jabatan; // Simpan jabatan di session
+                    $_SESSION['user_name'] = $db_username;
+                    $_SESSION['user_role'] = $db_jabatan;
 
-                    set_flash_message("Selamat datang, " . htmlspecialchars($db_username) . "!", "success"); // Pesan selamat datang juga pakai username
-                    redirect('modules/dashboard/index.php'); // Arahkan ke dashboard
+                    // Tampilkan pesan selamat datang, lalu arahkan ke dashboard
+                    set_flash_message("Selamat datang, " . htmlspecialchars($db_username) . "!", "success");
+                    redirect('modules/dashboard/index.php'); // Arahkan langsung ke dashboard modules
                 } else {
                     // Password tidak cocok
                     set_flash_message("Username atau password salah.", "error");
@@ -70,101 +74,38 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         set_flash_message("Silakan masukkan username dan password.", "error");
     }
 }
+
+require_once __DIR__ . '/layout/header.php'; //
+
 ?>
 
-<!DOCTYPE html>
-<html lang="id">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login User</title>
-    <link rel="stylesheet" href="assets/css/style.css">
-    <style>
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background-color: #f0f2f5;
-        }
-
-        .login-container {
-            background-color: #fff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-        }
-
-        .login-container h2 {
-            margin-bottom: 0px;
-            color: #333;
-            font-size: 1.8em;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .login-container .form-group {
-            margin-top: 25px;
-            margin-bottom: 20px;
-            text-align: left;
-            display: flex;
-            align-items: center;
-        }
-
-        .login-container .form-group label {
-            flex: 0 0 100px;
-            font-weight: normal;
-            text-align: right;
-            margin-right: 15px;
-            text-transform: lowercase;
-        }
-
-        .login-container .form-group input[type="text"],
-        .login-container .form-group input[type="password"] {
-            flex: 1;
-            width: auto;
-            padding: 8px;
-        }
-
-        .login-container .btn {
-            width: 100px;
-            padding: 8px 12px;
-            font-size: 1em;
-            margin-top: 30px;
-            margin-left: auto;
-            margin-right: auto;
-            display: block;
-        }
-
-        .login-container .message {
-            margin-bottom: 20px;
-        }
-    </style>
-</head>
-
-<body>
-    <div class="login-container">
-        <h2>LOGIN USER</h2>
+<div class="flex items-center justify-center min-h-screen bg-gray-50">
+    <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md text-center">
+        <h2 class="text-3xl font-extrabold text-gray-900 mb-8 uppercase tracking-wide">LOGIN USER</h2>
         <?php echo display_flash_message(); ?>
-        <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
-            <div class="form-group">
-                <label for="username">username</label>
-                <input type="text" id="username" name="username" value="<?php echo htmlspecialchars($username_input); ?>" required>
-                <span class="error" style="color: red; font-size: 0.9em;"><?php echo $username_error; ?></span>
+        <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post" class="space-y-6">
+            <div class="flex items-center">
+                <label for="username" class="w-24 text-right pr-4 text-gray-700 text-sm font-medium lowercase">username</label>
+                <input type="text" id="username" name="username" value="<?php echo htmlspecialchars($username_input); ?>" required
+                    class="flex-1 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                <span class="error text-red-600 text-sm ml-2"><?php echo $username_error; ?></span>
             </div>
-            <div class="form-group">
-                <label for="password">password</label>
-                <input type="password" id="password" name="password" required>
-                <span class="error" style="color: red; font-size: 0.9em;"><?php echo $password_error; ?></span>
+            <div class="flex items-center">
+                <label for="password" class="w-24 text-right pr-4 text-gray-700 text-sm font-medium lowercase">password</label>
+                <input type="password" id="password" name="password" required
+                    class="flex-1 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                <span class="error text-red-600 text-sm ml-2"><?php echo $password_error; ?></span>
             </div>
-            <button type="submit" class="btn">Masuk</button>
+            <button type="submit"
+                class="mt-8 w-32 py-2 px-4 bg-green-600 text-white font-semibold rounded-md shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75 block mx-auto">
+                Masuk
+            </button>
         </form>
     </div>
-</body>
+</div>
 
-</html>
+<?php
+// Sertakan footer
+// Karena login.php ada di root, dan footer.php ada di layout/, pathnya relatif:
+require_once __DIR__ . '/layout/footer.php'; //
+?>

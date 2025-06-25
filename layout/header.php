@@ -33,7 +33,7 @@ $user_role = isset($_SESSION['user_role']) ? $_SESSION['user_role'] : 'Guest';
     <header class="bg-gray-900 text-white shadow-lg">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between px-8 py-4">
             <div class="flex items-center gap-3">
-                <span class="text-3xl">🍬</span>
+                <!-- <span class="text-3xl">🍬</span> -->
                 <h1 class="text-xl md:text-2xl font-extrabold tracking-wide">Aplikasi Pencatatan Kas Ampyang Cap Garuda</h1>
             </div>
             <div class="mt-2 md:mt-0 flex items-center gap-2">
