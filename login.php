@@ -85,13 +85,13 @@ require_once __DIR__ . '/layout/header.php'; //
         <?php echo display_flash_message(); ?>
         <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post" class="space-y-6">
             <div class="flex items-center">
-                <label for="username" class="w-24 text-right pr-4 text-gray-700 text-sm font-medium lowercase">username</label>
+                <label for="username" class="w-24 text-right pr-4 text-gray-700 text-sm font-medium lowercase">Username</label>
                 <input type="text" id="username" name="username" value="<?php echo htmlspecialchars($username_input); ?>" required
                     class="flex-1 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
                 <span class="error text-red-600 text-sm ml-2"><?php echo $username_error; ?></span>
             </div>
             <div class="flex items-center">
-                <label for="password" class="w-24 text-right pr-4 text-gray-700 text-sm font-medium lowercase">password</label>
+                <label for="password" class="w-24 text-right pr-4 text-gray-700 text-sm font-medium lowercase">Password</label>
                 <input type="password" id="password" name="password" required
                     class="flex-1 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
                 <span class="error text-red-600 text-sm ml-2"><?php echo $password_error; ?></span>

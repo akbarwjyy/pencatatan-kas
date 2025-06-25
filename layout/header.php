@@ -17,6 +17,9 @@ if (!is_logged_in() && basename($_SERVER['PHP_SELF']) !== 'login.php') {
 // Ambil data pengguna dari session
 $user_name = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : 'Tamu';
 $user_role = isset($_SESSION['user_role']) ? $_SESSION['user_role'] : 'Guest';
+
+// Dapatkan nama file script saat ini
+$current_page = basename($_SERVER['PHP_SELF']);
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -42,7 +45,10 @@ $user_role = isset($_SESSION['user_role']) ? $_SESSION['user_role'] : 'Guest';
                 <span class="ml-2 text-sm">(Jabatan: <span class="font-semibold text-yellow-200"><?php echo htmlspecialchars($user_role); ?></span>)</span>
             </div>
         </div>
-        <?php include 'sidebar.php'; // Navbar horizontal di bawah judul header 
+        <?php
+        if ($current_page !== 'login.php') {
+            include 'sidebar.php';
+        }
         ?>
     </header>
     <div class="wrapper px-4 md:px-8 pt-6">
