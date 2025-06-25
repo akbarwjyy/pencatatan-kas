@@ -66,20 +66,20 @@ $saldo_kas_saat_ini = $total_all_kas_masuk - $total_all_kas_keluar;
         <h3 class="text-lg font-bold text-gray-700 mb-1 text-center">Kas Masuk Bulan Ini<br><span class="text-xs font-normal">(<?php echo date('F Y'); ?>)</span></h3>
         <p class="amount-large text-2xl font-extrabold text-green-700 mt-2"><?php echo format_rupiah($total_kas_masuk_bulan_ini); ?></p>
     </div>
-    <div class="card bg-gradient-to-br from-red-200 to-red-50 border-l-8 border-red-500 rounded-xl p-6 shadow-lg flex flex-col items-center">
+    <div class="card bg-gradient-to-br from-green-200 to-green-50 border-l-8 border-green-500 rounded-xl p-6 shadow-lg flex flex-col items-center">
         <span class="text-4xl mb-2">💸</span>
         <h3 class="text-lg font-bold text-gray-700 mb-1 text-center">Kas Keluar Bulan Ini<br><span class="text-xs font-normal">(<?php echo date('F Y'); ?>)</span></h3>
-        <p class="amount-large text-2xl font-extrabold text-red-700 mt-2"><?php echo format_rupiah($total_kas_keluar_bulan_ini); ?></p>
+        <p class="amount-large text-2xl font-extrabold text-green-700 mt-2"><?php echo format_rupiah($total_kas_keluar_bulan_ini); ?></p>
     </div>
-    <div class="card bg-gradient-to-br from-yellow-100 to-yellow-50 border-l-8 border-yellow-400 rounded-xl p-6 shadow-lg flex flex-col items-center">
+    <div class="card bg-gradient-to-br from-green-200 to-green-50 border-l-8 border-green-500 rounded-xl p-6 shadow-lg flex flex-col items-center">
         <span class="text-4xl mb-2">📝</span>
         <h3 class="text-lg font-bold text-gray-700 mb-1 text-center">Pemesanan Belum Lunas</h3>
-        <p class="amount-large text-2xl font-extrabold text-yellow-600 mt-2"><?php echo htmlspecialchars($jumlah_pemesanan_belum_lunas); ?> Pesanan</p>
+        <p class="amount-large text-2xl font-extrabold text-green-700 mt-2"><?php echo htmlspecialchars($jumlah_pemesanan_belum_lunas); ?> Pesanan</p>
     </div>
-    <div class="card bg-gradient-to-br from-blue-200 to-blue-50 border-l-8 border-blue-500 rounded-xl p-6 shadow-lg flex flex-col items-center">
+    <div class="card bg-gradient-to-br from-green-200 to-green-50 border-l-8 border-green-500 rounded-xl p-6 shadow-lg flex flex-col items-center">
         <span class="text-4xl mb-2">🏦</span>
         <h3 class="text-lg font-bold text-gray-700 mb-1 text-center">Estimasi Saldo Kas Total</h3>
-        <p class="amount-large text-2xl font-extrabold text-blue-700 mt-2"><?php echo format_rupiah($saldo_kas_saat_ini); ?></p>
+        <p class="amount-large text-2xl font-extrabold text-green-700 mt-2"><?php echo format_rupiah($saldo_kas_saat_ini); ?></p>
     </div>
 </div>
 
