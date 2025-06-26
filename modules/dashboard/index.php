@@ -83,7 +83,7 @@ $saldo_kas_saat_ini = $total_all_kas_masuk - $total_all_kas_keluar;
         <h3 class="text-lg font-bold text-gray-700 mb-1 text-center">Pemesanan Belum Lunas</h3>
         <p class="amount-large text-2xl font-extrabold text-green-700 mt-2"><?php echo htmlspecialchars($jumlah_pemesanan_belum_lunas); ?> Pesanan</p>
     </div>
-    <div class="card bg-gradient-to-br from-green-200 to-green-50 border-l-8 border-green -500 rounded-xl p-6 shadow-lg flex flex-col items-center">
+    <div class="card bg-gradient-to-br from-green-200 to-green-50 border-l-8 border-green-500 rounded-xl p-6 shadow-lg flex flex-col items-center">
         <span class="text-4xl mb-2">🏦</span>
         <h3 class="text-lg font-bold text-gray-700 mb-1 text-center">Estimasi Saldo Kas Total</h3>
         <p class="amount-large text-2xl font-extrabold text-green-700 mt-2"><?php echo format_rupiah($saldo_kas_saat_ini); ?></p>

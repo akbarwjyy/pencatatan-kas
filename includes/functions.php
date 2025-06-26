@@ -114,6 +114,3 @@ function has_permission($required_role)
             return false;
     }
 }
-
-// Anda bisa menambahkan fungsi-fungsi umum lainnya di sini
-// seperti format_rupiah(), generate_unique_id(), dll.
