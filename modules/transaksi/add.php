@@ -83,6 +83,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Ambil detail pemesanan untuk validasi jumlah dibayar
     $current_sisa_pemesanan = 0;
     $total_tagihan_pemesanan = 0;
+    $id_customer_related = '';
+    $tgl_kirim_related = '';
     if (!empty($id_pesan)) {
         $pemesanan_detail_sql = "SELECT sisa, sub_total, id_customer, tgl_kirim FROM pemesanan WHERE id_pesan = ?";
         if ($stmt_pemesanan = $conn->prepare($pemesanan_detail_sql)) {
@@ -204,80 +206,102 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 ?>
 
-<h1>Tambah Transaksi Baru</h1>
-<p>Isi formulir di bawah ini untuk mencatat pembayaran dari pemesanan.</p>
+<div class="bg-white p-8 rounded-lg shadow-xl max-w-lg mx-auto my-8">
+    <h1 class="text-2xl font-bold text-gray-800 mb-4 text-center">Tambah Transaksi Baru</h1>
+    <p class="text-gray-600 mb-6 text-center">Isi formulir di bawah ini untuk mencatat pembayaran dari pemesanan.</p>
 
-<form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
-    <div class="form-group">
-        <label for="id_transaksi">ID Transaksi:</label>
-        <input type="text" id="id_transaksi" name="id_transaksi" value="<?php echo htmlspecialchars($id_transaksi); ?>" required maxlength="8">
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $id_transaksi_error; ?></span>
-    </div>
-    <div class="form-group">
-        <label for="id_pesan">Pemesanan (Customer - Total Tagihan - Sisa):</label>
-        <select id="id_pesan" name="id_pesan" required onchange="updatePemesananInfo()">
-            <option value="">-- Pilih Pemesanan --</option>
-            <?php foreach ($pemesanan_options as $option) : ?>
-                <option value="<?php echo htmlspecialchars($option['id_pesan']); ?>"
-                    data-subtotal="<?php echo htmlspecialchars($option['sub_total']); ?>"
-                    data-sisa="<?php echo htmlspecialchars($option['sisa']); ?>"
-                    <?php echo ($id_pesan == $option['id_pesan']) ? 'selected' : ''; ?>>
-                    <?php echo htmlspecialchars($option['nama_customer'] . " - " . format_rupiah($option['sub_total']) . " - Sisa: " . format_rupiah($option['sisa'])); ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $id_pesan_error; ?></span>
-    </div>
-    <div class="form-group">
-        <label for="id_akun">Akun Penerima Pembayaran:</label>
-        <select id="id_akun" name="id_akun" required>
-            <option value="">-- Pilih Akun --</option>
-            <?php foreach ($accounts as $account_option) : ?>
-                <option value="<?php echo htmlspecialchars($account_option['id_akun']); ?>"
-                    <?php echo ($id_akun == $account_option['id_akun']) ? 'selected' : ''; ?>>
-                    <?php echo htmlspecialchars($account_option['nama_akun']); ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $id_akun_error; ?></span>
-    </div>
-    <div class="form-group">
-        <label for="tgl_transaksi">Tanggal Transaksi:</label>
-        <input type="date" id="tgl_transaksi" name="tgl_transaksi" value="<?php echo htmlspecialchars($tgl_transaksi); ?>" required>
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $tgl_transaksi_error; ?></span>
-    </div>
-    <div class="form-group">
-        <label for="jumlah_dibayar">Jumlah Dibayar (Rp):</label>
-        <input type="number" id="jumlah_dibayar" name="jumlah_dibayar" value="<?php echo htmlspecialchars($jumlah_dibayar); ?>" required min="1">
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $jumlah_dibayar_error; ?></span>
-    </div>
-    <div class="form-group">
-        <label for="metode_pembayaran">Metode Pembayaran:</label>
-        <input type="text" id="metode_pembayaran" name="metode_pembayaran" value="<?php echo htmlspecialchars($metode_pembayaran); ?>" required maxlength="20">
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $metode_pembayaran_error; ?></span>
-    </div>
-    <div class="form-group">
-        <label for="keterangan">Keterangan:</label>
-        <input type="text" id="keterangan" name="keterangan" value="<?php echo htmlspecialchars($keterangan); ?>" maxlength="30">
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $keterangan_error; ?></span>
-    </div>
-    <div class="form-group">
-        <label>Total Tagihan Pemesanan:</label>
-        <input type="text" id="total_tagihan_display" value="<?php echo format_rupiah($total_tagihan_display); ?>" disabled>
-    </div>
-    <div class="form-group">
-        <label>Sisa Pembayaran Setelah Transaksi Ini:</label>
-        <input type="text" id="sisa_pembayaran_display" value="<?php echo format_rupiah($sisa_pembayaran_display); ?>" disabled>
-    </div>
-    <button type="submit" class="btn">Simpan Transaksi</button>
-    <a href="index.php" class="btn btn-secondary">Batal</a>
-</form>
+    <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
+        <div class="mb-4">
+            <label for="id_transaksi" class="block text-gray-700 text-sm font-bold mb-2">ID Transaksi:</label>
+            <input type="text" id="id_transaksi" name="id_transaksi" value="<?php echo htmlspecialchars($id_transaksi); ?>" required maxlength="8"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $id_transaksi_error; ?></span>
+        </div>
+        <div class="mb-4">
+            <label for="id_pesan" class="block text-gray-700 text-sm font-bold mb-2">Pemesanan (Customer - Total Tagihan - Sisa):</label>
+            <select id="id_pesan" name="id_pesan" required onchange="updatePemesananInfo()"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+                <option value="">-- Pilih Pemesanan --</option>
+                <?php foreach ($pemesanan_options as $option) : ?>
+                    <option value="<?php echo htmlspecialchars($option['id_pesan']); ?>"
+                        data-subtotal="<?php echo htmlspecialchars($option['sub_total']); ?>"
+                        data-sisa="<?php echo htmlspecialchars($option['sisa']); ?>"
+                        <?php echo ($id_pesan == $option['id_pesan']) ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($option['nama_customer'] . " - " . format_rupiah($option['sub_total']) . " - Sisa: " . format_rupiah($option['sisa'])); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $id_pesan_error; ?></span>
+        </div>
+        <div class="mb-4">
+            <label for="id_akun" class="block text-gray-700 text-sm font-bold mb-2">Akun Penerima Pembayaran:</label>
+            <select id="id_akun" name="id_akun" required
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+                <option value="">-- Pilih Akun --</option>
+                <?php foreach ($accounts as $account_option) : ?>
+                    <option value="<?php echo htmlspecialchars($account_option['id_akun']); ?>"
+                        <?php echo ($id_akun == $account_option['id_akun']) ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($account_option['nama_akun']); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $id_akun_error; ?></span>
+        </div>
+        <div class="mb-4">
+            <label for="tgl_transaksi" class="block text-gray-700 text-sm font-bold mb-2">Tanggal Transaksi:</label>
+            <input type="date" id="tgl_transaksi" name="tgl_transaksi" value="<?php echo htmlspecialchars($tgl_transaksi); ?>" required
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $tgl_transaksi_error; ?></span>
+        </div>
+        <div class="mb-4">
+            <label for="jumlah_dibayar" class="block text-gray-700 text-sm font-bold mb-2">Jumlah Dibayar (Rp):</label>
+            <input type="number" id="jumlah_dibayar" name="jumlah_dibayar" value="<?php echo htmlspecialchars($jumlah_dibayar); ?>" required min="1"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $jumlah_dibayar_error; ?></span>
+        </div>
+        <div class="mb-4">
+            <label for="metode_pembayaran" class="block text-gray-700 text-sm font-bold mb-2">Metode Pembayaran:</label>
+            <input type="text" id="metode_pembayaran" name="metode_pembayaran" value="<?php echo htmlspecialchars($metode_pembayaran); ?>" required maxlength="20"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $metode_pembayaran_error; ?></span>
+        </div>
+        <div class="mb-6">
+            <label for="keterangan" class="block text-gray-700 text-sm font-bold mb-2">Keterangan:</label>
+            <input type="text" id="keterangan" name="keterangan" value="<?php echo htmlspecialchars($keterangan); ?>" maxlength="30"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $keterangan_error; ?></span>
+        </div>
+
+        <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2">Total Tagihan Pemesanan:</label>
+            <input type="text" id="total_tagihan_display" value="<?php echo format_rupiah($total_tagihan_display); ?>" disabled
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
+        </div>
+        <div class="mb-6">
+            <label class="block text-gray-700 text-sm font-bold mb-2">Sisa Pembayaran Setelah Transaksi Ini:</label>
+            <input type="text" id="sisa_pembayaran_display" value="<?php echo format_rupiah($sisa_pembayaran_display); ?>" disabled
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
+        </div>
+
+        <div class="flex items-center justify-between">
+            <button type="submit"
+                class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                Simpan Transaksi
+            </button>
+            <a href="index.php"
+                class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                Batal
+            </a>
+        </div>
+    </form>
+</div>
 
 <script>
     // Fungsi untuk mengupdate info tagihan saat pemesanan dipilih
     function updatePemesananInfo() {
         const selectElement = document.getElementById('id_pesan');
         const selectedOption = selectElement.options[selectElement.selectedIndex];
+        // Pastikan nilai default 0 jika data-subtotal atau data-sisa tidak ada
         const subTotal = parseFloat(selectedOption.dataset.subtotal || 0);
         const sisaAwal = parseFloat(selectedOption.dataset.sisa || 0);
 
