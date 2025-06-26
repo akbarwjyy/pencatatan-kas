@@ -94,46 +94,61 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 ?>
 
-<h1>Tambah Kas Masuk Lainnya</h1>
-<p>Isi formulir di bawah ini untuk mencatat kas masuk yang tidak terkait dengan transaksi pemesanan.</p>
+<div class="bg-white p-8 rounded-lg shadow-xl max-w-md mx-auto my-8">
+    <h1 class="text-2xl font-bold text-gray-800 mb-4 text-center">Tambah Kas Masuk Lainnya</h1>
+    <p class="text-gray-600 mb-6 text-center">Isi formulir di bawah ini untuk mencatat kas masuk yang tidak terkait dengan transaksi pemesanan.</p>
 
-<form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
-    <div class="form-group">
-        <label for="id_kas_masuk">ID Kas Masuk:</label>
-        <input type="text" id="id_kas_masuk" name="id_kas_masuk" value="<?php echo htmlspecialchars($id_kas_masuk); ?>" required maxlength="8">
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $id_kas_masuk_error; ?></span>
-    </div>
-    <div class="form-group">
-        <label for="tgl_kas_masuk">Tanggal Kas Masuk:</label>
-        <input type="date" id="tgl_kas_masuk" name="tgl_kas_masuk" value="<?php echo htmlspecialchars($tgl_kas_masuk); ?>" required>
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $tgl_kas_masuk_error; ?></span>
-    </div>
-    <div class="form-group">
-        <label for="id_akun">Akun Tujuan (contoh: Modal, Kas, Bank):</label>
-        <select id="id_akun" name="id_akun" required>
-            <option value="">-- Pilih Akun --</option>
-            <?php foreach ($accounts as $account_option) : ?>
-                <option value="<?php echo htmlspecialchars($account_option['id_akun']); ?>"
-                    <?php echo ($id_akun == $account_option['id_akun']) ? 'selected' : ''; ?>>
-                    <?php echo htmlspecialchars($account_option['nama_akun']); ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $id_akun_error; ?></span>
-    </div>
-    <div class="form-group">
-        <label for="jumlah">Jumlah (Rp):</label>
-        <input type="number" id="jumlah" name="jumlah" value="<?php echo htmlspecialchars($jumlah); ?>" required min="1">
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $jumlah_error; ?></span>
-    </div>
-    <div class="form-group">
-        <label for="keterangan">Keterangan (misal: "Modal Awal", "Pengembalian Dana"):</label>
-        <input type="text" id="keterangan" name="keterangan" value="<?php echo htmlspecialchars($keterangan); ?>" required maxlength="30">
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $keterangan_error; ?></span>
-    </div>
-    <button type="submit" class="btn">Simpan</button>
-    <a href="index.php" class="btn btn-secondary">Batal</a>
-</form>
+    <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
+        <div class="mb-4">
+            <label for="id_kas_masuk" class="block text-gray-700 text-sm font-bold mb-2">ID Kas Masuk:</label>
+            <input type="text" id="id_kas_masuk" name="id_kas_masuk" value="<?php echo htmlspecialchars($id_kas_masuk); ?>" required maxlength="8"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $id_kas_masuk_error; ?></span>
+        </div>
+        <div class="mb-4">
+            <label for="tgl_kas_masuk" class="block text-gray-700 text-sm font-bold mb-2">Tanggal Kas Masuk:</label>
+            <input type="date" id="tgl_kas_masuk" name="tgl_kas_masuk" value="<?php echo htmlspecialchars($tgl_kas_masuk); ?>" required
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $tgl_kas_masuk_error; ?></span>
+        </div>
+        <div class="mb-4">
+            <label for="id_akun" class="block text-gray-700 text-sm font-bold mb-2">Akun Tujuan (contoh: Modal, Kas, Bank):</label>
+            <select id="id_akun" name="id_akun" required
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+                <option value="">-- Pilih Akun --</option>
+                <?php foreach ($accounts as $account_option) : ?>
+                    <option value="<?php echo htmlspecialchars($account_option['id_akun']); ?>"
+                        <?php echo ($id_akun == $account_option['id_akun']) ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($account_option['nama_akun']); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $id_akun_error; ?></span>
+        </div>
+        <div class="mb-4">
+            <label for="jumlah" class="block text-gray-700 text-sm font-bold mb-2">Jumlah (Rp):</label>
+            <input type="number" id="jumlah" name="jumlah" value="<?php echo htmlspecialchars($jumlah); ?>" required min="1"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $jumlah_error; ?></span>
+        </div>
+        <div class="mb-6">
+            <label for="keterangan" class="block text-gray-700 text-sm font-bold mb-2">Keterangan (misal: "Modal Awal", "Pengembalian Dana"):</label>
+            <input type="text" id="keterangan" name="keterangan" value="<?php echo htmlspecialchars($keterangan); ?>" required maxlength="30"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $keterangan_error; ?></span>
+        </div>
+        <div class="flex items-center justify-between">
+            <button type="submit"
+                class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                Simpan
+            </button>
+            <a href="index.php"
+                class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                Batal
+            </a>
+        </div>
+    </form>
+</div>
 
 <?php
 // Sertakan footer
