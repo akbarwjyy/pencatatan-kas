@@ -8,8 +8,16 @@ if (!has_permission('Admin') && !has_permission('Pegawai')) {
     redirect('../../modules/dashboard/index.php');
 }
 
+// Inisialisasi variabel error
 $id_pesan_error = $id_customer_error = $id_akun_error = $tgl_pesan_error = $tgl_kirim_error = $quantity_error = $uang_muka_error = $sub_total_error = $sisa_error = $harga_satuan_error = "";
-$id_pesan = $id_customer = $id_akun = $tgl_pesan = $tgl_kirim = $quantity = $uang_muka = $sub_total = $sisa = $harga_satuan_input = "";
+
+// Inisialisasi variabel data. Variabel numerik diinisialisasi dengan 0.
+$id_pesan = $id_customer = $id_akun = $tgl_pesan = $tgl_kirim = '';
+$quantity = 0; // Diperbaiki: inisialisasi sebagai angka
+$uang_muka = 0; // Diperbaiki: inisialisasi sebagai angka
+$sub_total = 0; // Diperbaiki: inisialisasi sebagai angka
+$sisa = 0; // Diperbaiki: inisialisasi sebagai angka
+$harga_satuan_input = 0; // Diperbaiki: inisialisasi sebagai angka
 
 // Ambil daftar customer untuk dropdown
 $customers = [];
