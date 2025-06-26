@@ -10,7 +10,7 @@ if (!has_permission('Admin') && !has_permission('Pemilik')) {
 
 // Ambil semua data pengguna dari database
 $users = [];
-$sql = "SELECT id_pengguna, nama, jabatan, email FROM pengguna"; // Jangan ambil password
+$sql = "SELECT id_pengguna, username, jabatan, email FROM pengguna"; // Jangan ambil password
 
 // Cek koneksi database
 if (!$conn) {
@@ -61,7 +61,7 @@ if (!$conn) {
                         <?php foreach ($users as $user) : ?>
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars($user['id_pengguna']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($user['nama']); ?></td>
+                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($user['username']); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($user['jabatan']); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($user['email']); ?></td>
                                 <td class="px-6 py-4 text-sm space-x-2">
