@@ -9,12 +9,12 @@ if (!has_permission('Admin') && !has_permission('Pemilik')) {
 }
 
 $id_pengguna_error = $nama_error = $password_error = $jabatan_error = $email_error = "";
-$id_pengguna = $nama = $jabatan = $email = "";
+$id_pengguna = $username = $jabatan = $email = "";
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Sanitasi input
     $id_pengguna = sanitize_input($_POST['id_pengguna']);
-    $nama = sanitize_input($_POST['nama']);
+    $username = sanitize_input($_POST['username']);
     $password_input = $_POST['password']; // Password tidak disanitasi HTML karena akan di-hash
     $jabatan = sanitize_input($_POST['jabatan']);
     $email = sanitize_input($_POST['email']);
@@ -26,9 +26,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $id_pengguna_error = "ID Pengguna maksimal 11 karakter.";
     }
 
-    if (empty($nama)) {
+    if (empty($username)) {
         $nama_error = "Nama tidak boleh kosong.";
-    } elseif (strlen($nama) > 30) {
+    } elseif (strlen($username) > 30) {
         $nama_error = "Nama maksimal 30 karakter.";
     }
 
@@ -78,11 +78,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $hashed_password = hash_password($password_input);
 
             // Query untuk menambah data pengguna
-            $sql = "INSERT INTO pengguna (id_pengguna, nama, password, jabatan, email) VALUES (?, ?, ?, ?, ?)";
+            $sql = "INSERT INTO pengguna (id_pengguna, username, password, jabatan, email) VALUES (?, ?, ?, ?, ?)";
 
             // Gunakan prepared statement untuk keamanan
             if ($stmt = $conn->prepare($sql)) {
-                $stmt->bind_param("sssss", $id_pengguna, $nama, $hashed_password, $jabatan, $email);
+                $stmt->bind_param("sssss", $id_pengguna, $username, $hashed_password, $jabatan, $email);
 
                 if ($stmt->execute()) {
                     set_flash_message("Pengguna berhasil ditambahkan!", "success");
@@ -101,43 +101,58 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 ?>
 
-<h1>Tambah Pengguna Baru</h1>
-<p>Isi formulir di bawah ini untuk menambahkan pengguna baru.</p>
+<div class="bg-white p-8 rounded-lg shadow-xl max-w-md mx-auto my-8">
+    <h1 class="text-2xl font-bold text-gray-800 mb-4 text-center">Tambah Pengguna Baru</h1>
+    <p class="text-gray-600 mb-6 text-center">Isi formulir di bawah ini untuk menambahkan pengguna baru.</p>
 
-<form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
-    <div class="form-group">
-        <label for="id_pengguna">ID Pengguna:</label>
-        <input type="text" id="id_pengguna" name="id_pengguna" value="<?php echo htmlspecialchars($id_pengguna); ?>" required maxlength="11">
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $id_pengguna_error; ?></span>
-    </div>
-    <div class="form-group">
-        <label for="nama">Nama:</label>
-        <input type="text" id="nama" name="nama" value="<?php echo htmlspecialchars($nama); ?>" required maxlength="30">
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $nama_error; ?></span>
-    </div>
-    <div class="form-group">
-        <label for="password">Password (minimal 8 karakter, maksimal 8 karakter sesuai DB):</label>
-        <input type="password" id="password" name="password" required maxlength="8">
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $password_error; ?></span>
-    </div>
-    <div class="form-group">
-        <label for="jabatan">Jabatan:</label>
-        <select id="jabatan" name="jabatan" required>
-            <option value="">-- Pilih Jabatan --</option>
-            <option value="Admin" <?php echo ($jabatan == 'Admin') ? 'selected' : ''; ?>>Admin</option>
-            <option value="Pemilik" <?php echo ($jabatan == 'Pemilik') ? 'selected' : ''; ?>>Pemilik</option>
-            <option value="Pegawai" <?php echo ($jabatan == 'Pegawai') ? 'selected' : ''; ?>>Pegawai</option>
-        </select>
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $jabatan_error; ?></span>
-    </div>
-    <div class="form-group">
-        <label for="email">Email:</label>
-        <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($email); ?>" required maxlength="30">
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $email_error; ?></span>
-    </div>
-    <button type="submit" class="btn">Simpan</button>
-    <a href="index.php" class="btn btn-secondary">Batal</a>
-</form>
+    <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
+        <div class="mb-4">
+            <label for="id_pengguna" class="block text-gray-700 text-sm font-bold mb-2">ID Pengguna:</label>
+            <input type="text" id="id_pengguna" name="id_pengguna" value="<?php echo htmlspecialchars($id_pengguna); ?>" required maxlength="11"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $id_pengguna_error; ?></span>
+        </div>
+        <div class="mb-4">
+            <label for="username" class="block text-gray-700 text-sm font-bold mb-2">Nama:</label>
+            <input type="text" id="username" name="username" value="<?php echo htmlspecialchars($username); ?>" required maxlength="30"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $nama_error; ?></span>
+        </div>
+        <div class="mb-4">
+            <label for="jabatan" class="block text-gray-700 text-sm font-bold mb-2">Jabatan:</label>
+            <select id="jabatan" name="jabatan" required
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+                <option value="">-- Pilih Jabatan --</option>
+                <option value="Admin" <?php echo ($jabatan == 'Admin') ? 'selected' : ''; ?>>Admin</option>
+                <option value="Pemilik" <?php echo ($jabatan == 'Pemilik') ? 'selected' : ''; ?>>Pemilik</option>
+                <option value="Pegawai" <?php echo ($jabatan == 'Pegawai') ? 'selected' : ''; ?>>Pegawai</option>
+            </select>
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $jabatan_error; ?></span>
+        </div>
+        <div class="mb-6">
+            <label for="email" class="block text-gray-700 text-sm font-bold mb-2">Email:</label>
+            <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($email); ?>" required maxlength="30"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $email_error; ?></span>
+        </div>
+        <div class="mb-4">
+            <label for="password" class="block text-gray-700 text-sm font-bold mb-2">Password (minimal 8 karakter, maksimal 8 karakter sesuai DB):</label>
+            <input type="password" id="password" name="password" required maxlength="8"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $password_error; ?></span>
+        </div>
+        <div class="flex items-center justify-between">
+            <button type="submit"
+                class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                Simpan
+            </button>
+            <a href="index.php"
+                class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                Batal
+            </a>
+        </div>
+    </form>
+</div>
 
 <?php
 // Sertakan footer
