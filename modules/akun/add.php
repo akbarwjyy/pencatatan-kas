@@ -68,25 +68,36 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 ?>
 
-<h1>Tambah Akun Baru</h1>
-<p>Isi formulir di bawah ini untuk menambahkan akun kas baru.</p>
+<div class="bg-white p-8 rounded-lg shadow-xl max-w-md mx-auto my-8">
+    <h1 class="text-2xl font-bold text-gray-800 mb-4 text-center">Tambah Akun Baru</h1>
+    <p class="text-gray-600 mb-6 text-center">Isi formulir di bawah ini untuk menambahkan akun kas baru.</p>
 
-<form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
-    <div class="form-group">
-        <label for="id_akun">ID Akun:</label>
-        <input type="text" id="id_akun" name="id_akun" value="<?php echo htmlspecialchars($id_akun); ?>" required maxlength="8">
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $id_akun_error; ?></span>
-    </div>
-    <div class="form-group">
-        <label for="nama_akun">Nama Akun:</label>
-        <input type="text" id="nama_akun" name="nama_akun" value="<?php echo htmlspecialchars($nama_akun); ?>" required maxlength="20">
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $nama_akun_error; ?></span>
-    </div>
-    <button type="submit" class="btn">Simpan</button>
-    <a href="index.php" class="btn btn-secondary">Batal</a>
-</form>
+    <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
+        <div class="mb-4">
+            <label for="id_akun" class="block text-gray-700 text-sm font-bold mb-2">ID Akun:</label>
+            <input type="text" id="id_akun" name="id_akun" value="<?php echo htmlspecialchars($id_akun); ?>" required maxlength="8"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $id_akun_error; ?></span>
+        </div>
+        <div class="mb-6">
+            <label for="nama_akun" class="block text-gray-700 text-sm font-bold mb-2">Nama Akun:</label>
+            <input type="text" id="nama_akun" name="nama_akun" value="<?php echo htmlspecialchars($nama_akun); ?>" required maxlength="20"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $nama_akun_error; ?></span>
+        </div>
+        <div class="flex items-center justify-between">
+            <button type="submit"
+                class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                Simpan
+            </button>
+            <a href="index.php"
+                class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                Batal
+            </a>
+        </div>
+    </form>
+</div>
 
 <?php
-// Sertakan footer
 require_once '../../layout/footer.php';
 ?>
