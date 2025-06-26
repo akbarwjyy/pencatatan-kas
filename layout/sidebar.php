@@ -4,12 +4,14 @@
 <nav class="w-full bg-gray-900 text-white shadow-lg px-8 py-3 flex items-center justify-between" x-data="{ openMgmt: false, openReport: false }">
     <div class="flex items-center gap-4">
         <a href="../dashboard/index.php" class="flex items-center gap-2 py-2 px-4 rounded-lg transition hover:bg-gray-700 hover:text-white font-semibold">
-            <span class="text-lg">🏠</span> Dashboard
+            <!-- <span class="text-lg">🏠</span> -->
+            Dashboard
         </a>
         <!-- Dropdown Manajemen -->
         <div class="relative" @mouseleave="openMgmt = false">
             <button @click="openMgmt = !openMgmt" class="flex items-center gap-2 py-2 px-4 rounded-lg bg-gray-800 hover:bg-gray-700 focus:outline-none font-semibold">
-                <span class="text-lg">🗂️</span> Manajemen
+                <!-- <span class="text-lg">🗂️</span> -->
+                Manajemen
                 <svg :class="{'rotate-180': openMgmt}" class="w-4 h-4 ml-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                 </svg>
@@ -35,7 +37,8 @@
         <!-- Dropdown Laporan -->
         <div class="relative" @mouseleave="openReport = false">
             <button @click="openReport = !openReport" class="flex items-center gap-2 py-2 px-4 rounded-lg bg-gray-800 hover:bg-gray-700 focus:outline-none font-semibold">
-                <span class="text-lg">📊</span> Laporan
+                <!-- <span class="text-lg">📊</span> -->
+                Laporan
                 <svg :class="{'rotate-180': openReport}" class="w-4 h-4 ml-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                 </svg>
