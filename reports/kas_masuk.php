@@ -1,6 +1,6 @@
 <?php
 // Sertakan header
-require_once '../../layout/header.php';
+require_once '../layout/header.php';
 
 // Pastikan hanya Admin, Pemilik, atau Pegawai yang bisa mengakses halaman ini
 if (!has_permission('Admin') && !has_permission('Pemilik') && !has_permission('Pegawai')) {
@@ -118,5 +118,5 @@ $stmt->close();
 
 <?php
 // Sertakan footer
-require_once '../../layout/footer.php';
+require_once '../layout/footer.php';
 ?>

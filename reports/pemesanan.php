@@ -1,6 +1,6 @@
 <?php
 // Sertakan header (ini akan melakukan session_start(), cek login, dan include koneksi/fungsi)
-require_once '../../layout/header.php';
+require_once '../layout/header.php';
 
 // Pastikan hanya Admin, Pemilik, atau Pegawai yang bisa mengakses halaman ini
 if (!has_permission('Admin') && !has_permission('Pemilik') && !has_permission('Pegawai')) {
@@ -11,10 +11,9 @@ if (!has_permission('Admin') && !has_permission('Pemilik') && !has_permission('P
 $start_date = isset($_GET['start_date']) ? sanitize_input($_GET['start_date']) : '';
 $end_date = isset($_GET['end_date']) ? sanitize_input($_GET['end_date']) : '';
 
-$sql = "SELECT p.*, c.nama_customer, a.nama_akun
+$sql = "SELECT p.*, c.nama_customer
         FROM pemesanan p
-        JOIN customer c ON p.id_customer = c.id_customer
-        JOIN akun a ON p.id_akun = a.id_akun";
+        JOIN customer c ON p.id_customer = c.id_customer";
 
 $where_clause = [];
 $params = [];
@@ -38,6 +37,11 @@ if (!empty($where_clause)) {
 $sql .= " ORDER BY p.tgl_pesan DESC";
 
 $stmt = $conn->prepare($sql);
+if ($stmt === false) {
+    set_flash_message("Error query database: " . $conn->error, "error");
+    require_once '../layout/footer.php';
+    exit;
+}
 if (!empty($params)) {
     $stmt->bind_param($param_types, ...$params);
 }
@@ -78,7 +82,6 @@ $stmt->close();
             <tr>
                 <th>ID Pesan</th>
                 <th>Customer</th>
-                <th>Akun</th>
                 <th>Tgl Pesan</th>
                 <th>Tgl Kirim</th>
                 <th>Quantity</th>
@@ -102,7 +105,6 @@ $stmt->close();
                 <tr>
                     <td><?php echo htmlspecialchars($order['id_pesan']); ?></td>
                     <td><?php echo htmlspecialchars($order['nama_customer']); ?></td>
-                    <td><?php echo htmlspecialchars($order['nama_akun']); ?></td>
                     <td><?php echo htmlspecialchars($order['tgl_pesan']); ?></td>
                     <td><?php echo htmlspecialchars($order['tgl_kirim']); ?></td>
                     <td><?php echo htmlspecialchars($order['quantity']); ?></td>
@@ -114,7 +116,7 @@ $stmt->close();
         </tbody>
         <tfoot>
             <tr>
-                <td colspan="5" style="text-align: right;"><strong>Total:</strong></td>
+                <td colspan="4" style="text-align: right;"><strong>Total:</strong></td>
                 <td><strong><?php echo htmlspecialchars($total_quantity); ?></strong></td>
                 <td><strong><?php echo format_rupiah($total_uang_muka); ?></strong></td>
                 <td><strong><?php echo format_rupiah($total_sub_total); ?></strong></td>
@@ -126,5 +128,5 @@ $stmt->close();
 
 <?php
 // Sertakan footer
-require_once '../../layout/footer.php';
+require_once '../layout/footer.php';
 ?>
