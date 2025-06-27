@@ -4,16 +4,10 @@ if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
-// Sertakan file koneksi database dan fungsi-fungsi umum
-// Jalur ini sudah benar karena login.php berada di root, dan config/includes di root juga.
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/helpers.php';
 
-// Jika pengguna sudah login, arahkan ke dashboard
-// Perbaikan: arahkan ke halaman dashboard yang benar di 'modules/dashboard/index.php'
-// Jika sebelumnya di redirect('index.php'), itu akan kembali ke root index.php, yang akan redirect lagi,
-// potensi membuat loop jika ada masalah konfigurasi. Langsung ke dashboard modules adalah lebih eksplisit.
 if (is_logged_in()) {
     redirect('modules/dashboard/index.php');
 }
@@ -105,7 +99,5 @@ require_once __DIR__ . '/layout/header.php'; //
 </div>
 
 <?php
-// Sertakan footer
-// Karena login.php ada di root, dan footer.php ada di layout/, pathnya relatif:
 require_once __DIR__ . '/layout/footer.php'; //
 ?>

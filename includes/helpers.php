@@ -49,7 +49,3 @@ function format_rupiah($amount)
 {
     return "Rp " . number_format($amount, 0, ',', '.');
 }
-
-
-// Anda bisa menambahkan helper lainnya di sini,
-// seperti fungsi untuk debug, logging, dll.
