@@ -1,6 +1,6 @@
 <?php
 // Sertakan header
-require_once '../../layout/header.php';
+require_once '../layout/header.php';
 
 // Pastikan hanya Admin atau Pemilik yang bisa mengakses halaman ini
 if (!has_permission('Admin') && !has_permission('Pemilik')) {
@@ -46,23 +46,32 @@ if (!empty($selected_akun)) {
                              LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
                              WHERE km.tgl_kas_masuk < ? AND (tr.id_akun = ? OR km.id_transaksi IS NULL)"; // Perlu penyesuaian jika kas_masuk manual tidak punya id_akun
     $stmt_saldo_awal_masuk = $conn->prepare($sql_saldo_awal_masuk);
-    $stmt_saldo_awal_masuk->bind_param("ss", $start_date, $selected_akun);
-    $stmt_saldo_awal_masuk->execute();
-    $stmt_saldo_awal_masuk->bind_result($saldo_masuk_awal);
-    $stmt_saldo_awal_masuk->fetch();
-    $stmt_saldo_awal_masuk->close();
-    $saldo_masuk_awal = $saldo_masuk_awal ?: 0;
+    if ($stmt_saldo_awal_masuk === false) {
+        set_flash_message("Error menyiapkan query saldo awal masuk: " . $conn->error, "error");
+    } else {
+        $stmt_saldo_awal_masuk->bind_param("ss", $start_date, $selected_akun);
+        $stmt_saldo_awal_masuk->execute();
+        $stmt_saldo_awal_masuk->bind_result($saldo_masuk_awal);
+        $stmt_saldo_awal_masuk->fetch();
+        $stmt_saldo_awal_masuk->close();
+        $saldo_masuk_awal = $saldo_masuk_awal ?: 0;
+    }
+
 
     $sql_saldo_awal_keluar = "SELECT SUM(jumlah) FROM kas_keluar WHERE tgl_kas_keluar < ? AND id_akun = ?";
     $stmt_saldo_awal_keluar = $conn->prepare($sql_saldo_awal_keluar);
-    $stmt_saldo_awal_keluar->bind_param("ss", $start_date, $selected_akun);
-    $stmt_saldo_awal_keluar->execute();
-    $stmt_saldo_awal_keluar->bind_result($saldo_keluar_awal);
-    $stmt_saldo_awal_keluar->fetch();
-    $stmt_saldo_awal_keluar->close();
-    $saldo_keluar_awal = $saldo_keluar_awal ?: 0;
+    if ($stmt_saldo_awal_keluar === false) {
+        set_flash_message("Error menyiapkan query saldo awal keluar: " . $conn->error, "error");
+    } else {
+        $stmt_saldo_awal_keluar->bind_param("ss", $start_date, $selected_akun);
+        $stmt_saldo_awal_keluar->execute();
+        $stmt_saldo_awal_keluar->bind_result($saldo_keluar_awal);
+        $stmt_saldo_awal_keluar->fetch();
+        $stmt_saldo_awal_keluar->close();
+        $saldo_keluar_awal = $saldo_keluar_awal ?: 0;
+    }
 
-    $saldo_awal = $saldo_masuk_awal - $saldo_keluar_awal;
+    $saldo_awal = ($saldo_masuk_awal ?? 0) - ($saldo_keluar_awal ?? 0);
 
 
     // Ambil entri untuk akun yang dipilih dalam periode
@@ -73,26 +82,35 @@ if (!empty($selected_akun)) {
                     WHERE km.tgl_kas_masuk BETWEEN ? AND ? 
                     AND (tr.id_akun = ? OR km.id_transaksi IS NULL)"; // Menarik dari akun yang sama atau jika manual
     $stmt_km_akun = $conn->prepare($sql_km_akun);
-    $stmt_km_akun->bind_param("sss", $start_date, $end_date, $selected_akun);
-    $stmt_km_akun->execute();
-    $result_km_akun = $stmt_km_akun->get_result();
-    while ($row = $result_km_akun->fetch_assoc()) {
-        $account_ledger_entries[] = $row;
+    if ($stmt_km_akun === false) {
+        set_flash_message("Error menyiapkan query entri kas masuk: " . $conn->error, "error");
+    } else {
+        $stmt_km_akun->bind_param("sss", $start_date, $end_date, $selected_akun);
+        $stmt_km_akun->execute();
+        $result_km_akun = $stmt_km_akun->get_result();
+        while ($row = $result_km_akun->fetch_assoc()) {
+            $account_ledger_entries[] = $row;
+        }
+        $stmt_km_akun->close();
     }
-    $stmt_km_akun->close();
+
 
     // Kas Keluar
     $sql_kk_akun = "SELECT kk.tgl_kas_keluar AS tanggal, kk.keterangan, kk.jumlah, 'Kredit' AS tipe_saldo, NULL AS id_transaksi
                     FROM kas_keluar kk 
                     WHERE kk.tgl_kas_keluar BETWEEN ? AND ? AND kk.id_akun = ?";
     $stmt_kk_akun = $conn->prepare($sql_kk_akun);
-    $stmt_kk_akun->bind_param("sss", $start_date, $end_date, $selected_akun);
-    $stmt_kk_akun->execute();
-    $result_kk_akun = $stmt_kk_akun->get_result();
-    while ($row = $result_kk_akun->fetch_assoc()) {
-        $account_ledger_entries[] = $row;
+    if ($stmt_kk_akun === false) {
+        set_flash_message("Error menyiapkan query entri kas keluar: " . $conn->error, "error");
+    } else {
+        $stmt_kk_akun->bind_param("sss", $start_date, $end_date, $selected_akun);
+        $stmt_kk_akun->execute();
+        $result_kk_akun = $stmt_kk_akun->get_result();
+        while ($row = $result_kk_akun->fetch_assoc()) {
+            $account_ledger_entries[] = $row;
+        }
+        $stmt_kk_akun->close();
     }
-    $stmt_kk_akun->close();
 
     // Urutkan semua entri berdasarkan tanggal
     usort($account_ledger_entries, function ($a, $b) {
@@ -101,93 +119,117 @@ if (!empty($selected_akun)) {
 }
 ?>
 
-<h1>Laporan Buku Besar Kas</h1>
-<p>Lihat pergerakan saldo untuk akun kas tertentu.</p>
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">Laporan Buku Besar Kas</h1>
+        <p class="text-gray-600 mb-6">Lihat pergerakan saldo untuk akun kas tertentu.</p>
 
-<form action="" method="get" class="form-filter">
-    <div class="form-group">
-        <label for="id_akun">Pilih Akun:</label>
-        <select id="id_akun" name="id_akun" required>
-            <option value="">-- Pilih Akun --</option>
-            <?php foreach ($accounts_filter as $akun_option) : ?>
-                <option value="<?php echo htmlspecialchars($akun_option['id_akun']); ?>"
-                    <?php echo ($selected_akun == $akun_option['id_akun']) ? 'selected' : ''; ?>>
-                    <?php echo htmlspecialchars($akun_option['nama_akun']); ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
-    </div>
-    <div class="form-group">
-        <label for="start_date">Dari Tanggal:</label>
-        <input type="date" id="start_date" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>">
-    </div>
-    <div class="form-group">
-        <label for="end_date">Sampai Tanggal:</label>
-        <input type="date" id="end_date" name="end_date" value="<?php echo htmlspecialchars($end_date); ?>">
-    </div>
-    <button type="submit" class="btn">Filter</button>
-    <a href="buku_besar_kas.php" class="btn btn-secondary">Reset Filter</a>
-    <button type="button" class="btn" onclick="window.print()">Cetak Laporan</button>
-</form>
+        <form action="" method="get" class="mb-6 p-4 bg-gray-50 rounded-lg shadow-sm flex flex-wrap items-end gap-4">
+            <div class="flex-1 min-w-[200px]">
+                <label for="id_akun" class="block text-gray-700 text-sm font-bold mb-2">Pilih Akun:</label>
+                <select id="id_akun" name="id_akun" required
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-blue-500">
+                    <option value="">-- Pilih Akun --</option>
+                    <?php foreach ($accounts_filter as $akun_option) : ?>
+                        <option value="<?php echo htmlspecialchars($akun_option['id_akun']); ?>"
+                            <?php echo ($selected_akun == $akun_option['id_akun']) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($akun_option['nama_akun']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="flex-1 min-w-[200px]">
+                <label for="start_date" class="block text-gray-700 text-sm font-bold mb-2">Dari Tanggal:</label>
+                <input type="date" id="start_date" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="flex-1 min-w-[200px]">
+                <label for="end_date" class="block text-gray-700 text-sm font-bold mb-2">Sampai Tanggal:</label>
+                <input type="date" id="end_date" name="end_date" value="<?php echo htmlspecialchars($end_date); ?>"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <button type="submit"
+                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                    Filter
+                </button>
+                <a href="buku_besar_kas.php"
+                    class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ml-2">
+                    Reset Filter
+                </a>
+                <button type="button" onclick="window.print()"
+                    class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ml-2">
+                    Cetak Laporan
+                </button>
+            </div>
+        </form>
 
-<?php if (empty($selected_akun)) : ?>
-    <p>Silakan pilih akun dan periode untuk melihat buku besar.</p>
-<?php elseif (empty($account_ledger_entries) && $saldo_awal == 0) : ?>
-    <p>Tidak ada pergerakan kas ditemukan untuk akun "<?php echo htmlspecialchars($account_name); ?>" pada periode ini.</p>
-<?php else : ?>
-    <h2>Buku Besar Akun: <?php echo htmlspecialchars($account_name); ?></h2>
-    <p>Periode: <?php echo htmlspecialchars(date('d F Y', strtotime($start_date))); ?> s/d <?php echo htmlspecialchars(date('d F Y', strtotime($end_date))); ?></p>
-    <table>
-        <thead>
-            <tr>
-                <th>Tanggal</th>
-                <th>Keterangan</th>
-                <th>Debit</th>
-                <th>Kredit</th>
-                <th>Saldo</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td><?php echo htmlspecialchars(date('d F Y', strtotime($start_date))); ?></td>
-                <td>Saldo Awal</td>
-                <td>-</td>
-                <td>-</td>
-                <td><?php echo format_rupiah($saldo_awal); ?></td>
-            </tr>
-            <?php
-            $current_saldo = $saldo_awal;
-            foreach ($account_ledger_entries as $entry) :
-                $debit = 0;
-                $kredit = 0;
+        <?php if (empty($selected_akun)) : ?>
+            <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6">
+                <p class="font-medium">Silakan pilih akun dan periode untuk melihat buku besar.</p>
+            </div>
+        <?php elseif (empty($account_ledger_entries) && $saldo_awal == 0) : ?>
+            <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6">
+                <p class="font-medium">Tidak ada pergerakan kas ditemukan untuk akun "<?php echo htmlspecialchars($account_name); ?>" pada periode ini.</p>
+            </div>
+        <?php else : ?>
+            <h2 class="text-xl font-bold text-gray-800 mt-4 mb-2">Buku Besar Akun: <?php echo htmlspecialchars($account_name); ?></h2>
+            <p class="text-gray-600 mb-6">Periode: <?php echo htmlspecialchars(date('d F Y', strtotime($start_date))); ?> s/d <?php echo htmlspecialchars(date('d F Y', strtotime($end_date))); ?></p>
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white border border-gray-200">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
+                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Debit</th>
+                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Kredit</th>
+                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Saldo</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars(date('d F Y', strtotime($start_date))); ?></td>
+                            <td class="px-6 py-4 text-sm text-gray-900">Saldo Awal</td>
+                            <td class="px-6 py-4 text-sm text-gray-900">-</td>
+                            <td class="px-6 py-4 text-sm text-gray-900">-</td>
+                            <td class="px-6 py-4 text-sm text-gray-900"><?php echo format_rupiah($saldo_awal); ?></td>
+                        </tr>
+                        <?php
+                        $current_saldo = $saldo_awal;
+                        foreach ($account_ledger_entries as $entry) :
+                            $debit = 0;
+                            $kredit = 0;
 
-                if ($entry['tipe_saldo'] == 'Debit') {
-                    $debit = $entry['jumlah'];
-                    $current_saldo += $entry['jumlah'];
-                } else { // Kredit
-                    $kredit = $entry['jumlah'];
-                    $current_saldo -= $entry['jumlah'];
-                }
-            ?>
-                <tr>
-                    <td><?php echo htmlspecialchars($entry['tanggal']); ?></td>
-                    <td><?php echo htmlspecialchars($entry['keterangan']); ?></td>
-                    <td><?php echo ($debit > 0) ? format_rupiah($debit) : '-'; ?></td>
-                    <td><?php echo ($kredit > 0) ? format_rupiah($kredit) : '-'; ?></td>
-                    <td><?php echo format_rupiah($current_saldo); ?></td>
-                </tr>
-            <?php endforeach; ?>
-        </tbody>
-        <tfoot>
-            <tr>
-                <td colspan="4" style="text-align: right;"><strong>Saldo Akhir:</strong></td>
-                <td><strong><?php echo format_rupiah($current_saldo); ?></strong></td>
-            </tr>
-        </tfoot>
-    </table>
-<?php endif; ?>
+                            if ($entry['tipe_saldo'] == 'Debit') {
+                                $debit = ($entry['jumlah'] ?? 0);
+                                $current_saldo += $debit;
+                            } else { // Kredit
+                                $kredit = ($entry['jumlah'] ?? 0);
+                                $current_saldo -= $kredit;
+                            }
+                        ?>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars($entry['tanggal']); ?></td>
+                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($entry['keterangan']); ?></td>
+                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo ($debit > 0) ? format_rupiah($debit) : '-'; ?></td>
+                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo ($kredit > 0) ? format_rupiah($kredit) : '-'; ?></td>
+                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo format_rupiah($current_saldo); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                    <tfoot>
+                        <tr class="bg-gray-100 font-bold">
+                            <td colspan="4" class="px-6 py-3 border-t text-right text-xs uppercase text-gray-700"><strong>Saldo Akhir:</strong></td>
+                            <td class="px-6 py-3 border-t text-sm text-gray-900"><strong><?php echo format_rupiah($current_saldo); ?></strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
 
 <?php
 // Sertakan footer
-require_once '../../layout/footer.php';
+require_once '../layout/footer.php';
 ?>
