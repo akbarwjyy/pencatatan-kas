@@ -1,6 +1,6 @@
 <?php
 // Sertakan header
-require_once '../../layout/header.php';
+require_once '../layout/header.php';
 
 // Pastikan hanya Admin atau Pemilik yang bisa mengakses halaman ini
 if (!has_permission('Admin') && !has_permission('Pemilik')) {
@@ -18,6 +18,8 @@ if (empty($start_date) && empty($end_date)) {
 }
 
 $entries = [];
+$total_debit = 0;
+$total_kredit = 0;
 
 // Query untuk Kas Masuk
 $sql_kas_masuk = "SELECT km.tgl_kas_masuk AS tanggal, 'Kas Masuk' AS tipe, km.jumlah, km.keterangan, 
@@ -27,17 +29,18 @@ $sql_kas_masuk = "SELECT km.tgl_kas_masuk AS tanggal, 'Kas Masuk' AS tipe, km.ju
                   LEFT JOIN akun a ON tr.id_akun = a.id_akun -- Ambil akun dari transaksi terkait
                   WHERE km.tgl_kas_masuk BETWEEN ? AND ?";
 $stmt_km = $conn->prepare($sql_kas_masuk);
-$stmt_km->bind_param("ss", $start_date, $end_date);
-$stmt_km->execute();
-$result_km = $stmt_km->get_result();
-while ($row = $result_km->fetch_assoc()) {
-    // Untuk kas masuk manual (id_transaksi IS NULL), keterangan sudah cukup.
-    // Untuk kas masuk dari transaksi, kita bisa ambil nama akun dari transaksi.
-    // Jika kolom id_akun ditambahkan ke kas_masuk, logika ini perlu diubah.
-    $row['akun_transaksi'] = $row['akun_asal'] ?: 'Tidak Terkait Transaksi';
-    $entries[] = $row;
+if ($stmt_km === false) {
+    set_flash_message("Error menyiapkan query Kas Masuk: " . $conn->error . " (Query: " . htmlspecialchars($sql_kas_masuk) . ")", "error");
+} else {
+    $stmt_km->bind_param("ss", $start_date, $end_date);
+    $stmt_km->execute();
+    $result_km = $stmt_km->get_result();
+    while ($row = $result_km->fetch_assoc()) {
+        $row['akun_transaksi'] = $row['akun_asal'] ?: 'Tidak Terkait Transaksi';
+        $entries[] = $row;
+    }
+    $stmt_km->close();
 }
-$stmt_km->close();
 
 // Query untuk Kas Keluar
 $sql_kas_keluar = "SELECT kk.tgl_kas_keluar AS tanggal, 'Kas Keluar' AS tipe, kk.jumlah, kk.keterangan,
@@ -46,13 +49,17 @@ $sql_kas_keluar = "SELECT kk.tgl_kas_keluar AS tanggal, 'Kas Keluar' AS tipe, kk
                    JOIN akun a ON kk.id_akun = a.id_akun
                    WHERE kk.tgl_kas_keluar BETWEEN ? AND ?";
 $stmt_kk = $conn->prepare($sql_kas_keluar);
-$stmt_kk->bind_param("ss", $start_date, $end_date);
-$stmt_kk->execute();
-$result_kk = $stmt_kk->get_result();
-while ($row = $result_kk->fetch_assoc()) {
-    $entries[] = $row;
+if ($stmt_kk === false) {
+    set_flash_message("Error menyiapkan query Kas Keluar: " . $conn->error . " (Query: " . htmlspecialchars($sql_kas_keluar) . ")", "error");
+} else {
+    $stmt_kk->bind_param("ss", $start_date, $end_date);
+    $stmt_kk->execute();
+    $result_kk = $stmt_kk->get_result();
+    while ($row = $result_kk->fetch_assoc()) {
+        $entries[] = $row;
+    }
+    $stmt_kk->close();
 }
-$stmt_kk->close();
 
 // Urutkan semua entri berdasarkan tanggal
 usort($entries, function ($a, $b) {
@@ -61,77 +68,99 @@ usort($entries, function ($a, $b) {
 
 ?>
 
-<h1>Laporan Jurnal Umum Kas</h1>
-<p>Menampilkan semua pergerakan kas (masuk dan keluar) secara kronologis.</p>
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">Laporan Jurnal Umum Kas</h1>
+        <p class="text-gray-600 mb-6">Menampilkan semua pergerakan kas (masuk dan keluar) secara kronologis.</p>
 
-<form action="" method="get" class="form-filter">
-    <div class="form-group">
-        <label for="start_date">Dari Tanggal:</label>
-        <input type="date" id="start_date" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>">
-    </div>
-    <div class="form-group">
-        <label for="end_date">Sampai Tanggal:</label>
-        <input type="date" id="end_date" name="end_date" value="<?php echo htmlspecialchars($end_date); ?>">
-    </div>
-    <button type="submit" class="btn">Filter</button>
-    <a href="jurnal_umum.php" class="btn btn-secondary">Reset Filter</a>
-    <button type="button" class="btn" onclick="window.print()">Cetak Laporan</button>
-</form>
+        <form action="" method="get" class="mb-6 p-4 bg-gray-50 rounded-lg shadow-sm flex flex-wrap items-end gap-4">
+            <div class="flex-1 min-w-[200px]">
+                <label for="start_date" class="block text-gray-700 text-sm font-bold mb-2">Dari Tanggal:</label>
+                <input type="date" id="start_date" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="flex-1 min-w-[200px]">
+                <label for="end_date" class="block text-gray-700 text-sm font-bold mb-2">Sampai Tanggal:</label>
+                <input type="date" id="end_date" name="end_date" value="<?php echo htmlspecialchars($end_date); ?>"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <button type="submit"
+                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                    Filter
+                </button>
+                <a href="jurnal_umum.php"
+                    class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ml-2">
+                    Reset Filter
+                </a>
+                <button type="button" onclick="window.print()"
+                    class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ml-2">
+                    Cetak Laporan
+                </button>
+            </div>
+        </form>
 
-<?php if (empty($entries)) : ?>
-    <p>Tidak ada entri jurnal ditemukan untuk periode ini.</p>
-<?php else : ?>
-    <table>
-        <thead>
-            <tr>
-                <th>Tanggal</th>
-                <th>Tipe</th>
-                <th>Keterangan</th>
-                <th>Debit (Kas Masuk)</th>
-                <th>Kredit (Kas Keluar)</th>
-                <th>Akun Terkait</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php
-            $total_debit = 0;
-            $total_kredit = 0;
-            foreach ($entries as $entry) :
-                $debit = ($entry['tipe'] == 'Kas Masuk') ? $entry['jumlah'] : 0;
-                $kredit = ($entry['tipe'] == 'Kas Keluar') ? $entry['jumlah'] : 0;
-                $total_debit += $debit;
-                $total_kredit += $kredit;
-            ?>
-                <tr>
-                    <td><?php echo htmlspecialchars($entry['tanggal']); ?></td>
-                    <td><?php echo htmlspecialchars($entry['tipe']); ?></td>
-                    <td><?php echo htmlspecialchars($entry['keterangan']); ?></td>
-                    <td><?php echo ($debit > 0) ? format_rupiah($debit) : '-'; ?></td>
-                    <td><?php echo ($kredit > 0) ? format_rupiah($kredit) : '-'; ?></td>
-                    <td>
+        <?php if (empty($entries)) : ?>
+            <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6">
+                <p class="font-medium">Tidak ada entri jurnal ditemukan untuk periode ini.</p>
+            </div>
+        <?php else : ?>
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white border border-gray-200">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Tipe</th>
+                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
+                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Debit (Kas Masuk)</th>
+                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Kredit (Kas Keluar)</th>
+                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Akun Terkait</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
                         <?php
-                        if ($entry['tipe'] == 'Kas Masuk') {
-                            echo htmlspecialchars($entry['akun_transaksi'] ?? 'N/A');
-                        } else { // Kas Keluar
-                            echo htmlspecialchars($entry['akun_tujuan'] ?? 'N/A');
-                        }
+                        // Hitung ulang total_debit dan total_kredit dari entri yang sudah difilter dan diurutkan
+                        $total_debit = 0;
+                        $total_kredit = 0;
+                        foreach ($entries as $entry) :
+                            $debit = ($entry['tipe'] == 'Kas Masuk') ? ($entry['jumlah'] ?? 0) : 0;
+                            $kredit = ($entry['tipe'] == 'Kas Keluar') ? ($entry['jumlah'] ?? 0) : 0;
+                            $total_debit += $debit;
+                            $total_kredit += $kredit;
                         ?>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-        </tbody>
-        <tfoot>
-            <tr>
-                <td colspan="3" style="text-align: right;"><strong>Total Jurnal:</strong></td>
-                <td><strong><?php echo format_rupiah($total_debit); ?></strong></td>
-                <td><strong><?php echo format_rupiah($total_kredit); ?></strong></td>
-                <td></td>
-            </tr>
-        </tfoot>
-    </table>
-<?php endif; ?>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars($entry['tanggal']); ?></td>
+                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($entry['tipe']); ?></td>
+                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($entry['keterangan']); ?></td>
+                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo ($debit > 0) ? format_rupiah($debit) : '-'; ?></td>
+                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo ($kredit > 0) ? format_rupiah($kredit) : '-'; ?></td>
+                                <td class="px-6 py-4 text-sm text-gray-900">
+                                    <?php
+                                    if ($entry['tipe'] == 'Kas Masuk') {
+                                        echo htmlspecialchars($entry['akun_transaksi'] ?? 'N/A');
+                                    } else { // Kas Keluar
+                                        echo htmlspecialchars($entry['akun_tujuan'] ?? 'N/A');
+                                    }
+                                    ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                    <tfoot>
+                        <tr class="bg-gray-100 font-bold">
+                            <td colspan="3" class="px-6 py-3 border-t text-right text-xs uppercase text-gray-700"><strong>Total Jurnal:</strong></td>
+                            <td class="px-6 py-3 border-t text-sm text-gray-900"><strong><?php echo format_rupiah($total_debit); ?></strong></td>
+                            <td class="px-6 py-3 border-t text-sm text-gray-900"><strong><?php echo format_rupiah($total_kredit); ?></strong></td>
+                            <td class="px-6 py-3 border-t"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
 
 <?php
 // Sertakan footer
-require_once '../../layout/footer.php';
+require_once '../layout/footer.php';
 ?>
