@@ -8,6 +8,7 @@ if (session_status() == PHP_SESSION_NONE) {
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/helpers.php'; // Untuk flash message, dll.
+require_once __DIR__ . '/../includes/path_helper.php'; // Helper untuk path
 
 // Cek apakah pengguna sudah login, jika tidak redirect ke halaman login
 if (!is_logged_in() && basename($_SERVER['PHP_SELF']) !== 'login.php') {
@@ -20,6 +21,7 @@ $user_role = isset($_SESSION['user_role']) ? $_SESSION['user_role'] : 'Guest';
 
 // Dapatkan nama file script saat ini
 $current_page = basename($_SERVER['PHP_SELF']);
+$relative_path = get_relative_path_to_root();
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -28,7 +30,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aplikasi Pencatatan Kas Ampyang Cap Garuda - <?php echo ucwords(str_replace('_', ' ', basename($_SERVER['PHP_SELF'], '.php'))); ?></title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="<?php echo $relative_path; ?>assets/css/style.css">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
