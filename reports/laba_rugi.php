@@ -1,6 +1,6 @@
 <?php
 // Sertakan header
-require_once '../../layout/header.php';
+require_once '../layout/header.php';
 
 // Pastikan hanya Admin atau Pemilik yang bisa mengakses halaman ini
 if (!has_permission('Admin') && !has_permission('Pemilik')) {
@@ -23,115 +23,98 @@ $laba_rugi_bersih = 0;
 
 // Query untuk total kas masuk
 $sql_kas_masuk = "SELECT SUM(jumlah) AS total FROM kas_masuk WHERE tgl_kas_masuk BETWEEN ? AND ?";
-if ($stmt = $conn->prepare($sql_kas_masuk)) {
-    $stmt->bind_param("ss", $start_date, $end_date);
-    $stmt->execute();
-    $stmt->bind_result($total_kas_masuk);
-    $stmt->fetch();
-    $stmt->close();
+$stmt_km = $conn->prepare($sql_kas_masuk);
+if ($stmt_km === false) {
+    set_flash_message("Error menyiapkan query kas masuk: " . $conn->error . " (Query: " . htmlspecialchars($sql_kas_masuk) . ")", "error");
+} else {
+    $stmt_km->bind_param("ss", $start_date, $end_date);
+    $stmt_km->execute();
+    $stmt_km->bind_result($total_kas_masuk);
+    $stmt_km->fetch();
+    $stmt_km->close();
 }
 
 // Query untuk total kas keluar
 $sql_kas_keluar = "SELECT SUM(jumlah) AS total FROM kas_keluar WHERE tgl_kas_keluar BETWEEN ? AND ?";
-if ($stmt = $conn->prepare($sql_kas_keluar)) {
-    $stmt->bind_param("ss", $start_date, $end_date);
-    $stmt->execute();
-    $stmt->bind_result($total_kas_keluar);
-    $stmt->fetch();
-    $stmt->close();
+$stmt_kk = $conn->prepare($sql_kas_keluar);
+if ($stmt_kk === false) {
+    set_flash_message("Error menyiapkan query kas keluar: " . $conn->error . " (Query: " . htmlspecialchars($sql_kas_keluar) . ")", "error");
+} else {
+    $stmt_kk->bind_param("ss", $start_date, $end_date);
+    $stmt_kk->execute();
+    $stmt_kk->bind_result($total_kas_keluar);
+    $stmt_kk->fetch();
+    $stmt_kk->close();
 }
 
-$laba_rugi_bersih = $total_kas_masuk - $total_kas_keluar;
+$laba_rugi_bersih = ($total_kas_masuk ?? 0) - ($total_kas_keluar ?? 0); // Use ?? 0 for potential NULLs from SUM
 
 ?>
 
-<h1>Laporan Laba Rugi</h1>
-<p>Lihat ringkasan laba atau rugi bersih berdasarkan periode tanggal.</p>
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">Laporan Laba Rugi</h1>
+        <p class="text-gray-600 mb-6">Lihat ringkasan laba atau rugi bersih berdasarkan periode tanggal.</p>
 
-<form action="" method="get" class="form-filter">
-    <div class="form-group">
-        <label for="start_date">Dari Tanggal:</label>
-        <input type="date" id="start_date" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>">
-    </div>
-    <div class="form-group">
-        <label for="end_date">Sampai Tanggal:</label>
-        <input type="date" id="end_date" name="end_date" value="<?php echo htmlspecialchars($end_date); ?>">
-    </div>
-    <button type="submit" class="btn">Filter</button>
-    <a href="laba_rugi.php" class="btn btn-secondary">Reset Filter</a>
-    <button type="button" class="btn" onclick="window.print()">Cetak Laporan</button>
-</form>
+        <form action="" method="get" class="mb-6 p-4 bg-gray-50 rounded-lg shadow-sm flex flex-wrap items-end gap-4">
+            <div class="flex-1 min-w-[200px]">
+                <label for="start_date" class="block text-gray-700 text-sm font-bold mb-2">Dari Tanggal:</label>
+                <input type="date" id="start_date" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="flex-1 min-w-[200px]">
+                <label for="end_date" class="block text-gray-700 text-sm font-bold mb-2">Sampai Tanggal:</label>
+                <input type="date" id="end_date" name="end_date" value="<?php echo htmlspecialchars($end_date); ?>"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <button type="submit"
+                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                    Filter
+                </button>
+                <a href="laba_rugi.php"
+                    class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ml-2">
+                    Reset Filter
+                </a>
+                <button type="button" onclick="window.print()"
+                    class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ml-2">
+                    Cetak Laporan
+                </button>
+            </div>
+        </form>
 
-<div class="report-summary-card">
-    <h2>Ringkasan Laba Rugi Periode:</h2>
-    <p><strong><?php echo htmlspecialchars(date('d F Y', strtotime($start_date))); ?></strong> sampai <strong><?php echo htmlspecialchars(date('d F Y', strtotime($end_date))); ?></strong></p>
+        <?php
+        // Cek jika ada error dari SQL sebelumnya
+        if (display_flash_message()) :
+            // flash message sudah ditampilkan oleh display_flash_message(), jadi tidak perlu div tambahan
+        ?>
+        <?php else : // Jika tidak ada error SQL, tampilkan ringkasan laba rugi 
+        ?>
+            <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-md max-w-lg mx-auto">
+                <h2 class="text-xl font-bold text-gray-800 text-center mb-4">Ringkasan Laba Rugi Periode:</h2>
+                <p class="text-gray-600 text-center mb-4"><strong><?php echo htmlspecialchars(date('d F Y', strtotime($start_date))); ?></strong> s/d <strong><?php echo htmlspecialchars(date('d F Y', strtotime($end_date))); ?></strong></p>
 
-    <div class="summary-item">
-        <span>Total Kas Masuk:</span>
-        <span class="amount-positive"><?php echo format_rupiah($total_kas_masuk); ?></span>
-    </div>
-    <div class="summary-item">
-        <span>Total Kas Keluar:</span>
-        <span class="amount-negative"><?php echo format_rupiah($total_kas_keluar); ?></span>
-    </div>
-    <hr>
-    <div class="summary-item total">
-        <span>Laba/Rugi Bersih:</span>
-        <span class="<?php echo ($laba_rugi_bersih >= 0) ? 'amount-positive' : 'amount-negative'; ?>">
-            <?php echo format_rupiah($laba_rugi_bersih); ?>
-        </span>
+                <div class="flex justify-between py-2 border-b border-gray-200">
+                    <span class="text-gray-700">Total Kas Masuk:</span>
+                    <span class="text-green-600 font-bold"><?php echo format_rupiah($total_kas_masuk ?? 0); ?></span>
+                </div>
+                <div class="flex justify-between py-2 border-b border-gray-200">
+                    <span class="text-gray-700">Total Kas Keluar:</span>
+                    <span class="text-red-600 font-bold"><?php echo format_rupiah($total_kas_keluar ?? 0); ?></span>
+                </div>
+                <hr class="my-4 border-t-2 border-gray-300">
+                <div class="flex justify-between pt-4 font-extrabold text-lg">
+                    <span class="text-gray-800">Laba/Rugi Bersih:</span>
+                    <span class="<?php echo ($laba_rugi_bersih >= 0) ? 'text-green-600' : 'text-red-600'; ?>">
+                        <?php echo format_rupiah($laba_rugi_bersih); ?>
+                    </span>
+                </div>
+            </div>
+        <?php endif; ?>
     </div>
 </div>
 
-<style>
-    .report-summary-card {
-        background-color: #fff;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 20px;
-        margin-top: 30px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        max-width: 500px;
-        margin-left: auto;
-        margin-right: auto;
-    }
-
-    .report-summary-card h2 {
-        text-align: center;
-        color: #4CAF50;
-        margin-top: 0;
-        margin-bottom: 20px;
-    }
-
-    .summary-item {
-        display: flex;
-        justify-content: space-between;
-        padding: 8px 0;
-        border-bottom: 1px dashed #eee;
-    }
-
-    .summary-item:last-child {
-        border-bottom: none;
-    }
-
-    .summary-item.total {
-        font-weight: bold;
-        font-size: 1.1em;
-        padding-top: 15px;
-    }
-
-    .amount-positive {
-        color: #28a745;
-        /* Green */
-    }
-
-    .amount-negative {
-        color: #dc3545;
-        /* Red */
-    }
-</style>
-
 <?php
 // Sertakan footer
-require_once '../../layout/footer.php';
+require_once '../layout/footer.php';
 ?>
