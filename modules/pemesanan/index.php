@@ -15,11 +15,10 @@ $orders = [];
 if (!$conn) {
     set_flash_message("Koneksi database gagal: " . mysqli_connect_error(), "error");
 } else {
-    $sql = "SELECT p.*, c.nama_customer, a.nama_akun 
-            FROM pemesanan p 
-            JOIN customer c ON p.id_customer = c.id_customer 
-            JOIN akun a ON p.id_akun = a.id_akun 
-            ORDER BY p.tgl_pesan DESC";
+    $sql = "SELECT p.*, c.nama_customer
+        FROM pemesanan p
+        JOIN customer c ON p.id_customer = c.id_customer
+        ORDER BY p.tgl_pesan DESC";
 
     $result = $conn->query($sql);
 
@@ -58,7 +57,6 @@ if (!$conn) {
                         <tr>
                             <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">ID Pesan</th>
                             <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Akun</th>
                             <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Pesan</th>
                             <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Kirim</th>
                             <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
@@ -71,15 +69,14 @@ if (!$conn) {
                     <tbody class="divide-y divide-gray-200">
                         <?php foreach ($orders as $order) : ?>
                             <tr class="hover:bg-gray-50">
-                                <td class="px-4 py-2 text-sm"><?php echo htmlspecialchars($order['id_pesan']); ?></td>
-                                <td class="px-4 py-2 text-sm"><?php echo htmlspecialchars($order['nama_customer']); ?></td>
-                                <td class="px-4 py-2 text-sm"><?php echo htmlspecialchars($order['nama_akun']); ?></td>
-                                <td class="px-4 py-2 text-sm"><?php echo htmlspecialchars($order['tgl_pesan']); ?></td>
-                                <td class="px-4 py-2 text-sm"><?php echo htmlspecialchars($order['tgl_kirim']); ?></td>
-                                <td class="px-4 py-2 text-sm"><?php echo htmlspecialchars($order['quantity']); ?></td>
-                                <td class="px-4 py-2 text-sm"><?php echo format_rupiah($order['uang_muka']); ?></td>
-                                <td class="px-4 py-2 text-sm"><?php echo format_rupiah($order['sub_total']); ?></td>
-                                <td class="px-4 py-2 text-sm"><?php echo format_rupiah($order['sisa']); ?></td>
+                                <td><?php echo htmlspecialchars($order['id_pesan']); ?></td>
+                                <td><?php echo htmlspecialchars($order['nama_customer']); ?></td>
+                                <td><?php echo htmlspecialchars($order['tgl_pesan']); ?></td>
+                                <td><?php echo htmlspecialchars($order['tgl_kirim']); ?></td>
+                                <td><?php echo htmlspecialchars($order['quantity']); ?></td>
+                                <td><?php echo format_rupiah($order['uang_muka']); ?></td>
+                                <td><?php echo format_rupiah($order['sub_total']); ?></td>
+                                <td><?php echo format_rupiah($order['sisa']); ?></td>
                                 <td class="px-4 py-2 text-sm space-x-1">
                                     <?php if (has_permission('Admin') || has_permission('Pegawai')) : ?>
                                         <a href="edit.php?id=<?php echo htmlspecialchars($order['id_pesan']); ?>"

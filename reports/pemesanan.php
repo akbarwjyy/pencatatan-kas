@@ -11,10 +11,10 @@ if (!has_permission('Admin') && !has_permission('Pemilik') && !has_permission('P
 $start_date = isset($_GET['start_date']) ? sanitize_input($_GET['start_date']) : '';
 $end_date = isset($_GET['end_date']) ? sanitize_input($_GET['end_date']) : '';
 
-$sql = "SELECT p.*, c.nama_customer, a.nama_akun
+$sql = "SELECT p.*, c.nama_customer
         FROM pemesanan p
         JOIN customer c ON p.id_customer = c.id_customer
-        JOIN akun a ON p.id_akun = a.id_akun";
+        ";
 
 $where_clause = [];
 $params = [];
@@ -107,7 +107,6 @@ if ($stmt === false) {
                         <tr>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">ID Pesan</th>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Akun</th>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Pesan</th>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Kirim</th>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
@@ -131,7 +130,6 @@ if ($stmt === false) {
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars($order['id_pesan']); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($order['nama_customer']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($order['nama_akun']); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($order['tgl_pesan']); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($order['tgl_kirim']); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($order['quantity']); ?></td>
@@ -143,7 +141,7 @@ if ($stmt === false) {
                     </tbody>
                     <tfoot>
                         <tr class="bg-gray-100 font-bold">
-                            <td colspan="5" class="px-6 py-3 border-t text-right text-xs uppercase text-gray-700">Total:</td>
+                            <td colspan="4" class="px-6 py-3 border-t text-right text-xs uppercase text-gray-700">Total:</td>
                             <td class="px-6 py-3 border-t text-sm text-gray-900"><?php echo htmlspecialchars($total_quantity); ?></td>
                             <td class="px-6 py-3 border-t text-sm text-gray-900"><?php echo format_rupiah($total_uang_muka); ?></td>
                             <td class="px-6 py-3 border-t text-sm text-gray-900"><?php echo format_rupiah($total_sub_total); ?></td>

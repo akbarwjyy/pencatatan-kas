@@ -9,15 +9,15 @@ if (!has_permission('Admin') && !has_permission('Pegawai')) {
 }
 
 // Inisialisasi variabel error
-$id_pesan_error = $id_customer_error = $id_akun_error = $tgl_pesan_error = $tgl_kirim_error = $quantity_error = $uang_muka_error = $sub_total_error = $sisa_error = $harga_satuan_error = "";
+$id_pesan_error = $id_customer_error = $tgl_pesan_error = $tgl_kirim_error = $quantity_error = $uang_muka_error = $sub_total_error = $sisa_error = $harga_satuan_error = "";
 
 // Inisialisasi variabel data. Variabel numerik diinisialisasi dengan 0.
-$id_pesan = $id_customer = $id_akun = $tgl_pesan = $tgl_kirim = $keterangan = ''; // Perbaikan: Tambahkan $keterangan ke inisialisasi
+$id_pesan = $id_customer = $tgl_pesan = $tgl_kirim = $keterangan = '';
 $quantity = 0;
 $uang_muka = 0;
 $sub_total = 0;
 $sisa = 0;
-$harga_satuan_input = 0;
+$harga_satuan_input = 12000;
 
 // Ambil daftar customer untuk dropdown
 $customers = [];
@@ -29,7 +29,7 @@ if ($customer_result->num_rows > 0) {
     }
 }
 
-// Ambil daftar akun untuk dropdown
+// Ambil daftar akun untuk dropdown (tidak dipakai di proses insert)
 $accounts = [];
 $account_sql = "SELECT id_akun, nama_akun FROM akun ORDER BY nama_akun ASC";
 $account_result = $conn->query($account_sql);
@@ -39,60 +39,50 @@ if ($account_result->num_rows > 0) {
     }
 }
 
-
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Sanitasi input
-    $id_pesan = sanitize_input($_POST['id_pesan']);
-    $id_customer = sanitize_input($_POST['id_customer']);
-    $id_akun = sanitize_input($_POST['id_akun']);
-    $tgl_pesan = sanitize_input($_POST['tgl_pesan']);
-    $tgl_kirim = sanitize_input($_POST['tgl_kirim']);
-    $quantity = sanitize_input($_POST['quantity']);
-    $harga_satuan_input = sanitize_input($_POST['harga_satuan']); // Input sementara
-    $uang_muka = sanitize_input($_POST['uang_muka']);
-    $keterangan = sanitize_input($_POST['keterangan']); // Pastikan keterangan disanitasi juga
+    $id_pesan = sanitize_input($_POST['id_pesan'] ?? '');
+    $id_customer = sanitize_input($_POST['id_customer'] ?? '');
+    $tgl_pesan = sanitize_input($_POST['tgl_pesan'] ?? '');
+    $tgl_kirim = sanitize_input($_POST['tgl_kirim'] ?? '');
+    $quantity = sanitize_input($_POST['quantity'] ?? 0);
+    $harga_satuan_input = sanitize_input($_POST['harga_satuan'] ?? 0);
+    $uang_muka = sanitize_input($_POST['uang_muka'] ?? 0);
+    $keterangan = sanitize_input($_POST['keterangan'] ?? '');
 
-    // Validasi dan Konversi Tipe Data
+    // Validasi field satu per satu
     if (empty($id_pesan)) {
         $id_pesan_error = "ID Pesan tidak boleh kosong.";
     } elseif (strlen($id_pesan) > 8) {
         $id_pesan_error = "ID Pesan maksimal 8 karakter.";
     }
-
     if (empty($id_customer)) {
         $id_customer_error = "Customer tidak boleh kosong.";
     }
-    if (empty($id_akun)) {
-        $id_akun_error = "Akun tidak boleh kosong.";
-    }
-
     if (empty($tgl_pesan)) {
         $tgl_pesan_error = "Tanggal Pesan tidak boleh kosong.";
     }
     if (empty($tgl_kirim)) {
         $tgl_kirim_error = "Tanggal Kirim tidak boleh kosong.";
     }
-
-    if (empty($quantity) || !is_numeric($quantity) || $quantity <= 0) {
+    if (!is_numeric($quantity) || $quantity <= 0) {
         $quantity_error = "Quantity harus angka positif.";
     } else {
         $quantity = (int)$quantity;
     }
-
-    if (empty($harga_satuan_input) || !is_numeric($harga_satuan_input) || $harga_satuan_input <= 0) {
+    if (!is_numeric($harga_satuan_input) || $harga_satuan_input <= 0) {
         $harga_satuan_error = "Harga Satuan harus angka positif.";
     } else {
         $harga_satuan_input = (int)$harga_satuan_input;
     }
-
-    if (empty($uang_muka) || !is_numeric($uang_muka) || $uang_muka < 0) {
+    if (!is_numeric($uang_muka) || $uang_muka < 0) {
         $uang_muka_error = "Uang Muka harus angka non-negatif.";
     } else {
         $uang_muka = (int)$uang_muka;
     }
 
-    // Hitung sub_total dan sisa
-    if (empty($quantity_error) && empty($harga_satuan_error)) {
+    // Hanya lakukan perhitungan jika tidak ada error pada field numerik
+    if (empty($quantity_error) && empty($harga_satuan_error) && empty($uang_muka_error)) {
         $sub_total = $quantity * $harga_satuan_input;
         if ($uang_muka > $sub_total) {
             $uang_muka_error = "Uang Muka tidak boleh melebihi Sub Total.";
@@ -100,17 +90,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $sisa = $sub_total - $uang_muka;
         }
     } else {
-        $sub_total = 0; // Set to 0 if quantity or harga_satuan are invalid
+        $sub_total = 0;
         $sisa = 0;
     }
 
-
     // Jika tidak ada error validasi, coba simpan ke database
     if (
-        empty($id_pesan_error) && empty($id_customer_error) && empty($id_akun_error) && empty($tgl_pesan_error) &&
-        empty($tgl_kirim_error) && empty($quantity_error) && empty($uang_muka_error) && empty($harga_satuan_error) && empty($sub_total_error)
+        empty($id_pesan_error) && empty($id_customer_error) && empty($tgl_pesan_error) &&
+        empty($tgl_kirim_error) && empty($quantity_error) && empty($uang_muka_error) && empty($harga_satuan_error)
     ) {
-
         // Cek apakah id_pesan sudah ada di database
         $check_sql = "SELECT id_pesan FROM pemesanan WHERE id_pesan = ?";
         $stmt_check = $conn->prepare($check_sql);
@@ -124,15 +112,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } else {
             $stmt_check->close();
 
-            // Query untuk menambah data pemesanan
-            $sql = "INSERT INTO pemesanan (id_pesan, id_customer, id_akun, tgl_pesan, tgl_kirim, quantity, uang_muka, sub_total, sisa) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            // Query untuk menambah data pemesanan (tanpa id_akun, tanpa harga_satuan)
+            $sql = "INSERT INTO pemesanan (id_pesan, id_customer, tgl_pesan, tgl_kirim, quantity, uang_muka, sub_total, sisa) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
             if ($stmt = $conn->prepare($sql)) {
-                $stmt->bind_param("sssssiiii", $id_pesan, $id_customer, $id_akun, $tgl_pesan, $tgl_kirim, $quantity, $uang_muka, $sub_total, $sisa);
+                $stmt->bind_param("ssssiiii", $id_pesan, $id_customer, $tgl_pesan, $tgl_kirim, $quantity, $uang_muka, $sub_total, $sisa);
 
                 if ($stmt->execute()) {
-                    set_flash_message("Pemesanan berhasil ditambahkan!", "success");
-                    redirect('index.php'); // Redirect ke halaman daftar pemesanan
+                    $new_order_id = $id_pesan; // ID pesanan yang baru saja dimasukkan (karena ini input manual)
+
+                    // Logika pengalihan berdasarkan tombol yang diklik
+                    if (isset($_POST['submit_action']) && $_POST['submit_action'] === 'bayar') {
+                        set_flash_message("Pemesanan berhasil ditambahkan! Silakan lengkapi pembayaran.", "success");
+                        // Redirect ke halaman transaksi baru dengan ID pesanan yang baru
+                        redirect('../../modules/transaksi/add.php?id_pesan=' . htmlspecialchars($new_order_id));
+                    } else { // Jika tombol "TAMBAH" yang diklik
+                        set_flash_message("Pemesanan berhasil ditambahkan!", "success");
+                        redirect('index.php'); // Redirect ke halaman daftar pemesanan
+                    }
                 } else {
                     set_flash_message("Gagal menambahkan pemesanan: " . $stmt->error, "error");
                 }
@@ -142,6 +139,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
         }
     } else {
+        // Tampilkan pesan error spesifik
         set_flash_message("Silakan perbaiki kesalahan pada formulir.", "error");
     }
 }
@@ -232,7 +230,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </div>
 
         <div class="flex items-center justify-center space-x-4 mt-6">
-            <button type="submit"
+            <button type="submit" name="submit_action" value="tambah"
                 class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
                 TAMBAH
             </button>
@@ -240,6 +238,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
                 KELUAR
             </a>
+            <button type="submit" name="submit_action" value="bayar"
+                class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                BAYAR
+            </button>
         </div>
     </form>
 </div>
