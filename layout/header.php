@@ -1,4 +1,7 @@
 <?php
+// Start output buffering
+ob_start();
+
 // Pastikan session dimulai sebelum menggunakan $_SESSION
 if (session_status() == PHP_SESSION_NONE) {
     session_start();

@@ -65,11 +65,30 @@ function verify_password($password_input, $hashed_password)
 
 /**
  * Fungsi untuk redirect ke halaman lain.
+ * Menggunakan output buffering jika diperlukan untuk menghindari "headers already sent" error.
  *
  * @param string $location URL tujuan redirect.
+ * @param bool $use_javascript Gunakan JavaScript redirect jika header sudah terkirim
  */
 function redirect($location)
 {
+    // Jika output buffering tidak aktif dan header sudah terkirim
+    if (!ob_get_level() && headers_sent()) {
+        // Gunakan JavaScript untuk redirect
+        echo '<script>window.location.href="' . htmlspecialchars($location) . '";</script>';
+        // Sebagai fallback, tambahkan link untuk klik manual
+        echo '<noscript>';
+        echo '<meta http-equiv="refresh" content="0;url=' . htmlspecialchars($location) . '">';
+        echo '<p>Silahkan klik <a href="' . htmlspecialchars($location) . '">di sini</a> jika tidak ter-redirect secara otomatis.</p>';
+        echo '</noscript>';
+        exit();
+    }
+
+    // Jika masih bisa menggunakan header (tidak ada output atau masih dalam buffer)
+    if (ob_get_level()) {
+        ob_end_clean(); // Bersihkan output buffer jika ada
+    }
+
     header("Location: " . $location);
     exit(); // Penting untuk menghentikan eksekusi script setelah redirect
 }
