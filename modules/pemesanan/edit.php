@@ -8,8 +8,8 @@ if (!has_permission('Admin') && !has_permission('Pegawai')) {
     redirect('../../modules/dashboard/index.php');
 }
 
-$id_pesan_error = $id_customer_error = $id_akun_error = $tgl_pesan_error = $tgl_kirim_error = $quantity_error = $uang_muka_error = $sub_total_error = $sisa_error = "";
-$id_pesan = $id_customer = $id_akun = $tgl_pesan = $tgl_kirim = $quantity = $uang_muka = $sub_total = $sisa = "";
+$id_pesan_error = $id_customer_error = $tgl_pesan_error = $tgl_kirim_error = $quantity_error = $uang_muka_error = $sub_total_error = $sisa_error = $harga_satuan_error = "";
+$id_pesan = $id_customer = $tgl_pesan = $tgl_kirim = $quantity = $uang_muka = $sub_total = $sisa = "";
 $harga_satuan_input = 0; // Ini akan dihitung balik dari sub_total dan quantity
 
 // Ambil daftar customer untuk dropdown
@@ -36,14 +36,14 @@ if ($account_result->num_rows > 0) {
 if (isset($_GET['id']) && !empty(trim($_GET['id']))) {
     $id_pesan_dari_url = sanitize_input(trim($_GET['id']));
 
-    // Ambil data pemesanan berdasarkan ID
-    $sql = "SELECT id_pesan, id_customer, id_akun, tgl_pesan, tgl_kirim, quantity, uang_muka, sub_total, sisa FROM pemesanan WHERE id_pesan = ?";
+    // Ambil data pemesanan berdasarkan ID (tanpa id_akun)
+    $sql = "SELECT id_pesan, id_customer, tgl_pesan, tgl_kirim, quantity, uang_muka, sub_total, sisa FROM pemesanan WHERE id_pesan = ?";
     if ($stmt = $conn->prepare($sql)) {
         $stmt->bind_param("s", $id_pesan_dari_url);
         if ($stmt->execute()) {
             $stmt->store_result();
             if ($stmt->num_rows == 1) {
-                $stmt->bind_result($id_pesan, $id_customer, $id_akun, $tgl_pesan, $tgl_kirim, $quantity, $uang_muka, $sub_total, $sisa);
+                $stmt->bind_result($id_pesan, $id_customer, $tgl_pesan, $tgl_kirim, $quantity, $uang_muka, $sub_total, $sisa);
                 $stmt->fetch();
 
                 // Hitung balik harga_satuan untuk ditampilkan di form edit
@@ -68,12 +68,10 @@ if (isset($_GET['id']) && !empty(trim($_GET['id']))) {
     redirect('index.php');
 }
 
-
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Sanitasi input
     $id_pesan_edit = sanitize_input($_POST['id_pesan_asal']); // ID yang diedit (hidden input)
     $id_customer_baru = sanitize_input($_POST['id_customer']);
-    $id_akun_baru = sanitize_input($_POST['id_akun']);
     $tgl_pesan_baru = sanitize_input($_POST['tgl_pesan']);
     $tgl_kirim_baru = sanitize_input($_POST['tgl_kirim']);
     $quantity_baru = sanitize_input($_POST['quantity']);
@@ -84,29 +82,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (empty($id_customer_baru)) {
         $id_customer_error = "Customer tidak boleh kosong.";
     }
-    if (empty($id_akun_baru)) {
-        $id_akun_error = "Akun tidak boleh kosong.";
-    }
-
     if (empty($tgl_pesan_baru)) {
         $tgl_pesan_error = "Tanggal Pesan tidak boleh kosong.";
     }
     if (empty($tgl_kirim_baru)) {
         $tgl_kirim_error = "Tanggal Kirim tidak boleh kosong.";
     }
-
     if (empty($quantity_baru) || !is_numeric($quantity_baru) || $quantity_baru <= 0) {
         $quantity_error = "Quantity harus angka positif.";
     } else {
         $quantity_baru = (int)$quantity_baru;
     }
-
     if (empty($harga_satuan_input_baru) || !is_numeric($harga_satuan_input_baru) || $harga_satuan_input_baru <= 0) {
         $harga_satuan_error = "Harga Satuan harus angka positif.";
     } else {
         $harga_satuan_input_baru = (int)$harga_satuan_input_baru;
     }
-
     if (empty($uang_muka_baru) || !is_numeric($uang_muka_baru) || $uang_muka_baru < 0) {
         $uang_muka_error = "Uang Muka harus angka non-negatif.";
     } else {
@@ -126,18 +117,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $sisa_baru = 0;
     }
 
-
     // Jika tidak ada error validasi, coba update ke database
     if (
-        empty($id_customer_error) && empty($id_akun_error) && empty($tgl_pesan_error) &&
+        empty($id_customer_error) && empty($tgl_pesan_error) &&
         empty($tgl_kirim_error) && empty($quantity_error) && empty($uang_muka_error) && empty($harga_satuan_error) && empty($sub_total_error)
     ) {
-
-        // Query untuk update data pemesanan
-        $sql = "UPDATE pemesanan SET id_customer = ?, id_akun = ?, tgl_pesan = ?, tgl_kirim = ?, quantity = ?, uang_muka = ?, sub_total = ?, sisa = ? WHERE id_pesan = ?";
+        // Query untuk update data pemesanan (tanpa id_akun)
+        $sql = "UPDATE pemesanan SET id_customer = ?, tgl_pesan = ?, tgl_kirim = ?, quantity = ?, uang_muka = ?, sub_total = ?, sisa = ? WHERE id_pesan = ?";
 
         if ($stmt = $conn->prepare($sql)) {
-            $stmt->bind_param("sssiisiii", $id_customer_baru, $id_akun_baru, $tgl_pesan_baru, $tgl_kirim_baru, $quantity_baru, $uang_muka_baru, $sub_total_baru, $sisa_baru, $id_pesan_edit);
+            $stmt->bind_param("sssiiisi", $id_customer_baru, $tgl_pesan_baru, $tgl_kirim_baru, $quantity_baru, $uang_muka_baru, $sub_total_baru, $sisa_baru, $id_pesan_edit);
 
             if ($stmt->execute()) {
                 set_flash_message("Pemesanan berhasil diperbarui!", "success");
@@ -153,7 +142,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         set_flash_message("Silakan perbaiki kesalahan pada formulir.", "error");
         // Reload data from current post if there were errors to keep form values
         $id_customer = $id_customer_baru;
-        $id_akun = $id_akun_baru;
         $tgl_pesan = $tgl_pesan_baru;
         $tgl_kirim = $tgl_kirim_baru;
         $quantity = $quantity_baru;
@@ -190,7 +178,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </div>
     <div class="form-group">
         <label for="id_akun">Akun Tujuan Pembayaran:</label>
-        <select id="id_akun" name="id_akun" required>
+        <select id="id_akun" name="id_akun">
             <option value="">-- Pilih Akun --</option>
             <?php foreach ($accounts as $account_option) : ?>
                 <option value="<?php echo htmlspecialchars($account_option['id_akun']); ?>"
@@ -199,7 +187,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </option>
             <?php endforeach; ?>
         </select>
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $id_akun_error; ?></span>
+        <!-- Tidak ada validasi error untuk id_akun karena tidak disimpan ke database -->
     </div>
     <div class="form-group">
         <label for="tgl_pesan">Tanggal Pesan:</label>
