@@ -9,7 +9,11 @@ if (!has_permission('Admin') && !has_permission('Pegawai')) {
 }
 
 $id_kas_masuk_error = $tgl_kas_masuk_error = $jumlah_error = $keterangan_error = $id_akun_error = "";
-$id_kas_masuk = $tgl_kas_masuk = $jumlah = $keterangan = $id_akun = "";
+$harga_error = $kuantitas_error = ""; // Tambahan variabel error baru
+$id_kas_masuk = $tgl_kas_masuk = $keterangan = $id_akun = "";
+$harga = 0; // Inisialisasi variabel baru
+$kuantitas = 0; // Inisialisasi variabel baru
+$jumlah = 0; // Jumlah akan dihitung
 
 // Ambil daftar akun untuk dropdown
 $accounts = [];
@@ -23,11 +27,12 @@ if ($account_result->num_rows > 0) {
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Sanitasi input
-    $id_kas_masuk = sanitize_input($_POST['id_kas_masuk']);
-    $tgl_kas_masuk = sanitize_input($_POST['tgl_kas_masuk']);
-    $jumlah = sanitize_input($_POST['jumlah']);
-    $keterangan = sanitize_input($_POST['keterangan']);
-    $id_akun = sanitize_input($_POST['id_akun']); // Akun tujuan kas masuk ini
+    $id_kas_masuk = sanitize_input($_POST['id_kas_masuk'] ?? '');
+    $tgl_kas_masuk = sanitize_input($_POST['tgl_kas_masuk'] ?? '');
+    $id_akun = sanitize_input($_POST['id_akun'] ?? '');
+    $keterangan = sanitize_input($_POST['keterangan'] ?? '');
+    $harga = sanitize_input($_POST['harga'] ?? 0);
+    $kuantitas = sanitize_input($_POST['kuantitas'] ?? 0);
 
     // Validasi input
     if (empty($id_kas_masuk)) {
@@ -40,11 +45,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $tgl_kas_masuk_error = "Tanggal Kas Masuk tidak boleh kosong.";
     }
 
-    if (empty($jumlah) || !is_numeric($jumlah) || $jumlah <= 0) {
-        $jumlah_error = "Jumlah harus angka positif.";
-    } else {
-        $jumlah = (int)$jumlah;
+    if (empty($id_akun)) {
+        $id_akun_error = "Akun tidak boleh kosong.";
     }
+
+    // Validasi Harga dan Kuantitas
+    if (!is_numeric($harga) || $harga <= 0) {
+        $harga_error = "Harga harus angka positif.";
+    } else {
+        $harga = (int)$harga;
+    }
+
+    if (!is_numeric($kuantitas) || $kuantitas <= 0) {
+        $kuantitas_error = "Kuantitas harus angka positif.";
+    } else {
+        $kuantitas = (int)$kuantitas;
+    }
+
+    // Hitung jumlah setelah validasi harga dan kuantitas
+    $jumlah = $harga * $kuantitas;
 
     if (empty($keterangan)) {
         $keterangan_error = "Keterangan tidak boleh kosong.";
@@ -52,12 +71,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $keterangan_error = "Keterangan maksimal 30 karakter.";
     }
 
-    if (empty($id_akun)) {
-        $id_akun_error = "Akun tidak boleh kosong.";
+    // Validasi jumlah akhir (setelah dihitung)
+    if ($jumlah <= 0) {
+        $jumlah_error = "Jumlah harus lebih dari 0.";
     }
 
     // Jika tidak ada error validasi, coba simpan ke database
-    if (empty($id_kas_masuk_error) && empty($tgl_kas_masuk_error) && empty($jumlah_error) && empty($keterangan_error) && empty($id_akun_error)) {
+    if (
+        empty($id_kas_masuk_error) && empty($tgl_kas_masuk_error) && empty($id_akun_error) &&
+        empty($harga_error) && empty($kuantitas_error) && empty($jumlah_error) && empty($keterangan_error)
+    ) {
         // Cek apakah id_kas_masuk sudah ada di database
         $check_sql = "SELECT id_kas_masuk FROM kas_masuk WHERE id_kas_masuk = ?";
         $stmt_check = $conn->prepare($check_sql);
@@ -71,22 +94,86 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } else {
             $stmt_check->close();
 
-            // Query untuk menambah data kas masuk (id_transaksi diisi NULL)
-            $sql = "INSERT INTO kas_masuk (id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan) VALUES (?, NULL, ?, ?, ?)";
-
-            if ($stmt = $conn->prepare($sql)) {
-                $stmt->bind_param("ssis", $id_kas_masuk, $tgl_kas_masuk, $jumlah, $keterangan);
-
-                if ($stmt->execute()) {
-                    set_flash_message("Kas Masuk berhasil ditambahkan!", "success");
-                    redirect('index.php'); // Redirect ke halaman daftar kas masuk
+            // --- MULAI PERBAIKAN UNTUK id_transaksi TIDAK BISA NULL dan bind_param ---
+            $conn->begin_transaction(); // Mulai transaksi database
+            try {
+                // 1. Generate ID Transaksi untuk entri kas masuk "lainnya" ini
+                $generated_id_transaksi = 'TRX' . strtoupper(substr(uniqid(), 0, 5));
+                $dummy_customer_id = 'CUST999'; // Default dummy
+                // Pastikan dummy_customer_id ada di tabel customer
+                $cek_dummy_sql = "SELECT id_customer FROM customer WHERE id_customer = ? LIMIT 1";
+                $stmt_cek_dummy = $conn->prepare($cek_dummy_sql);
+                $stmt_cek_dummy->bind_param("s", $dummy_customer_id);
+                $stmt_cek_dummy->execute();
+                $stmt_cek_dummy->store_result();
+                if ($stmt_cek_dummy->num_rows == 0) {
+                    // Jika tidak ada, ambil id_customer pertama dari tabel customer
+                    $stmt_cek_dummy->close();
+                    $sql_first_cust = "SELECT id_customer FROM customer LIMIT 1";
+                    $result_first_cust = $conn->query($sql_first_cust);
+                    if ($result_first_cust && $row_first = $result_first_cust->fetch_assoc()) {
+                        $dummy_customer_id = $row_first['id_customer'];
+                    } else {
+                        throw new Exception("Tidak ada data customer di database. Tambahkan minimal 1 customer terlebih dahulu.");
+                    }
                 } else {
-                    set_flash_message("Gagal menambahkan kas masuk: " . $stmt->error, "error");
+                    $stmt_cek_dummy->close();
                 }
-                $stmt->close();
-            } else {
-                set_flash_message("Error prepared statement: " . $conn->error, "error");
+
+                // Declare variables for bind_param (FIXED: Only variables passed by reference)
+                $metode_pembayaran_misc_var = 'Lain-lain';
+                $sisa_pembayaran_misc_var = 0;
+                $status_pelunasan_misc_var = 'Lunas';
+
+                // 2. Buat entri "dummy" di tabel transaksi
+                // Perbaikan: Hapus 'status_pelunasan' dari query INSERT transaksi dummy
+                // Perbaikan: id_pesan adalah NULL di query, jadi tidak ada placeholder untuknya.
+                // Jumlah parameter di query: 9
+                $sql_dummy_transaksi = "INSERT INTO transaksi (id_transaksi, id_pesan, id_akun, id_customer, tgl_transaksi, jumlah_dibayar, metode_pembayaran, keterangan, total_tagihan, sisa_pembayaran) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)";
+                if ($stmt_dummy_transaksi = $conn->prepare($sql_dummy_transaksi)) {
+                    $stmt_dummy_transaksi->bind_param(
+                        "ssssissii", // 9 types: s (id_transaksi), s (id_akun), s (id_customer), s (tgl_transaksi), i (jumlah), s (metode), s (keterangan), i (total_tagihan), i (sisa_pembayaran)
+                        $generated_id_transaksi,
+                        $id_akun,
+                        $dummy_customer_id,
+                        $tgl_kas_masuk,
+                        $jumlah,
+                        $metode_pembayaran_misc_var, // Gunakan variabel
+                        $keterangan,
+                        $jumlah, // total_tagihan
+                        $sisa_pembayaran_misc_var // Gunakan variabel (sisa_pembayaran)
+                    );
+                    if (!$stmt_dummy_transaksi->execute()) {
+                        throw new Exception("Gagal membuat transaksi dummy: " . $stmt_dummy_transaksi->error);
+                    }
+                    $stmt_dummy_transaksi->close();
+                } else {
+                    throw new Exception("Error prepared statement (transaksi dummy): " . $conn->error);
+                }
+
+                // 3. Gunakan ID transaksi yang baru dibuat untuk INSERT ke kas_masuk
+                $sql = "INSERT INTO kas_masuk (id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan) VALUES (?, ?, ?, ?, ?)";
+
+                if ($stmt = $conn->prepare($sql)) {
+                    $stmt->bind_param("sssis", $id_kas_masuk, $generated_id_transaksi, $tgl_kas_masuk, $jumlah, $keterangan);
+
+                    if ($stmt->execute()) {
+                        $conn->commit(); // Commit transaksi jika semua berhasil
+                        set_flash_message("Kas Masuk berhasil ditambahkan!", "success");
+                        redirect('index.php'); // Redirect ke halaman daftar kas masuk
+                    } else {
+                        throw new Exception("Gagal menambahkan kas masuk: " . $stmt->error);
+                    }
+                    $stmt->close();
+                } else {
+                    throw new Exception("Error prepared statement: " . $conn->error);
+                }
+            } catch (Exception $e) {
+                $conn->rollback(); // Rollback jika ada kesalahan
+                set_flash_message("Error saat memproses kas masuk: " . $e->getMessage(), "error");
             }
+            // --- AKHIR PERBAIKAN ---
+
         }
     } else {
         set_flash_message("Silakan perbaiki kesalahan pada formulir.", "error");
@@ -95,8 +182,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 ?>
 
 <div class="bg-white p-8 rounded-lg shadow-xl max-w-md mx-auto my-8">
-    <h1 class="text-2xl font-bold text-gray-800 mb-4 text-center">Tambah Kas Masuk Lainnya</h1>
-    <p class="text-gray-600 mb-6 text-center">Isi formulir di bawah ini untuk mencatat kas masuk yang tidak terkait dengan transaksi pemesanan.</p>
+    <h1 class="text-2xl font-bold text-gray-800 mb-4 text-center">Tambah Pemasukan Kas</h1>
+    <p class="text-gray-600 mb-6 text-center">Isi formulir di bawah ini untuk mencatat pemasukan kas.</p>
 
     <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
         <div class="mb-4">
@@ -106,13 +193,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <span class="text-red-500 text-xs italic mt-1 block"><?php echo $id_kas_masuk_error; ?></span>
         </div>
         <div class="mb-4">
-            <label for="tgl_kas_masuk" class="block text-gray-700 text-sm font-bold mb-2">Tanggal Kas Masuk:</label>
+            <label for="tgl_kas_masuk" class="block text-gray-700 text-sm font-bold mb-2">Tanggal:</label>
             <input type="date" id="tgl_kas_masuk" name="tgl_kas_masuk" value="<?php echo htmlspecialchars($tgl_kas_masuk); ?>" required
                 class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
             <span class="text-red-500 text-xs italic mt-1 block"><?php echo $tgl_kas_masuk_error; ?></span>
         </div>
         <div class="mb-4">
-            <label for="id_akun" class="block text-gray-700 text-sm font-bold mb-2">Akun Tujuan (contoh: Modal, Kas, Bank):</label>
+            <label for="id_akun" class="block text-gray-700 text-sm font-bold mb-2">Nama Akun:</label>
             <select id="id_akun" name="id_akun" required
                 class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
                 <option value="">-- Pilih Akun --</option>
@@ -126,29 +213,69 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <span class="text-red-500 text-xs italic mt-1 block"><?php echo $id_akun_error; ?></span>
         </div>
         <div class="mb-4">
-            <label for="jumlah" class="block text-gray-700 text-sm font-bold mb-2">Jumlah (Rp):</label>
-            <input type="number" id="jumlah" name="jumlah" value="<?php echo htmlspecialchars($jumlah); ?>" required min="1"
-                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $jumlah_error; ?></span>
-        </div>
-        <div class="mb-6">
-            <label for="keterangan" class="block text-gray-700 text-sm font-bold mb-2">Keterangan (misal: "Modal Awal", "Pengembalian Dana"):</label>
+            <label for="keterangan" class="block text-gray-700 text-sm font-bold mb-2">Keterangan:</label>
             <input type="text" id="keterangan" name="keterangan" value="<?php echo htmlspecialchars($keterangan); ?>" required maxlength="30"
                 class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
             <span class="text-red-500 text-xs italic mt-1 block"><?php echo $keterangan_error; ?></span>
         </div>
+        <div class="mb-4">
+            <label for="harga" class="block text-gray-700 text-sm font-bold mb-2">Harga:</label>
+            <input type="number" id="harga" name="harga" value="<?php echo htmlspecialchars($harga); ?>" required min="1"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $harga_error; ?></span>
+        </div>
+        <div class="mb-4">
+            <label for="kuantitas" class="block text-gray-700 text-sm font-bold mb-2">Kuantitas:</label>
+            <input type="number" id="kuantitas" name="kuantitas" value="<?php echo htmlspecialchars($kuantitas); ?>" required min="1"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $kuantitas_error; ?></span>
+        </div>
+        <div class="mb-6">
+            <label for="jumlah_display" class="block text-gray-700 text-sm font-bold mb-2">Jumlah:</label>
+            <input type="text" id="jumlah_display" value="<?php echo format_rupiah($jumlah); ?>" disabled
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $jumlah_error; ?></span>
+        </div>
         <div class="flex items-center justify-between">
-            <button type="submit"
-                class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                Simpan
+            <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                TAMBAH
             </button>
-            <a href="index.php"
-                class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                Batal
+            <a href="index.php" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                KELUAR
             </a>
         </div>
     </form>
 </div>
+
+<script>
+    // Fungsi untuk menghitung jumlah otomatis
+    function calculateJumlah() {
+        const hargaInput = document.getElementById('harga');
+        const kuantitasInput = document.getElementById('kuantitas');
+        const jumlahDisplay = document.getElementById('jumlah_display');
+
+        const harga = parseFloat(hargaInput.value) || 0;
+        const kuantitas = parseFloat(kuantitasInput.value) || 0;
+
+        const calculatedJumlah = harga * kuantitas;
+        jumlahDisplay.value = formatRupiah(calculatedJumlah);
+    }
+
+    // Tambahkan event listener untuk memanggil fungsi perhitungan saat input berubah
+    document.getElementById('harga').addEventListener('input', calculateJumlah);
+    document.getElementById('kuantitas').addEventListener('input', calculateJumlah);
+
+    // Panggil fungsi perhitungan saat halaman dimuat untuk nilai awal
+    document.addEventListener('DOMContentLoaded', calculateJumlah);
+
+    // Format Rupiah di sisi klien (JavaScript) (fungsi ini sudah ada di transaksi/add.php, bisa dipindahkan ke script.js jika umum)
+    function formatRupiah(angka) {
+        var reverse = angka.toString().split('').reverse().join(''),
+            ribuan = reverse.match(/\d{1,3}/g);
+        ribuan = ribuan.join('.').split('').reverse().join('');
+        return 'Rp ' + ribuan;
+    }
+</script>
 
 <?php
 // Sertakan footer
