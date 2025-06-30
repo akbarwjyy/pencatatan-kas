@@ -23,7 +23,12 @@ require_once __DIR__ . '/../includes/path_helper.php';
                         <li><a href="<?php echo to_url('modules/customer/index.php'); ?>" class="block py-2 px-4 hover:bg-gray-700">Manajemen Customer</a></li>
                     <?php endif; ?>
                     <?php if (has_permission('Admin') || has_permission('Pegawai') || has_permission('Pemilik')) : ?>
-                        <li><a href="<?php echo to_url('modules/pemesanan/index.php'); ?>" class="block py-2 px-4 hover:bg-gray-700">Manajemen Pemesanan</a></li>
+                        <li>
+                            <a href="<?php echo to_url('modules/pemesanan/index.php'); ?>" class="block py-2 px-4 hover:bg-gray-700">Manajemen Pemesanan</a>
+                        </li>
+                        <li>
+                            <a href="<?php echo to_url('modules/beli_langsung/index.php'); ?>" class="block py-2 px-4 hover:bg-gray-700">Beli Langsung</a>
+                        </li>
                     <?php endif; ?>
                     <?php if (has_permission('Admin') || has_permission('Pegawai')) : ?>
                         <li><a href="<?php echo to_url('modules/transaksi/index.php'); ?>" class="block py-2 px-4 hover:bg-gray-700">Manajemen Transaksi</a></li>
@@ -75,7 +80,12 @@ require_once __DIR__ . '/../includes/path_helper.php';
                 <li><a href="<?php echo to_url('modules/customer/index.php'); ?>" class="block py-2 px-4 hover:bg-gray-700">Manajemen Customer</a></li>
             <?php endif; ?>
             <?php if (has_permission('Admin') || has_permission('Pegawai') || has_permission('Pemilik')) : ?>
-                <li><a href="<?php echo to_url('modules/pemesanan/index.php'); ?>" class="block py-2 px-4 hover:bg-gray-700">Manajemen Pemesanan</a></li>
+                <li>
+                    <a href="<?php echo to_url('modules/pemesanan/index.php'); ?>" class="block py-2 px-4 hover:bg-gray-700">Manajemen Pemesanan</a>
+                </li>
+                <li>
+                    <a href="<?php echo to_url('modules/beli_langsung/index.php'); ?>" class="block py-2 px-4 hover:bg-gray-700">Beli Langsung</a>
+                </li>
             <?php endif; ?>
             <?php if (has_permission('Admin') || has_permission('Pegawai')) : ?>
                 <li><a href="<?php echo to_url('modules/transaksi/index.php'); ?>" class="block py-2 px-4 hover:bg-gray-700">Manajemen Transaksi</a></li>
