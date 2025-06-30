@@ -1,6 +1,6 @@
 <?php
 // Sertakan header (ini akan melakukan session_start(), cek login, dan include koneksi/fungsi)
-require_once '../../layout/header.php';
+require_once '../../layout/header.php'; // Pastikan jalur ini adalah ../../
 
 // Pastikan hanya Admin atau Pegawai yang bisa mengakses halaman ini
 if (!has_permission('Admin') && !has_permission('Pegawai')) {
@@ -14,13 +14,16 @@ $sql = "SELECT km.*, tr.id_pesan, tr.jumlah_dibayar AS jumlah_transaksi, a.nama_
         FROM kas_masuk km
         LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
         LEFT JOIN akun a ON tr.id_akun = a.id_akun  -- Jika akun di transaksi yang diacu
-        ORDER BY km.tgl_kas_masuk DESC";
+        ORDER BY km.tgl_kas_masuk DESC"; // Urutkan berdasarkan tanggal terbaru
 $result = $conn->query($sql);
 
 $cash_incomes = [];
+$total_jumlah = 0; // Inisialisasi variabel total_jumlah
+
 if ($result->num_rows > 0) {
     while ($row = $result->fetch_assoc()) {
         $cash_incomes[] = $row;
+        $total_jumlah += (float)$row['jumlah']; // Menambahkan setiap jumlah ke total
     }
 }
 ?>
@@ -46,11 +49,10 @@ if ($result->num_rows > 0) {
                     <thead class="bg-gray-100">
                         <tr>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">ID Kas Masuk</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">ID Transaksi (jika ada)</th>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Kas Masuk</th>
+                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Akun</th>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Akun Penerima (dari Transaksi)</th>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
                         </tr>
                     </thead>
@@ -58,17 +60,14 @@ if ($result->num_rows > 0) {
                         <?php foreach ($cash_incomes as $income) : ?>
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars($income['id_kas_masuk']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($income['id_transaksi'] ?? '-'); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($income['tgl_kas_masuk']); ?></td>
+                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($income['nama_akun'] ?? 'N/A'); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo format_rupiah($income['jumlah'] ?? 0); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($income['keterangan']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($income['nama_akun'] ?? 'N/A'); ?></td>
                                 <td class="px-6 py-4 text-sm space-x-2">
                                     <?php
-                                    // Aksi Edit/Delete hanya untuk kas masuk yang tidak terkait transaksi
-                                    // Kas masuk dari transaksi diedit/dihapus via modul Transaksi
-                                    if (empty($income['id_transaksi'])) :
-                                    ?>
+                                    // Tombol aksi hanya muncul jika id_transaksi benar-benar kosong/null
+                                    if (!isset($income['id_transaksi']) || $income['id_transaksi'] === null || $income['id_transaksi'] === '') : ?>
                                         <a href="edit.php?id=<?php echo htmlspecialchars($income['id_kas_masuk']); ?>"
                                             class="inline-block bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition">
                                             Edit
@@ -87,6 +86,13 @@ if ($result->num_rows > 0) {
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
+                    <tfoot>
+                        <tr class="bg-gray-100 font-bold">
+                            <td colspan="3" class="px-6 py-3 border-t text-right text-xs uppercase text-gray-700">Total Kas Masuk:</td>
+                            <td class="px-6 py-3 border-t text-sm text-gray-900"><?php echo format_rupiah($total_jumlah); ?></td>
+                            <td colspan="2" class="px-6 py-3 border-t"></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         <?php endif; ?>
@@ -95,5 +101,5 @@ if ($result->num_rows > 0) {
 
 <?php
 // Sertakan footer
-require_once '../../layout/footer.php';
+require_once '../../layout/footer.php'; // Pastikan jalur ini adalah ../../
 ?>

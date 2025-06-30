@@ -70,16 +70,18 @@ if ($result->num_rows > 0) {
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo format_rupiah($transaction['total_tagihan_pemesanan'] ?? 0); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo format_rupiah($transaction['sisa_pemesanan'] ?? 0); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['status_pelunasan']); ?></td>
-                                <td class="px-6 py-4 text-sm space-x-2">
-                                    <a href="edit.php?id=<?php echo htmlspecialchars($transaction['id_transaksi']); ?>"
-                                        class="inline-block bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition">
-                                        Edit
-                                    </a>
-                                    <a href="delete.php?id=<?php echo htmlspecialchars($transaction['id_transaksi']); ?>"
-                                        class="inline-block bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition"
-                                        onclick="return confirm('Apakah Anda yakin ingin menghapus transaksi ini? Ini akan mempengaruhi data kas masuk dan pemesanan terkait!');">
-                                        Hapus
-                                    </a>
+                                <td class="px-6 py-4 text-sm">
+                                    <div class="flex gap-2">
+                                        <a href="edit.php?id=<?php echo htmlspecialchars($transaction['id_transaksi']); ?>"
+                                            class="inline-block bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition">
+                                            Edit
+                                        </a>
+                                        <a href="delete.php?id=<?php echo htmlspecialchars($transaction['id_transaksi']); ?>"
+                                            class="inline-block bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition"
+                                            onclick="return confirm('Apakah Anda yakin ingin menghapus transaksi ini? Ini akan mempengaruhi data kas masuk dan pemesanan terkait!');">
+                                            Hapus
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
