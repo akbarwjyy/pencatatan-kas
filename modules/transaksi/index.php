@@ -9,11 +9,10 @@ if (!has_permission('Admin') && !has_permission('Pegawai')) {
 }
 
 // Ambil semua data transaksi dari database, join dengan pemesanan, customer, dan akun
-$sql = "SELECT tr.*, p.id_pesan AS no_pesan, p.sub_total AS total_tagihan_pemesanan, p.sisa AS sisa_pemesanan, c.nama_customer, a.nama_akun
+$sql = "SELECT tr.*, p.id_pesan AS no_pesan, p.sub_total AS total_tagihan_pemesanan, p.sisa AS sisa_pemesanan, p.status_pesanan AS status_pelunasan, c.nama_customer
         FROM transaksi tr
         LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan
         LEFT JOIN customer c ON tr.id_customer = c.id_customer
-        LEFT JOIN akun a ON tr.id_akun = a.id_akun
         ORDER BY tr.tgl_transaksi DESC";
 $result = $conn->query($sql);
 
@@ -48,7 +47,6 @@ if ($result->num_rows > 0) {
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">ID Transaksi</th>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">No. Pesan</th>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Akun Penerima</th>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Transaksi</th>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Jumlah Dibayar</th>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Metode Pembayaran</th>
@@ -65,7 +63,6 @@ if ($result->num_rows > 0) {
                                 <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars($transaction['id_transaksi']); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['no_pesan']); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['nama_customer']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['nama_akun']); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['tgl_transaksi']); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo format_rupiah($transaction['jumlah_dibayar']); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['metode_pembayaran']); ?></td>
