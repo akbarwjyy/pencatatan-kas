@@ -47,8 +47,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $tgl_transaksi = sanitize_input($_POST['tgl_transaksi'] ?? '');
     $jumlah_dibayar = sanitize_input($_POST['jumlah_dibayar'] ?? 0);
     $metode_pembayaran = sanitize_input($_POST['metode_pembayaran'] ?? '');
-    $keterangan = sanitize_input($_POST['keterangan'] ?? '');
-    $status_pelunasan_input = sanitize_input($_POST['status_pelunasan_input'] ?? ''); // Ambil status dari input baru
+    // $keterangan = sanitize_input($_POST['keterangan'] ?? '');
+    // $status_pelunasan_input = sanitize_input($_POST['status_pelunasan_input'] ?? ''); // Ambil status dari input baru
+    $keterangan = 'Pembayaran';
+    $status_pelunasan_input = 'Lunas'; // Default status
 
     // === Validasi Input ===
     // Validasi id_transaksi dihapus karena otomatis
@@ -73,15 +75,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $metode_pembayaran_error = "Metode Pembayaran tidak boleh kosong.";
     }
 
-    if (strlen($keterangan) > 30) {
-        $keterangan_error = "Keterangan maksimal 30 karakter.";
-    }
-
-    if (empty($status_pelunasan_input)) {
-        $status_pelunasan_error = "Status Pembayaran tidak boleh kosong.";
-    } elseif (!in_array($status_pelunasan_input, ['Lunas', 'Belum Lunas'])) {
-        $status_pelunasan_error = "Status Pembayaran tidak valid.";
-    }
+    // Validasi keterangan dan status dihapus karena sudah default
 
 
     // Ambil detail pemesanan untuk validasi jumlah dibayar
@@ -113,7 +107,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Jika tidak ada error validasi, coba simpan ke database
     if (
         empty($id_pesan_error) && empty($tgl_transaksi_error) &&
-        empty($jumlah_dibayar_error) && empty($metode_pembayaran_error) && empty($keterangan_error) && empty($status_pelunasan_error)
+        empty($jumlah_dibayar_error) && empty($metode_pembayaran_error)
     ) {
         // === Generate ID Transaksi Otomatis ===
         $generated_id_transaksi = 'TRX' . strtoupper(substr(uniqid(), 0, 5)); // Contoh: TRX6A8B1
@@ -223,86 +217,61 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <p class="text-gray-600 mb-6 text-center">Isi formulir di bawah ini untuk mencatat pembayaran dari pemesanan.</p>
 
     <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-            <div>
-                <div class="mb-4">
-                    <label for="id_pesan" class="block text-gray-700 text-sm font-bold mb-2">ID Pesan:</label>
-                    <select id="id_pesan" name="id_pesan" required onchange="updatePemesananInfo()"
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-                        <option value="">-- Pilih Pemesanan --</option>
-                        <?php foreach ($pemesanan_options as $option) : ?>
-                            <option value="<?php echo htmlspecialchars($option['id_pesan']); ?>"
-                                data-subtotal="<?php echo htmlspecialchars($option['sub_total']); ?>"
-                                data-sisa="<?php echo htmlspecialchars($option['sisa']); ?>"
-                                data-customername="<?php echo htmlspecialchars($option['nama_customer']); ?>"
-                                <?php echo ($id_pesan == $option['id_pesan']) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($option['nama_customer'] . " - " . format_rupiah($option['sub_total']) . " - Sisa: " . format_rupiah($option['sisa'])); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <span class="text-red-500 text-xs italic mt-1 block"><?php echo $id_pesan_error; ?></span>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-gray-700 text-sm font-bold mb-2">Nama Customer:</label>
-                    <input type="text" id="nama_customer_display" value="" disabled
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
-                </div>
-                <div class="mb-4">
-                    <label for="tgl_transaksi" class="block text-gray-700 text-sm font-bold mb-2">Tanggal Transaksi:</label>
-                    <input type="date" id="tgl_transaksi" name="tgl_transaksi" value="<?php echo htmlspecialchars($tgl_transaksi); ?>" required
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-                    <span class="text-red-500 text-xs italic mt-1 block"><?php echo $tgl_transaksi_error; ?></span>
-                </div>
-                <div class="mb-4">
-                    <label for="jumlah_dibayar" class="block text-gray-700 text-sm font-bold mb-2">Jumlah Dibayar (Rp):</label>
-                    <input type="number" id="jumlah_dibayar" name="jumlah_dibayar" value="<?php echo htmlspecialchars($jumlah_dibayar); ?>" required min="1"
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-                    <span class="text-red-500 text-xs italic mt-1 block"><?php echo $jumlah_dibayar_error; ?></span>
-                </div>
-                <div class="mb-6">
-                    <label for="metode_pembayaran" class="block text-gray-700 text-sm font-bold mb-2">Metode Pembayaran:</label>
-                    <select id="metode_pembayaran" name="metode_pembayaran" required
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-                        <option value="">-- Pilih Metode --</option>
-                        <option value="Cash" <?php echo ($metode_pembayaran == 'Cash') ? 'selected' : ''; ?>>Cash</option>
-                        <option value="Transfer Bank" <?php echo ($metode_pembayaran == 'Transfer Bank') ? 'selected' : ''; ?>>Transfer Bank</option>
-                        <option value="QRIS" <?php echo ($metode_pembayaran == 'QRIS') ? 'selected' : ''; ?>>QRIS</option>
-                        <option value="Lainnya" <?php echo ($metode_pembayaran == 'Lainnya') ? 'selected' : ''; ?>>Lainnya</option>
-                    </select>
-                    <span class="text-red-500 text-xs italic mt-1 block"><?php echo $metode_pembayaran_error; ?></span>
-                </div>
-            </div>
+        <div class="mb-4">
+            <label for="id_pesan" class="block text-gray-700 text-sm font-bold mb-2">ID Pesan:</label>
+            <select id="id_pesan" name="id_pesan" required onchange="updatePemesananInfo()"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+                <option value="">-- Pilih Pemesanan --</option>
+                <?php foreach ($pemesanan_options as $option) : ?>
+                    <option value="<?php echo htmlspecialchars($option['id_pesan']); ?>"
+                        data-subtotal="<?php echo htmlspecialchars($option['sub_total']); ?>"
+                        data-sisa="<?php echo htmlspecialchars($option['sisa']); ?>"
+                        data-customername="<?php echo htmlspecialchars($option['nama_customer']); ?>"
+                        <?php echo ($id_pesan == $option['id_pesan']) ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($option['nama_customer'] . " - " . format_rupiah($option['sub_total']) . " - Sisa: " . format_rupiah($option['sisa'])); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $id_pesan_error; ?></span>
+        </div>
 
-            <div>
-                <div class="mb-6">
-                    <label for="keterangan" class="block text-gray-700 text-sm font-bold mb-2">Keterangan:</label>
-                    <input type="text" id="keterangan" name="keterangan" value="<?php echo htmlspecialchars($keterangan); ?>" maxlength="30"
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-                    <span class="text-red-500 text-xs italic mt-1 block"><?php echo $keterangan_error; ?></span>
-                </div>
+        <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2">Nama Customer:</label>
+            <input type="text" id="nama_customer_display" value="" disabled
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
+        </div>
 
-                <div class="mb-4">
-                    <label for="status_pelunasan_input" class="block text-gray-700 text-sm font-bold mb-2">Status Pembayaran:</label>
-                    <select id="status_pelunasan_input" name="status_pelunasan_input" required
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-                        <option value="">-- Pilih Status --</option>
-                        <option value="Lunas" <?php echo ($sisa_pembayaran_display == 0) ? 'selected' : (($status_pelunasan_input == 'Lunas') ? 'selected' : ''); ?>>Lunas</option>
-                        <option value="Belum Lunas" <?php echo ($sisa_pembayaran_display != 0) ? 'selected' : (($status_pelunasan_input == 'Belum Lunas') ? 'selected' : ''); ?>>Belum Lunas</option>
-                    </select>
-                    <span class="text-red-500 text-xs italic mt-1 block"><?php echo $status_pelunasan_error; ?></span>
-                </div>
+        <div class="mb-4">
+            <label class="block text-gray-700 text-sm font-bold mb-2">Total Tagihan:</label>
+            <input type="text" id="total_tagihan_display" value="<?php echo format_rupiah($total_tagihan_display); ?>" disabled
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
+        </div>
 
-                <div class="mb-4">
-                    <label class="block text-gray-700 text-sm font-bold mb-2">Total Tagihan:</label>
-                    <input type="text" id="total_tagihan_display" value="<?php echo format_rupiah($total_tagihan_display); ?>" disabled
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
-                </div>
-                <div class="mb-6">
-                    <label class="block text-gray-700 text-sm font-bold mb-2">Sisa Pembayaran:</label>
-                    <input type="text" id="sisa_pembayaran_display" value="<?php echo format_rupiah($sisa_pembayaran_display); ?>" disabled
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
-                </div>
-            </div>
+        <div class="mb-4">
+            <label for="tgl_transaksi" class="block text-gray-700 text-sm font-bold mb-2">Tanggal Transaksi:</label>
+            <input type="date" id="tgl_transaksi" name="tgl_transaksi" value="<?php echo htmlspecialchars($tgl_transaksi); ?>" required
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $tgl_transaksi_error; ?></span>
+        </div>
+
+        <div class="mb-4">
+            <label for="jumlah_dibayar" class="block text-gray-700 text-sm font-bold mb-2">Jumlah Dibayar (Rp):</label>
+            <input type="number" id="jumlah_dibayar" name="jumlah_dibayar" value="<?php echo htmlspecialchars($jumlah_dibayar); ?>" required min="1"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $jumlah_dibayar_error; ?></span>
+        </div>
+
+        <div class="mb-6">
+            <label for="metode_pembayaran" class="block text-gray-700 text-sm font-bold mb-2">Metode Pembayaran:</label>
+            <select id="metode_pembayaran" name="metode_pembayaran" required
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+                <option value="">-- Pilih Metode --</option>
+                <option value="Cash" <?php echo ($metode_pembayaran == 'Cash') ? 'selected' : ''; ?>>Cash</option>
+                <option value="Transfer Bank" <?php echo ($metode_pembayaran == 'Transfer Bank') ? 'selected' : ''; ?>>Transfer Bank</option>
+                <option value="QRIS" <?php echo ($metode_pembayaran == 'QRIS') ? 'selected' : ''; ?>>QRIS</option>
+                <option value="Lainnya" <?php echo ($metode_pembayaran == 'Lainnya') ? 'selected' : ''; ?>>Lainnya</option>
+            </select>
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $metode_pembayaran_error; ?></span>
         </div>
 
         <div class="flex items-center justify-center space-x-4 mt-6">
@@ -335,13 +304,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         document.getElementById('jumlah_dibayar').value = sisaAwal; // Default ke sisa_awal
         updateSisaSetelahPembayaran();
 
-        // Update default selection for Status Pembayaran dropdown based on sisaAwal
-        const statusSelect = document.getElementById('status_pelunasan_input');
-        if (sisaAwal === 0) {
-            statusSelect.value = 'Lunas';
-        } else {
-            statusSelect.value = 'Belum Lunas';
-        }
+        // Status pembayaran logic dihapus karena field sudah tidak ada
     }
 
     // Fungsi untuk mengupdate sisa pembayaran setelah input jumlah dibayar
@@ -356,13 +319,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         const sisaSetelahIni = sisaAwal - jumlahDibayar;
         document.getElementById('sisa_pembayaran_display').value = formatRupiah(sisaSetelahIni);
 
-        // Update Status Pembayaran dropdown based on calculated sisaSetelahIni
-        const statusSelect = document.getElementById('status_pelunasan_input');
-        if (sisaSetelahIni === 0) {
-            statusSelect.value = 'Lunas';
-        } else {
-            statusSelect.value = 'Belum Lunas';
-        }
+        // Status pembayaran logic dihapus karena field sudah tidak ada
     }
 
     // Format Rupiah di sisi klien (JavaScript)

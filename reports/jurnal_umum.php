@@ -22,11 +22,11 @@ $total_debit = 0;
 $total_kredit = 0;
 
 // Query untuk Kas Masuk
-$sql_kas_masuk = "SELECT km.tgl_kas_masuk AS tanggal, 'Kas Masuk' AS tipe, km.jumlah, km.keterangan, 
-                         a.nama_akun AS akun_asal, NULL AS akun_tujuan
+$sql_kas_masuk = "SELECT km.tgl_kas_masuk AS tanggal, km.id_transaksi, km.jumlah, 
+                         a.nama_akun AS nama_akun
                   FROM kas_masuk km
                   LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
-                  LEFT JOIN akun a ON tr.id_akun = a.id_akun -- Ambil akun dari transaksi terkait
+                  LEFT JOIN akun a ON tr.id_akun = a.id_akun
                   WHERE km.tgl_kas_masuk BETWEEN ? AND ?";
 $stmt_km = $conn->prepare($sql_kas_masuk);
 if ($stmt_km === false) {
@@ -36,15 +36,15 @@ if ($stmt_km === false) {
     $stmt_km->execute();
     $result_km = $stmt_km->get_result();
     while ($row = $result_km->fetch_assoc()) {
-        $row['akun_transaksi'] = $row['akun_asal'] ?: 'Tidak Terkait Transaksi';
+        $row['tipe'] = 'Kas Masuk';
         $entries[] = $row;
     }
     $stmt_km->close();
 }
 
 // Query untuk Kas Keluar
-$sql_kas_keluar = "SELECT kk.tgl_kas_keluar AS tanggal, 'Kas Keluar' AS tipe, kk.jumlah, kk.keterangan,
-                           NULL AS akun_asal, a.nama_akun AS akun_tujuan
+$sql_kas_keluar = "SELECT kk.tgl_kas_keluar AS tanggal, kk.id_kas_keluar AS id_transaksi, kk.jumlah,
+                           a.nama_akun AS nama_akun
                    FROM kas_keluar kk
                    JOIN akun a ON kk.id_akun = a.id_akun
                    WHERE kk.tgl_kas_keluar BETWEEN ? AND ?";
@@ -56,6 +56,7 @@ if ($stmt_kk === false) {
     $stmt_kk->execute();
     $result_kk = $stmt_kk->get_result();
     while ($row = $result_kk->fetch_assoc()) {
+        $row['tipe'] = 'Kas Keluar';
         $entries[] = $row;
     }
     $stmt_kk->close();
@@ -110,11 +111,10 @@ usort($entries, function ($a, $b) {
                     <thead class="bg-gray-100">
                         <tr>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Tipe</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Debit (Kas Masuk)</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Kredit (Kas Keluar)</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Akun Terkait</th>
+                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">ID Transaksi</th>
+                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Nama Akun</th>
+                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Debit</th>
+                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Kredit</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
@@ -130,19 +130,10 @@ usort($entries, function ($a, $b) {
                         ?>
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars($entry['tanggal']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($entry['tipe']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($entry['keterangan']); ?></td>
+                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($entry['id_transaksi'] ?? '-'); ?></td>
+                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($entry['nama_akun'] ?? 'N/A'); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo ($debit > 0) ? format_rupiah($debit) : '-'; ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo ($kredit > 0) ? format_rupiah($kredit) : '-'; ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900">
-                                    <?php
-                                    if ($entry['tipe'] == 'Kas Masuk') {
-                                        echo htmlspecialchars($entry['akun_transaksi'] ?? 'N/A');
-                                    } else { // Kas Keluar
-                                        echo htmlspecialchars($entry['akun_tujuan'] ?? 'N/A');
-                                    }
-                                    ?>
-                                </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -151,7 +142,6 @@ usort($entries, function ($a, $b) {
                             <td colspan="3" class="px-6 py-3 border-t text-right text-xs uppercase text-gray-700"><strong>Total Jurnal:</strong></td>
                             <td class="px-6 py-3 border-t text-sm text-gray-900"><strong><?php echo format_rupiah($total_debit); ?></strong></td>
                             <td class="px-6 py-3 border-t text-sm text-gray-900"><strong><?php echo format_rupiah($total_kredit); ?></strong></td>
-                            <td class="px-6 py-3 border-t"></td>
                         </tr>
                     </tfoot>
                 </table>
