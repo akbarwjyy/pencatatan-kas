@@ -47,14 +47,12 @@ if ($result->num_rows > 0) {
                 <table class="min-w-full bg-white border border-gray-200">
                     <thead class="bg-gray-100">
                         <tr>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">ID Transaksi</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Akun Penerima</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl. Transaksi</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Jumlah Dibayar</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Metode Pembayaran</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Metode</th>
+                            <th class="px-3 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
@@ -64,22 +62,20 @@ if ($result->num_rows > 0) {
                             $total_amount_paid += ($transaction['jumlah_dibayar'] ?? 0);
                         ?>
                             <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars($transaction['id_transaksi']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['nama_customer'] ?? '-'); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['nama_akun'] ?? '-'); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['tgl_transaksi']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo format_rupiah($transaction['jumlah_dibayar'] ?? 0); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['metode_pembayaran']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['keterangan']); ?></td>
-                                <td class="px-6 py-4 text-sm space-x-2">
-                                    <div class="flex gap-2">
+                                <td class="px-3 py-2 text-sm text-gray-500"><?php echo htmlspecialchars($transaction['id_transaksi']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['nama_customer'] ?? '-'); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['tgl_transaksi']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($transaction['jumlah_dibayar'] ?? 0); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['metode_pembayaran']); ?></td>
+                                <td class="px-3 py-2 text-sm text-center">
+                                    <div class="flex justify-center space-x-1">
                                         <a href="edit.php?id=<?php echo htmlspecialchars($transaction['id_transaksi']); ?>"
-                                            class="inline-block bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition">
+                                            class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 transition">
                                             Edit
                                         </a>
                                         <a href="delete.php?id=<?php echo htmlspecialchars($transaction['id_transaksi']); ?>"
-                                            class="inline-block bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition"
-                                            onclick="return confirm('Apakah Anda yakin ingin menghapus transaksi ini? Ini akan mempengaruhi data kas masuk dan pemesanan terkait!');">
+                                            class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 transition"
+                                            onclick="return confirm('Apakah Anda yakin ingin menghapus transaksi ini?');">
                                             Hapus
                                         </a>
                                     </div>
@@ -89,9 +85,9 @@ if ($result->num_rows > 0) {
                     </tbody>
                     <tfoot>
                         <tr class="bg-gray-100 font-bold">
-                            <td colspan="4" class="px-6 py-3 border-t text-right text-xs uppercase text-gray-700">Total Jumlah Dibayar:</td>
-                            <td class="px-6 py-3 border-t text-sm text-gray-900"><?php echo format_rupiah($total_amount_paid); ?></td>
-                            <td colspan="4" class="px-6 py-3 border-t"></td>
+                            <td colspan="3" class="px-3 py-2 border-t text-right text-xs uppercase text-gray-700">Total:</td>
+                            <td class="px-3 py-2 border-t text-sm text-gray-900"><?php echo format_rupiah($total_amount_paid); ?></td>
+                            <td colspan="2" class="px-3 py-2 border-t"></td>
                         </tr>
                     </tfoot>
                 </table>
