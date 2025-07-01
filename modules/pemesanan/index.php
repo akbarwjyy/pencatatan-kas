@@ -55,43 +55,49 @@ if (!$conn) {
                 <table class="min-w-full bg-white border border-gray-200">
                     <thead class="bg-gray-100">
                         <tr>
-                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">ID Pesan</th>
-                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                             <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Pesan</th>
                             <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Kirim</th>
-                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
+                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Nama Customer</th>
+                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Jumlah Ampyang</th>
+                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Total Harga</th>
                             <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Uang Muka</th>
-                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Sub Total</th>
-                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Sisa</th>
-                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
+                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Sisa Pembayaran</th>
+                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Status Pembayaran</th>
+                            <th class="px-4 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
                         <?php foreach ($orders as $order) : ?>
                             <tr class="hover:bg-gray-50">
-                                <td><?php echo htmlspecialchars($order['id_pesan']); ?></td>
-                                <td><?php echo htmlspecialchars($order['nama_customer']); ?></td>
-                                <td><?php echo htmlspecialchars($order['tgl_pesan']); ?></td>
-                                <td><?php echo htmlspecialchars($order['tgl_kirim']); ?></td>
-                                <td><?php echo htmlspecialchars($order['quantity']); ?></td>
-                                <td><?php echo format_rupiah($order['uang_muka']); ?></td>
-                                <td><?php echo format_rupiah($order['sub_total']); ?></td>
-                                <td><?php echo format_rupiah($order['sisa']); ?></td>
-                                <td class="px-4 py-2 text-sm space-x-1">
+                                <td class="px-4 py-2 text-sm"><?php echo htmlspecialchars($order['id_pesan']); ?></td>
+                                <td class="px-4 py-2 text-sm"><?php echo htmlspecialchars($order['tgl_pesan']); ?></td>
+                                <td class="px-4 py-2 text-sm"><?php echo htmlspecialchars($order['tgl_kirim']); ?></td>
+                                <td class="px-4 py-2 text-sm"><?php echo htmlspecialchars($order['nama_customer']); ?></td>
+                                <td class="px-4 py-2 text-sm"><?php echo htmlspecialchars($order['quantity']); ?></td>
+                                <td class="px-4 py-2 text-sm"><?php echo format_rupiah($order['sub_total']); ?></td>
+                                <td class="px-4 py-2 text-sm"><?php echo format_rupiah($order['uang_muka']); ?></td>
+                                <td class="px-4 py-2 text-sm"><?php echo format_rupiah($order['sisa']); ?></td>
+                                <td class="px-4 py-2 text-sm">
+                                    <span class="px-2 py-1 text-xs rounded-full <?php echo ($order['sisa'] == 0) ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'; ?>">
+                                        <?php echo ($order['sisa'] == 0) ? 'Lunas' : 'Belum Lunas'; ?>
+                                    </span>
+                                </td>
+                                <td class="px-4 py-2 text-sm text-center">
                                     <?php if (has_permission('Admin') || has_permission('Pegawai')) : ?>
-                                        <a href="edit.php?id=<?php echo htmlspecialchars($order['id_pesan']); ?>"
-                                            class="inline-block bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition">
-                                            Edit
-                                        </a>
-                                        <a href="delete.php?id=<?php echo htmlspecialchars($order['id_pesan']); ?>"
-                                            class="inline-block bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition"
-                                            onclick="return confirm('Apakah Anda yakin ingin menghapus pemesanan ini? Pastikan tidak ada transaksi terkait!');">
-                                            Hapus
-                                        </a>
+                                        <div class="flex justify-center space-x-1">
+                                            <a href="edit.php?id=<?php echo htmlspecialchars($order['id_pesan']); ?>"
+                                                class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 transition">
+                                                Edit
+                                            </a>
+                                            <a href="delete.php?id=<?php echo htmlspecialchars($order['id_pesan']); ?>"
+                                                class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 transition"
+                                                onclick="return confirm('Apakah Anda yakin ingin menghapus pemesanan ini?');">
+                                                Hapus
+                                            </a>
+                                        </div>
                                     <?php else : ?>
-                                        <span class="inline-block bg-gray-300 text-gray-500 px-3 py-1 rounded cursor-not-allowed">
-                                            Tidak Ada Aksi
-                                        </span>
+                                        <span class="text-gray-400 text-xs">-</span>
                                     <?php endif; ?>
                                 </td>
                             </tr>
