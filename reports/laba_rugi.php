@@ -17,37 +17,56 @@ if (empty($start_date) && empty($end_date)) {
     $end_date = date('Y-m-t');
 }
 
-$total_kas_masuk = 0;
-$total_kas_keluar = 0;
-$laba_rugi_bersih = 0;
+$total_pendapatan = 0;
+$biaya_bahan_baku = 0;
+$biaya_produksi = 0;
+$biaya_pengemasan = 0;
+$biaya_transportasi = 0;
+$biaya_lain_lain = 0;
+$total_operasional = 0;
+$laba_rugi = 0;
 
-// Query untuk total kas masuk
-$sql_kas_masuk = "SELECT SUM(jumlah) AS total FROM kas_masuk WHERE tgl_kas_masuk BETWEEN ? AND ?";
-$stmt_km = $conn->prepare($sql_kas_masuk);
-if ($stmt_km === false) {
-    set_flash_message("Error menyiapkan query kas masuk: " . $conn->error . " (Query: " . htmlspecialchars($sql_kas_masuk) . ")", "error");
-} else {
-    $stmt_km->bind_param("ss", $start_date, $end_date);
-    $stmt_km->execute();
-    $stmt_km->bind_result($total_kas_masuk);
-    $stmt_km->fetch();
-    $stmt_km->close();
+// Query untuk total pendapatan (kas masuk)
+$sql_pendapatan = "SELECT SUM(jumlah) AS total FROM kas_masuk WHERE tgl_kas_masuk BETWEEN ? AND ?";
+$stmt_pendapatan = $conn->prepare($sql_pendapatan);
+if ($stmt_pendapatan) {
+    $stmt_pendapatan->bind_param("ss", $start_date, $end_date);
+    $stmt_pendapatan->execute();
+    $stmt_pendapatan->bind_result($total_pendapatan);
+    $stmt_pendapatan->fetch();
+    $stmt_pendapatan->close();
 }
 
-// Query untuk total kas keluar
-$sql_kas_keluar = "SELECT SUM(jumlah) AS total FROM kas_keluar WHERE tgl_kas_keluar BETWEEN ? AND ?";
-$stmt_kk = $conn->prepare($sql_kas_keluar);
-if ($stmt_kk === false) {
-    set_flash_message("Error menyiapkan query kas keluar: " . $conn->error . " (Query: " . htmlspecialchars($sql_kas_keluar) . ")", "error");
-} else {
-    $stmt_kk->bind_param("ss", $start_date, $end_date);
-    $stmt_kk->execute();
-    $stmt_kk->bind_result($total_kas_keluar);
-    $stmt_kk->fetch();
-    $stmt_kk->close();
+// Query untuk biaya berdasarkan nama akun
+$sql_biaya = "SELECT a.nama_akun, SUM(kk.jumlah) AS total 
+              FROM kas_keluar kk 
+              JOIN akun a ON kk.id_akun = a.id_akun 
+              WHERE kk.tgl_kas_keluar BETWEEN ? AND ? 
+              GROUP BY a.nama_akun";
+$stmt_biaya = $conn->prepare($sql_biaya);
+if ($stmt_biaya) {
+    $stmt_biaya->bind_param("ss", $start_date, $end_date);
+    $stmt_biaya->execute();
+    $result_biaya = $stmt_biaya->get_result();
+    while ($row = $result_biaya->fetch_assoc()) {
+        $nama_akun = strtolower($row['nama_akun']);
+        if (strpos($nama_akun, 'bahan') !== false) {
+            $biaya_bahan_baku += $row['total'];
+        } elseif (strpos($nama_akun, 'produksi') !== false || strpos($nama_akun, 'gas') !== false || strpos($nama_akun, 'listrik') !== false) {
+            $biaya_produksi += $row['total'];
+        } elseif (strpos($nama_akun, 'kemas') !== false) {
+            $biaya_pengemasan += $row['total'];
+        } elseif (strpos($nama_akun, 'transport') !== false) {
+            $biaya_transportasi += $row['total'];
+        } else {
+            $biaya_lain_lain += $row['total'];
+        }
+    }
+    $stmt_biaya->close();
 }
 
-$laba_rugi_bersih = ($total_kas_masuk ?? 0) - ($total_kas_keluar ?? 0); // Use ?? 0 for potential NULLs from SUM
+$total_operasional = $biaya_bahan_baku + $biaya_produksi + $biaya_pengemasan + $biaya_transportasi + $biaya_lain_lain;
+$laba_rugi = ($total_pendapatan ?? 0) - $total_operasional;
 
 ?>
 
@@ -91,22 +110,52 @@ $laba_rugi_bersih = ($total_kas_masuk ?? 0) - ($total_kas_keluar ?? 0); // Use ?
         <?php else : // Jika tidak ada error SQL, tampilkan ringkasan laba rugi 
         ?>
             <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-md max-w-lg mx-auto">
-                <h2 class="text-xl font-bold text-gray-800 text-center mb-4">Ringkasan Laba Rugi Periode:</h2>
-                <p class="text-gray-600 text-center mb-4"><strong><?php echo htmlspecialchars(date('d F Y', strtotime($start_date))); ?></strong> s/d <strong><?php echo htmlspecialchars(date('d F Y', strtotime($end_date))); ?></strong></p>
+                <h2 class="text-xl font-bold text-gray-800 text-center mb-4">Laporan Laba Rugi</h2>
+                <p class="text-gray-600 text-center mb-6"><strong><?php echo htmlspecialchars(date('d F Y', strtotime($start_date))); ?></strong> s/d <strong><?php echo htmlspecialchars(date('d F Y', strtotime($end_date))); ?></strong></p>
 
                 <div class="flex justify-between py-2 border-b border-gray-200">
-                    <span class="text-gray-700">Total Kas Masuk:</span>
-                    <span class="text-green-600 font-bold"><?php echo format_rupiah($total_kas_masuk ?? 0); ?></span>
+                    <span class="text-gray-700 font-semibold">Total Pendapatan:</span>
+                    <span class="text-green-600 font-bold"><?php echo format_rupiah($total_pendapatan ?? 0); ?></span>
                 </div>
-                <div class="flex justify-between py-2 border-b border-gray-200">
-                    <span class="text-gray-700">Total Kas Keluar:</span>
-                    <span class="text-red-600 font-bold"><?php echo format_rupiah($total_kas_keluar ?? 0); ?></span>
+
+                <div class="mt-4 mb-2">
+                    <span class="text-gray-700 font-semibold">Biaya Operasional:</span>
                 </div>
-                <hr class="my-4 border-t-2 border-gray-300">
+
+                <div class="flex justify-between py-1 pl-4">
+                    <span class="text-gray-600">Biaya Bahan Baku:</span>
+                    <span class="text-red-600"><?php echo format_rupiah($biaya_bahan_baku); ?></span>
+                </div>
+
+                <div class="flex justify-between py-1 pl-4">
+                    <span class="text-gray-600">Biaya Produksi (Gas/Listrik):</span>
+                    <span class="text-red-600"><?php echo format_rupiah($biaya_produksi); ?></span>
+                </div>
+
+                <div class="flex justify-between py-1 pl-4">
+                    <span class="text-gray-600">Biaya Pengemasan:</span>
+                    <span class="text-red-600"><?php echo format_rupiah($biaya_pengemasan); ?></span>
+                </div>
+
+                <div class="flex justify-between py-1 pl-4">
+                    <span class="text-gray-600">Biaya Transportasi:</span>
+                    <span class="text-red-600"><?php echo format_rupiah($biaya_transportasi); ?></span>
+                </div>
+
+                <div class="flex justify-between py-1 pl-4 border-b border-gray-200 pb-2">
+                    <span class="text-gray-600">Biaya Lain-lain:</span>
+                    <span class="text-red-600"><?php echo format_rupiah($biaya_lain_lain); ?></span>
+                </div>
+
+                <div class="flex justify-between py-2 border-b border-gray-300 font-semibold">
+                    <span class="text-gray-700">Total Operasional:</span>
+                    <span class="text-red-600"><?php echo format_rupiah($total_operasional); ?></span>
+                </div>
+
                 <div class="flex justify-between pt-4 font-extrabold text-lg">
-                    <span class="text-gray-800">Laba/Rugi Bersih:</span>
-                    <span class="<?php echo ($laba_rugi_bersih >= 0) ? 'text-green-600' : 'text-red-600'; ?>">
-                        <?php echo format_rupiah($laba_rugi_bersih); ?>
+                    <span class="text-gray-800">Laba Rugi:</span>
+                    <span class="<?php echo ($laba_rugi >= 0) ? 'text-green-600' : 'text-red-600'; ?>">
+                        <?php echo format_rupiah($laba_rugi); ?> <?php echo ($laba_rugi >= 0) ? '(Laba)' : '(Rugi)'; ?>
                     </span>
                 </div>
             </div>
