@@ -91,8 +91,19 @@ $saldo_kas_saat_ini = $total_all_kas_masuk - $total_all_kas_keluar;
 </div>
 
 <style>
+    /* Responsive sidebar untuk mobile */
+    @media (max-width: 768px) {
+        .sidebar-mobile-hidden {
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+
+        .main-content-mobile {
+            margin-left: 0 !important;
+        }
+    }
+
     /* Styling legacy untuk fallback jika Tailwind tidak aktif */
-    /* Hapus jika semua styling sudah menggunakan Tailwind */
     .dashboard-summary {
         margin-top: 30px;
     }

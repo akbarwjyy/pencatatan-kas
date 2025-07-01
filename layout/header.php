@@ -35,30 +35,42 @@ $relative_path = get_relative_path_to_root();
     <title>Aplikasi Pencatatan Kas Ampyang Cap Garuda - <?php echo ucwords(str_replace('_', ' ', basename($_SERVER['PHP_SELF'], '.php'))); ?></title>
     <link rel="stylesheet" href="<?php echo $relative_path; ?>assets/css/style.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 </head>
 
 <body class="bg-gray-100 min-h-screen">
-    <header class="bg-gray-900 text-white shadow-lg">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between px-8 py-4">
-            <div class="flex items-center gap-3">
-                <!-- <span class="text-3xl">🍬</span> -->
-                <h1 class="text-xl md:text-2xl font-extrabold tracking-wide">Aplikasi Pencatatan Kas Ampyang Cap Garuda</h1>
-            </div>
-            <div class="mt-2 md:mt-0 flex items-center gap-2">
-                <span class="text-lg">👤</span>
-                <span class="font-semibold">Selamat datang, <span class="underline decoration-white"><?php echo htmlspecialchars($user_name); ?></span></span>
-                <span class="ml-2 text-sm">(Jabatan: <span class="font-semibold text-yellow-200"><?php echo htmlspecialchars($user_role); ?></span>)</span>
-            </div>
-        </div>
-        <?php
-        if ($current_page !== 'login.php') {
-            include 'sidebar.php';
-        }
-        ?>
-    </header>
-    <div class="wrapper px-4 md:px-8 pt-6">
-        <div class="main-content">
-            <?php
-            // Tampilkan pesan flash jika ada
-            echo display_flash_message();
-            ?>
+    <div class="flex">
+        <?php if ($current_page !== 'login.php') : ?>
+            <!-- Sidebar -->
+            <?php include 'sidebar.php'; ?>
+        <?php endif; ?>
+
+        <!-- Main Content -->
+        <div class="flex-1 <?php echo ($current_page !== 'login.php') ? 'md:ml-64' : ''; ?>">
+            <header class="bg-gray-900 text-white shadow-lg sticky top-0 z-30">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between px-8 py-4">
+                    <div class="flex items-center gap-3">
+                        <!-- Mobile Menu Toggle -->
+                        <button onclick="document.getElementById('sidebar').classList.toggle('hidden')" class="md:hidden mr-3 focus:outline-none">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                        </button>
+                        <h1 class="text-xl md:text-2xl font-extrabold tracking-wide">Aplikasi Pencatatan Kas Ampyang Cap Garuda</h1>
+                    </div>
+                    <div class="mt-2 md:mt-0 flex items-center gap-2">
+                        <span class="text-lg">👤</span>
+                        <span class="font-semibold">Selamat datang, <span class="underline decoration-white"><?php echo htmlspecialchars($user_name); ?></span></span>
+                        <span class="ml-2 text-sm">(Jabatan: <span class="font-semibold text-yellow-200"><?php echo htmlspecialchars($user_role); ?></span>)</span>
+                        <?php if ($current_page !== 'login.php') : ?>
+                            <a href="<?php echo $relative_path; ?>logout.php" class="ml-4 py-2 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold shadow transition">Logout</a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </header>
+            <div class="wrapper px-4 md:px-8 pt-6">
+                <div class="main-content">
+                    <?php
+                    // Tampilkan pesan flash jika ada
+                    echo display_flash_message();
+                    ?>
