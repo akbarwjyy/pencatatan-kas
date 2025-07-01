@@ -13,6 +13,7 @@ $id_pesan_error = $id_customer_error = $tgl_pesan_error = $tgl_kirim_error = $qu
 
 // Inisialisasi variabel data. Variabel numerik diinisialisasi dengan 0.
 $id_pesan = $id_customer = $tgl_pesan = $tgl_kirim = $keterangan = '';
+$status_pembayaran = 'Belum Lunas';
 $quantity = 0;
 $uang_muka = 0;
 $sub_total = 0;
@@ -48,6 +49,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $quantity = sanitize_input($_POST['quantity'] ?? 0);
     $harga_satuan_input = sanitize_input($_POST['harga_satuan'] ?? 0);
     $uang_muka = sanitize_input($_POST['uang_muka'] ?? 0);
+    $status_pembayaran = sanitize_input($_POST['status_pembayaran'] ?? 'Belum Lunas');
     $keterangan = sanitize_input($_POST['keterangan'] ?? '');
 
     // Validasi field satu per satu
@@ -184,12 +186,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
                     <span class="text-red-500 text-xs italic mt-1 block"><?php echo $tgl_kirim_error; ?></span>
                 </div>
-                <div class="mb-6">
-                    <label for="keterangan" class="block text-gray-700 text-sm font-bold mb-2">Keterangan:</label>
-                    <input type="text" id="keterangan" name="keterangan" value="<?php echo htmlspecialchars($keterangan); ?>" required maxlength="30"
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-                    <span class="text-red-500 text-xs italic mt-1 block"><?php echo $keterangan_error ?? ''; ?></span>
-                </div>
+
             </div>
 
             <div>
@@ -207,7 +204,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
                 <div class="mb-4">
                     <label class="block text-gray-700 text-sm font-bold mb-2">Total Harga:</label>
-                    <input type="text" value="<?php echo format_rupiah($sub_total); ?>" disabled
+                    <input type="text" id="total_harga" value="<?php echo format_rupiah($sub_total); ?>" disabled
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
                 </div>
                 <div class="mb-4">
@@ -218,13 +215,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
                 <div class="mb-4">
                     <label class="block text-gray-700 text-sm font-bold mb-2">Sisa Pembayaran:</label>
-                    <input type="text" value="<?php echo format_rupiah($sisa); ?>" disabled
+                    <input type="text" id="sisa_pembayaran" value="<?php echo format_rupiah($sisa); ?>" disabled
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
                 </div>
                 <div class="mb-6">
-                    <label class="block text-gray-700 text-sm font-bold mb-2">Status Pembayaran:</label>
-                    <input type="text" value="<?php echo ($sisa == 0 && $sub_total > 0) ? 'Lunas' : 'Pending'; ?>" disabled
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
+                    <label for="status_pembayaran" class="block text-gray-700 text-sm font-bold mb-2">Status Pembayaran:</label>
+                    <select id="status_pembayaran" name="status_pembayaran" required
+                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+                        <option value="Belum Lunas" <?php echo (($sisa > 0 || $sub_total == 0) ? 'selected' : ''); ?>>Belum Lunas</option>
+                        <option value="Lunas" <?php echo (($sisa == 0 && $sub_total > 0) ? 'selected' : ''); ?>>Lunas</option>
+                    </select>
                 </div>
             </div>
         </div>
@@ -245,6 +245,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </div>
     </form>
 </div>
+
+<script>
+    function formatRupiah(angka) {
+        return 'Rp ' + angka.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+
+    function hitungTotal() {
+        const quantity = parseInt(document.getElementById('quantity').value) || 0;
+        const hargaSatuan = parseInt(document.getElementById('harga_satuan').value) || 0;
+        const uangMuka = parseInt(document.getElementById('uang_muka').value) || 0;
+
+        const totalHarga = quantity * hargaSatuan;
+        const sisaPembayaran = totalHarga - uangMuka;
+
+        document.getElementById('total_harga').value = formatRupiah(totalHarga);
+        document.getElementById('sisa_pembayaran').value = formatRupiah(sisaPembayaran);
+
+        const status = (sisaPembayaran <= 0 && totalHarga > 0) ? 'Lunas' : 'Belum Lunas';
+        document.getElementById('status_pembayaran').value = status;
+    }
+
+    document.getElementById('quantity').addEventListener('input', hitungTotal);
+    document.getElementById('harga_satuan').addEventListener('input', hitungTotal);
+    document.getElementById('uang_muka').addEventListener('input', hitungTotal);
+
+    document.addEventListener('DOMContentLoaded', hitungTotal);
+</script>
 
 <?php
 // Sertakan footer
