@@ -25,23 +25,17 @@ if ($account_result->num_rows > 0) {
 if (isset($_GET['id']) && !empty(trim($_GET['id']))) {
     $id_kas_masuk_dari_url = sanitize_input(trim($_GET['id']));
 
-    // Ambil data kas masuk berdasarkan ID, pastikan tidak terkait dengan transaksi
-    $sql = "SELECT id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan FROM kas_masuk WHERE id_kas_masuk = ? AND id_transaksi IS NULL";
+    // Ambil data kas masuk berdasarkan ID (tanpa batasan transaksi)
+    $sql = "SELECT id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan FROM kas_masuk WHERE id_kas_masuk = ?";
     if ($stmt = $conn->prepare($sql)) {
         $stmt->bind_param("s", $id_kas_masuk_dari_url);
         if ($stmt->execute()) {
             $stmt->store_result();
             if ($stmt->num_rows == 1) {
                 $stmt->bind_result($id_kas_masuk, $id_transaksi_related, $tgl_kas_masuk, $jumlah, $keterangan);
-
-                // Periksa jika ternyata ada id_transaksi, maka tidak bisa diedit via sini
-                if (!empty($id_transaksi_related)) {
-                    set_flash_message("Entri kas masuk ini terkait dengan transaksi dan tidak dapat diedit langsung. Silakan edit melalui modul Transaksi.", "error");
-                    redirect('index.php');
-                }
                 $stmt->fetch();
             } else {
-                set_flash_message("Kas Masuk tidak ditemukan atau tidak dapat diedit melalui halaman ini (mungkin terkait transaksi).", "error");
+                set_flash_message("Kas Masuk tidak ditemukan.", "error");
                 redirect('index.php');
             }
         } else {
@@ -90,7 +84,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Jika tidak ada error validasi, coba update ke database
     if (empty($tgl_kas_masuk_error) && empty($jumlah_error) && empty($keterangan_error) && empty($id_akun_error)) {
         // Query untuk update data kas masuk
-        $sql = "UPDATE kas_masuk SET tgl_kas_masuk = ?, jumlah = ?, keterangan = ? WHERE id_kas_masuk = ? AND id_transaksi IS NULL";
+        $sql = "UPDATE kas_masuk SET tgl_kas_masuk = ?, jumlah = ?, keterangan = ? WHERE id_kas_masuk = ?";
 
         if ($stmt = $conn->prepare($sql)) {
             $stmt->bind_param("siss", $tgl_kas_masuk_baru, $jumlah_baru, $keterangan_baru, $id_kas_masuk_edit);

@@ -186,16 +186,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
                     <span class="text-red-500 text-xs italic mt-1 block"><?php echo $tgl_kirim_error; ?></span>
                 </div>
-
-            </div>
-
-            <div>
                 <div class="mb-4">
                     <label for="quantity" class="block text-gray-700 text-sm font-bold mb-2">Jumlah Ampyang:</label>
                     <input type="number" id="quantity" name="quantity" value="<?php echo htmlspecialchars($quantity); ?>" required min="1"
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
                     <span class="text-red-500 text-xs italic mt-1 block"><?php echo $quantity_error; ?></span>
                 </div>
+
+
+            </div>
+
+            <div>
                 <div class="mb-4">
                     <label for="harga_satuan" class="block text-gray-700 text-sm font-bold mb-2">Harga satuan:</label>
                     <input type="number" id="harga_satuan" name="harga_satuan" value="<?php echo htmlspecialchars($harga_satuan_input); ?>" required min="1"
