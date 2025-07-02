@@ -71,17 +71,17 @@ usort($entries, function ($a, $b) {
 
 <div class="container mx-auto px-4 py-8">
     <div class="bg-white rounded-lg shadow-md p-6">
-        <h1 class="text-2xl font-bold text-gray-800 mb-4">Laporan Jurnal Umum Kas</h1>
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">Laporan Jurnal Per Periode</h1>
         <p class="text-gray-600 mb-6">Menampilkan semua pergerakan kas (masuk dan keluar) secara kronologis.</p>
 
         <form action="" method="get" class="mb-6 p-4 bg-gray-50 rounded-lg shadow-sm flex flex-wrap items-end gap-4">
             <div class="flex-1 min-w-[200px]">
-                <label for="start_date" class="block text-gray-700 text-sm font-bold mb-2">Dari Tanggal:</label>
+                <label for="start_date" class="block text-gray-700 text-sm font-bold mb-2">Tanggal Awal:</label>
                 <input type="date" id="start_date" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>"
                     class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-blue-500">
             </div>
             <div class="flex-1 min-w-[200px]">
-                <label for="end_date" class="block text-gray-700 text-sm font-bold mb-2">Sampai Tanggal:</label>
+                <label for="end_date" class="block text-gray-700 text-sm font-bold mb-2">Tanggal Akhir :</label>
                 <input type="date" id="end_date" name="end_date" value="<?php echo htmlspecialchars($end_date); ?>"
                     class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-blue-500">
             </div>
