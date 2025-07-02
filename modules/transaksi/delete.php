@@ -26,8 +26,9 @@ if (isset($_GET['id']) && !empty(trim($_GET['id']))) {
             $stmt_get->fetch();
             $stmt_get->close();
 
-            if (empty($related_id_pesan)) {
-                throw new Exception("Transaksi tidak ditemukan atau tidak memiliki pemesanan terkait.");
+            // Cek apakah transaksi ditemukan
+            if ($related_jumlah_dibayar === null) {
+                throw new Exception("Transaksi tidak ditemukan.");
             }
         } else {
             throw new Exception("Error prepared statement (get transaksi): " . $conn->error);
@@ -57,22 +58,28 @@ if (isset($_GET['id']) && !empty(trim($_GET['id']))) {
             throw new Exception("Error prepared statement (delete transaksi): " . $conn->error);
         }
 
-        // 4. Perbarui sisa pembayaran di tabel pemesanan yang terkait
-        // Tambahkan kembali jumlah yang dibayar ke sisa pemesanan
-        $sql_update_pemesanan = "UPDATE pemesanan SET sisa = sisa + ?, status_pesanan = 'Belum Lunas' WHERE id_pesan = ?";
-        if ($stmt_update_pemesanan = $conn->prepare($sql_update_pemesanan)) {
-            $stmt_update_pemesanan->bind_param("is", $related_jumlah_dibayar, $related_id_pesan);
-            if (!$stmt_update_pemesanan->execute()) {
-                throw new Exception("Gagal memperbarui sisa pemesanan terkait: " . $stmt_update_pemesanan->error);
+        // 4. Perbarui sisa pembayaran di tabel pemesanan yang terkait (jika ada)
+        if (!empty($related_id_pesan)) {
+            // Tambahkan kembali jumlah yang dibayar ke sisa pemesanan
+            $sql_update_pemesanan = "UPDATE pemesanan SET sisa = sisa + ?, status_pesanan = 'Belum Lunas' WHERE id_pesan = ?";
+            if ($stmt_update_pemesanan = $conn->prepare($sql_update_pemesanan)) {
+                $stmt_update_pemesanan->bind_param("is", $related_jumlah_dibayar, $related_id_pesan);
+                if (!$stmt_update_pemesanan->execute()) {
+                    throw new Exception("Gagal memperbarui sisa pemesanan terkait: " . $stmt_update_pemesanan->error);
+                }
+                $stmt_update_pemesanan->close();
+            } else {
+                throw new Exception("Error prepared statement (update pemesanan): " . $conn->error);
             }
-            $stmt_update_pemesanan->close();
-        } else {
-            throw new Exception("Error prepared statement (update pemesanan): " . $conn->error);
         }
 
         // Commit transaksi jika semua berhasil
         $conn->commit();
-        set_flash_message("Transaksi dan entri kas masuk terkait berhasil dihapus! Sisa pemesanan telah diperbarui.", "success");
+        $success_message = "Transaksi dan entri kas masuk terkait berhasil dihapus!";
+        if (!empty($related_id_pesan)) {
+            $success_message .= " Sisa pemesanan telah diperbarui.";
+        }
+        set_flash_message($success_message, "success");
     } catch (Exception $e) {
         // Rollback transaksi jika ada error
         $conn->rollback();

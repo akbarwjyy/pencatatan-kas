@@ -159,8 +159,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Mulai transaksi database
         $conn->begin_transaction();
         try {
-            // 1. Rollback perubahan pada pemesanan lama (jika id_pesan berubah atau jumlah dibayar berubah)
-            if ($old_id_pesan_post != $id_pesan_baru || $old_jumlah_dibayar_post != $jumlah_dibayar_baru) {
+            // 1. Rollback perubahan pada pemesanan lama (jika ada dan jika id_pesan berubah atau jumlah dibayar berubah)
+            if (!empty($old_id_pesan_post) && ($old_id_pesan_post != $id_pesan_baru || $old_jumlah_dibayar_post != $jumlah_dibayar_baru)) {
                 // Tambahkan kembali jumlah yang dibayar sebelumnya ke sisa pemesanan lama
                 $sql_rollback_old_pemesanan = "UPDATE pemesanan SET sisa = sisa + ?, status_pesanan = 'Belum Lunas' WHERE id_pesan = ?";
                 if ($stmt_rollback = $conn->prepare($sql_rollback_old_pemesanan)) {
@@ -202,16 +202,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 throw new Exception("Error prepared statement (update transaksi): " . $conn->error);
             }
 
-            // 3. Update sisa pembayaran di tabel pemesanan baru
-            $sql_update_pemesanan_baru = "UPDATE pemesanan SET sisa = ?, status_pesanan = ? WHERE id_pesan = ?";
-            if ($stmt_update_pemesanan_baru = $conn->prepare($sql_update_pemesanan_baru)) {
-                $stmt_update_pemesanan_baru->bind_param("iss", $sisa_pembayaran_display, $status_pelunasan_baru, $id_pesan_baru);
-                if (!$stmt_update_pemesanan_baru->execute()) {
-                    throw new Exception("Gagal memperbarui pemesanan baru: " . $stmt_update_pemesanan_baru->error);
+            // 3. Update sisa pembayaran di tabel pemesanan baru (jika ada)
+            if (!empty($id_pesan_baru)) {
+                $sql_update_pemesanan_baru = "UPDATE pemesanan SET sisa = ?, status_pesanan = ? WHERE id_pesan = ?";
+                if ($stmt_update_pemesanan_baru = $conn->prepare($sql_update_pemesanan_baru)) {
+                    $stmt_update_pemesanan_baru->bind_param("iss", $sisa_pembayaran_display, $status_pelunasan_baru, $id_pesan_baru);
+                    if (!$stmt_update_pemesanan_baru->execute()) {
+                        throw new Exception("Gagal memperbarui pemesanan baru: " . $stmt_update_pemesanan_baru->error);
+                    }
+                    $stmt_update_pemesanan_baru->close();
+                } else {
+                    throw new Exception("Error prepared statement (update pemesanan baru): " . $conn->error);
                 }
-                $stmt_update_pemesanan_baru->close();
-            } else {
-                throw new Exception("Error prepared statement (update pemesanan baru): " . $conn->error);
             }
 
             // 4. Update entri kas_masuk terkait transaksi ini
