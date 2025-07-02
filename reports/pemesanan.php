@@ -90,11 +90,121 @@ if ($stmt === false) {
                     Reset Filter
                 </a>
                 <button type="button" onclick="window.print()"
-                    class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ml-2">
+                    class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ml-2 print:hidden">
                     Cetak Laporan
                 </button>
             </div>
         </form>
+
+        <style>
+            @media print {
+                .print\:hidden {
+                    display: none !important;
+                }
+
+                .bg-gray-50 {
+                    background: white !important;
+                }
+
+                .shadow-md,
+                .shadow-sm {
+                    box-shadow: none !important;
+                }
+
+                .rounded-lg {
+                    border-radius: 0 !important;
+                }
+
+                .container {
+                    max-width: none !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                }
+
+                .px-4,
+                .py-8 {
+                    padding: 0 !important;
+                }
+
+                .p-6 {
+                    padding: 8px !important;
+                }
+
+                .mb-6,
+                .mb-4 {
+                    margin-bottom: 8px !important;
+                }
+
+                .text-gray-600 {
+                    color: black !important;
+                }
+
+                .text-gray-800 {
+                    color: black !important;
+                }
+
+                .text-gray-500 {
+                    color: black !important;
+                }
+
+                .text-gray-900 {
+                    color: black !important;
+                }
+
+                .bg-gray-100 {
+                    background: #f5f5f5 !important;
+                }
+
+                .hover\:bg-gray-50:hover {
+                    background: white !important;
+                }
+
+                .px-3 {
+                    padding-left: 4px !important;
+                    padding-right: 4px !important;
+                }
+
+                .py-2 {
+                    padding-top: 2px !important;
+                    padding-bottom: 2px !important;
+                }
+
+                .text-xs {
+                    font-size: 10px !important;
+                }
+
+                .text-sm {
+                    font-size: 11px !important;
+                }
+
+                .overflow-x-auto {
+                    overflow: visible !important;
+                }
+
+                .min-w-full {
+                    min-width: auto !important;
+                }
+
+                .bg-green-100,
+                .bg-yellow-100 {
+                    background: white !important;
+                }
+
+                .text-green-800,
+                .text-yellow-800 {
+                    color: black !important;
+                }
+
+                .rounded-full {
+                    border-radius: 0 !important;
+                    border: 1px solid black !important;
+                }
+
+                thead {
+                    display: none !important;
+                }
+            }
+        </style>
 
         <?php if (empty($orders)) : ?>
             <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6">
@@ -105,14 +215,16 @@ if ($stmt === false) {
                 <table class="min-w-full bg-white border border-gray-200">
                     <thead class="bg-gray-100">
                         <tr>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">ID Pesan</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Pesan</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Kirim</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Uang Muka</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Sub Total</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Sisa</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Pesan</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Kirim</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Nama Customer</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Jumlah Ampyang</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Total Harga</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Uang Muka</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Sisa Pembayaran</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Status Pembayaran</th>
+                            <th class="px-3 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase print:hidden">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
@@ -128,24 +240,43 @@ if ($stmt === false) {
                             $total_sisa += ($order['sisa'] ?? 0); // Use ?? 0 for potential NULLs
                         ?>
                             <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars($order['id_pesan']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($order['nama_customer']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($order['tgl_pesan']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($order['tgl_kirim']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($order['quantity']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo format_rupiah($order['uang_muka'] ?? 0); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo format_rupiah($order['sub_total'] ?? 0); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo format_rupiah($order['sisa'] ?? 0); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-500"><?php echo htmlspecialchars($order['id_pesan']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($order['tgl_pesan']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($order['tgl_kirim']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($order['nama_customer']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($order['quantity']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($order['sub_total'] ?? 0); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($order['uang_muka'] ?? 0); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($order['sisa'] ?? 0); ?></td>
+                                <td class="px-3 py-2 text-sm">
+                                    <span class="px-2 py-1 text-xs rounded-full <?php echo ($order['sisa'] == 0) ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'; ?>">
+                                        <?php echo ($order['sisa'] == 0) ? 'Lunas' : 'Belum Lunas'; ?>
+                                    </span>
+                                </td>
+                                <td class="px-3 py-2 text-sm text-center print:hidden">
+                                    <div class="flex justify-center space-x-1">
+                                        <a href="../modules/pemesanan/edit.php?id=<?php echo htmlspecialchars($order['id_pesan']); ?>"
+                                            class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 transition">
+                                            Edit
+                                        </a>
+                                        <a href="../modules/pemesanan/delete.php?id=<?php echo htmlspecialchars($order['id_pesan']); ?>"
+                                            class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 transition"
+                                            onclick="return confirm('Apakah Anda yakin ingin menghapus pemesanan ini?');">
+                                            Hapus
+                                        </a>
+                                    </div>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                     <tfoot>
                         <tr class="bg-gray-100 font-bold">
-                            <td colspan="4" class="px-6 py-3 border-t text-right text-xs uppercase text-gray-700">Total:</td>
-                            <td class="px-6 py-3 border-t text-sm text-gray-900"><?php echo htmlspecialchars($total_quantity); ?></td>
-                            <td class="px-6 py-3 border-t text-sm text-gray-900"><?php echo format_rupiah($total_uang_muka); ?></td>
-                            <td class="px-6 py-3 border-t text-sm text-gray-900"><?php echo format_rupiah($total_sub_total); ?></td>
-                            <td class="px-6 py-3 border-t text-sm text-gray-900"><?php echo format_rupiah($total_sisa); ?></td>
+                            <td colspan="4" class="px-3 py-2 border-t text-right text-xs uppercase text-gray-700">Total:</td>
+                            <td class="px-3 py-2 border-t text-sm text-gray-900"><?php echo htmlspecialchars($total_quantity); ?></td>
+                            <td class="px-3 py-2 border-t text-sm text-gray-900"><?php echo format_rupiah($total_sub_total); ?></td>
+                            <td class="px-3 py-2 border-t text-sm text-gray-900"><?php echo format_rupiah($total_uang_muka); ?></td>
+                            <td class="px-3 py-2 border-t text-sm text-gray-900"><?php echo format_rupiah($total_sisa); ?></td>
+                            <td class="px-3 py-2 border-t print:hidden"></td>
                         </tr>
                     </tfoot>
                 </table>
