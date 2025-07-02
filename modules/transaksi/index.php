@@ -44,41 +44,39 @@ if ($result->num_rows > 0) {
                 <table class="min-w-full bg-white border border-gray-200">
                     <thead class="bg-gray-100">
                         <tr>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">ID Transaksi</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">No. Pesan</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Transaksi</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Jumlah Dibayar</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Metode Pembayaran</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Total Tagihan Pemesanan</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Sisa Pembayaran Setelah Ini</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Status Pelunasan</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Pesan</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Metode</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th class="px-3 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
                         <?php foreach ($transactions as $transaction) : ?>
                             <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars($transaction['id_transaksi']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['no_pesan']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['nama_customer']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['tgl_transaksi']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo format_rupiah($transaction['jumlah_dibayar']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['metode_pembayaran']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['keterangan']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo format_rupiah($transaction['total_tagihan_pemesanan'] ?? 0); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo format_rupiah($transaction['sisa_pemesanan'] ?? 0); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['status_pelunasan']); ?></td>
-                                <td class="px-6 py-4 text-sm">
-                                    <div class="flex gap-2">
+                                <td class="px-3 py-2 text-sm text-gray-500"><?php echo htmlspecialchars($transaction['id_transaksi']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['no_pesan'] ?? '-'); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['nama_customer']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['tgl_transaksi']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($transaction['jumlah_dibayar']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['metode_pembayaran']); ?></td>
+                                <td class="px-3 py-2 text-sm">
+                                    <span class="px-2 py-1 text-xs rounded-full <?php echo ($transaction['status_pelunasan'] == 'Lunas') ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'; ?>">
+                                        <?php echo htmlspecialchars($transaction['status_pelunasan'] ?? 'Belum Lunas'); ?>
+                                    </span>
+                                </td>
+                                <td class="px-3 py-2 text-sm text-center">
+                                    <div class="flex justify-center space-x-1">
                                         <a href="edit.php?id=<?php echo htmlspecialchars($transaction['id_transaksi']); ?>"
-                                            class="inline-block bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition">
+                                            class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 transition">
                                             Edit
                                         </a>
                                         <a href="delete.php?id=<?php echo htmlspecialchars($transaction['id_transaksi']); ?>"
-                                            class="inline-block bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition"
-                                            onclick="return confirm('Apakah Anda yakin ingin menghapus transaksi ini? Ini akan mempengaruhi data kas masuk dan pemesanan terkait!');">
+                                            class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 transition"
+                                            onclick="return confirm('Apakah Anda yakin ingin menghapus transaksi ini?');">
                                             Hapus
                                         </a>
                                     </div>

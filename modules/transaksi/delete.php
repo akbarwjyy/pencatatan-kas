@@ -59,7 +59,7 @@ if (isset($_GET['id']) && !empty(trim($_GET['id']))) {
 
         // 4. Perbarui sisa pembayaran di tabel pemesanan yang terkait
         // Tambahkan kembali jumlah yang dibayar ke sisa pemesanan
-        $sql_update_pemesanan = "UPDATE pemesanan SET sisa = sisa + ?, status_pelunasan = 'Belum Lunas' WHERE id_pesan = ?";
+        $sql_update_pemesanan = "UPDATE pemesanan SET sisa = sisa + ?, status_pesanan = 'Belum Lunas' WHERE id_pesan = ?";
         if ($stmt_update_pemesanan = $conn->prepare($sql_update_pemesanan)) {
             $stmt_update_pemesanan->bind_param("is", $related_jumlah_dibayar, $related_id_pesan);
             if (!$stmt_update_pemesanan->execute()) {

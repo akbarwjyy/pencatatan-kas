@@ -162,7 +162,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // 1. Rollback perubahan pada pemesanan lama (jika id_pesan berubah atau jumlah dibayar berubah)
             if ($old_id_pesan_post != $id_pesan_baru || $old_jumlah_dibayar_post != $jumlah_dibayar_baru) {
                 // Tambahkan kembali jumlah yang dibayar sebelumnya ke sisa pemesanan lama
-                $sql_rollback_old_pemesanan = "UPDATE pemesanan SET sisa = sisa + ?, status_pelunasan = 'Belum Lunas' WHERE id_pesan = ?";
+                $sql_rollback_old_pemesanan = "UPDATE pemesanan SET sisa = sisa + ?, status_pesanan = 'Belum Lunas' WHERE id_pesan = ?";
                 if ($stmt_rollback = $conn->prepare($sql_rollback_old_pemesanan)) {
                     $stmt_rollback->bind_param("is", $old_jumlah_dibayar_post, $old_id_pesan_post);
                     if (!$stmt_rollback->execute()) {
@@ -178,10 +178,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $status_pelunasan_baru = ($sisa_pembayaran_display == 0) ? 'Lunas' : 'Belum Lunas';
 
             // 2. Update data transaksi
-            $sql_transaksi_update = "UPDATE transaksi SET id_pesan = ?, id_akun = ?, id_customer = ?, tgl_transaksi = ?, jumlah_dibayar = ?, metode_pembayaran = ?, keterangan = ?, total_tagihan = ?, sisa_pembayaran = ?, status_pelunasan = ? WHERE id_transaksi = ?";
+            $sql_transaksi_update = "UPDATE transaksi SET id_pesan = ?, id_akun = ?, id_customer = ?, tgl_transaksi = ?, jumlah_dibayar = ?, metode_pembayaran = ?, keterangan = ?, total_tagihan = ?, sisa_pembayaran = ? WHERE id_transaksi = ?";
             if ($stmt_transaksi_update = $conn->prepare($sql_transaksi_update)) {
                 $stmt_transaksi_update->bind_param(
-                    "sssssisssis",
+                    "sssssissis",
                     $id_pesan_baru,
                     $id_akun_baru,
                     $id_customer_related_baru,
@@ -191,7 +191,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $keterangan_baru,
                     $total_tagihan_pemesanan_baru,
                     $sisa_pembayaran_display,
-                    $status_pelunasan_baru,
                     $id_transaksi_edit
                 );
 
@@ -204,7 +203,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
 
             // 3. Update sisa pembayaran di tabel pemesanan baru
-            $sql_update_pemesanan_baru = "UPDATE pemesanan SET sisa = ?, status_pelunasan = ? WHERE id_pesan = ?";
+            $sql_update_pemesanan_baru = "UPDATE pemesanan SET sisa = ?, status_pesanan = ? WHERE id_pesan = ?";
             if ($stmt_update_pemesanan_baru = $conn->prepare($sql_update_pemesanan_baru)) {
                 $stmt_update_pemesanan_baru->bind_param("iss", $sisa_pembayaran_display, $status_pelunasan_baru, $id_pesan_baru);
                 if (!$stmt_update_pemesanan_baru->execute()) {
