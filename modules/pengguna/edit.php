@@ -172,6 +172,4 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 </form>
 
 <?php
-// Sertakan footer
-require_once '../../layout/footer.php';
 ?>

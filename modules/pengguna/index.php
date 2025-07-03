@@ -91,6 +91,4 @@ if (!$conn) {
 </div>
 
 <?php
-// Sertakan footer
-require_once '../../layout/footer.php';
 ?>

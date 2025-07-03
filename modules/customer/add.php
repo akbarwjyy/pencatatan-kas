@@ -84,46 +84,47 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 ?>
 
-<div class="bg-white p-8 rounded-lg shadow-xl max-w-md mx-auto my-8">
-    <h1 class="text-2xl font-bold text-gray-800 mb-4 text-center">Tambah Customer Baru</h1>
-    <p class="text-gray-600 mb-6 text-center">Isi formulir di bawah ini untuk menambahkan data pelanggan baru.</p>
+<div class="min-h-screen flex items-center justify-center py-8">
+    <div class="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4">
+        <h1 class="text-2xl font-bold text-gray-800 mb-4 text-center">Tambah Customer</h1>
 
-    <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
-        <div class="mb-4">
-            <label for="id_customer" class="block text-gray-700 text-sm font-bold mb-2">ID Customer:</label>
-            <input type="text" id="id_customer" name="id_customer" value="<?php echo htmlspecialchars($id_customer); ?>" required maxlength="8"
-                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $id_customer_error; ?></span>
-        </div>
-        <div class="mb-4">
-            <label for="nama_customer" class="block text-gray-700 text-sm font-bold mb-2">Nama Customer:</label>
-            <input type="text" id="nama_customer" name="nama_customer" value="<?php echo htmlspecialchars($nama_customer); ?>" required maxlength="20"
-                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $nama_customer_error; ?></span>
-        </div>
-        <div class="mb-4">
-            <label for="no_hp" class="block text-gray-700 text-sm font-bold mb-2">No. HP:</label>
-            <input type="text" id="no_hp" name="no_hp" value="<?php echo htmlspecialchars($no_hp); ?>" required maxlength="13"
-                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $no_hp_error; ?></span>
-        </div>
-        <div class="mb-6">
-            <label for="alamat" class="block text-gray-700 text-sm font-bold mb-2">Alamat:</label>
-            <input type="text" id="alamat" name="alamat" value="<?php echo htmlspecialchars($alamat); ?>" required maxlength="20"
-                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $alamat_error; ?></span>
-        </div>
-        <div class="flex items-center justify-between">
-            <button type="submit"
-                class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                Simpan
-            </button>
-            <a href="index.php"
-                class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                Batal
-            </a>
-        </div>
-    </form>
+        <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
+            <div class="mb-4">
+                <label for="id_customer" class="block text-gray-700 text-sm font-bold mb-2">ID Customer:</label>
+                <input type="text" id="id_customer" name="id_customer" value="<?php echo htmlspecialchars($id_customer); ?>" required maxlength="8"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+                <span class="text-red-500 text-xs italic mt-1 block"><?php echo $id_customer_error; ?></span>
+            </div>
+            <div class="mb-4">
+                <label for="nama_customer" class="block text-gray-700 text-sm font-bold mb-2">Nama Customer:</label>
+                <input type="text" id="nama_customer" name="nama_customer" value="<?php echo htmlspecialchars($nama_customer); ?>" required maxlength="20"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+                <span class="text-red-500 text-xs italic mt-1 block"><?php echo $nama_customer_error; ?></span>
+            </div>
+            <div class="mb-4">
+                <label for="no_hp" class="block text-gray-700 text-sm font-bold mb-2">No. HP:</label>
+                <input type="text" id="no_hp" name="no_hp" value="<?php echo htmlspecialchars($no_hp); ?>" required maxlength="13"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+                <span class="text-red-500 text-xs italic mt-1 block"><?php echo $no_hp_error; ?></span>
+            </div>
+            <div class="mb-6">
+                <label for="alamat" class="block text-gray-700 text-sm font-bold mb-2">Alamat:</label>
+                <input type="text" id="alamat" name="alamat" value="<?php echo htmlspecialchars($alamat); ?>" required maxlength="20"
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+                <span class="text-red-500 text-xs italic mt-1 block"><?php echo $alamat_error; ?></span>
+            </div>
+            <div class="flex items-center justify-between">
+                <button type="submit"
+                    class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                    Simpan
+                </button>
+                <a href="index.php"
+                    class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                    Batal
+                </a>
+            </div>
+        </form>
+    </div>
 </div>
 
 <?php

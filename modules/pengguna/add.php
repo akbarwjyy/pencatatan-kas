@@ -102,8 +102,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 ?>
 
 <div class="bg-white p-8 rounded-lg shadow-xl max-w-md mx-auto my-8">
-    <h1 class="text-2xl font-bold text-gray-800 mb-4 text-center">Tambah Pengguna Baru</h1>
-    <p class="text-gray-600 mb-6 text-center">Isi formulir di bawah ini untuk menambahkan pengguna baru.</p>
+    <h1 class="text-2xl font-bold text-gray-800 mb-4 text-center">Tambah Pengguna</h1>
 
     <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
         <div class="mb-4">
@@ -155,6 +154,4 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 </div>
 
 <?php
-// Sertakan footer
-require_once '../../layout/footer.php';
 ?>
