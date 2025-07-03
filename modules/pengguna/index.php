@@ -50,36 +50,38 @@ if (!$conn) {
                 <table class="min-w-full bg-white border border-gray-200">
                     <thead class="bg-gray-100">
                         <tr>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">ID Pengguna</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Jabatan</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
+                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">ID Pengguna</th>
+                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
+                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Jabatan</th>
+                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                            <th class="px-4 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
                         <?php foreach ($users as $user) : ?>
                             <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars($user['id_pengguna']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($user['username']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($user['jabatan']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($user['email']); ?></td>
-                                <td class="px-6 py-4 text-sm space-x-2">
-                                    <a href="edit.php?id=<?php echo htmlspecialchars($user['id_pengguna']); ?>"
-                                        class="inline-block bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition">
-                                        Edit
-                                    </a>
-                                    <?php if ($user['id_pengguna'] !== $_SESSION['user_id']) : ?>
-                                        <a href="delete.php?id=<?php echo htmlspecialchars($user['id_pengguna']); ?>"
-                                            class="inline-block bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition"
-                                            onclick="return confirm('Apakah Anda yakin ingin menghapus pengguna ini?');">
-                                            Hapus
+                                <td class="px-4 py-2 text-sm text-gray-500"><?php echo htmlspecialchars($user['id_pengguna']); ?></td>
+                                <td class="px-4 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($user['username']); ?></td>
+                                <td class="px-4 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($user['jabatan']); ?></td>
+                                <td class="px-4 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($user['email']); ?></td>
+                                <td class="px-4 py-2 text-sm text-center">
+                                    <div class="flex justify-center space-x-1">
+                                        <a href="edit.php?id=<?php echo htmlspecialchars($user['id_pengguna']); ?>"
+                                            class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 transition">
+                                            Edit
                                         </a>
-                                    <?php else : ?>
-                                        <span class="inline-block bg-gray-300 text-gray-500 px-3 py-1 rounded cursor-not-allowed">
-                                            Hapus
-                                        </span>
-                                    <?php endif; ?>
+                                        <?php if ($user['id_pengguna'] !== $_SESSION['user_id']) : ?>
+                                            <a href="delete.php?id=<?php echo htmlspecialchars($user['id_pengguna']); ?>"
+                                                class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 transition"
+                                                onclick="return confirm('Apakah Anda yakin ingin menghapus pengguna ini?');">
+                                                Hapus
+                                            </a>
+                                        <?php else : ?>
+                                            <span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed">
+                                                Hapus
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

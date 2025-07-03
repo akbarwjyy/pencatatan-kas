@@ -16,7 +16,7 @@ if (isset($_GET['id']) && !empty(trim($_GET['id']))) {
     $id_pengguna_dari_url = sanitize_input(trim($_GET['id']));
 
     // Ambil data pengguna berdasarkan ID
-    $sql = "SELECT id_pengguna, username, jabatan, email FROM pengguna WHERE id_pengguna = ?";
+    $sql = "SELECT id_pengguna, nama, jabatan, email FROM pengguna WHERE id_pengguna = ?";
     if ($stmt = $conn->prepare($sql)) {
         $stmt->bind_param("s", $id_pengguna_dari_url);
         if ($stmt->execute()) {
@@ -90,7 +90,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $update_password = false;
         $hashed_password = null;
 
-        $sql = "UPDATE pengguna SET username = ?, jabatan = ?, email = ?";
+        $sql = "UPDATE pengguna SET nama = ?, jabatan = ?, email = ?";
         if (!empty($password_baru)) {
             $hashed_password = hash_password($password_baru);
             $sql .= ", password = ?";
@@ -157,7 +157,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <select id="jabatan" name="jabatan" required>
             <option value="">-- Pilih Jabatan --</option>
             <option value="Admin" <?php echo ($jabatan == 'Admin') ? 'selected' : ''; ?>>Admin</option>
-            <option value="Pemilik" <?php echo ($jabatan == 'Pemilik') ? 'selected' : ''; ?>>Pemilik</option>
+            <option value="Pemilik" <?php echo ($jabatan == '   Pemilik') ? 'selected' : ''; ?>>Pemilik</option>
             <option value="Pegawai" <?php echo ($jabatan == 'Pegawai') ? 'selected' : ''; ?>>Pegawai</option>
         </select>
         <span class="error" style="color: red; font-size: 0.9em;"><?php echo $jabatan_error; ?></span>
