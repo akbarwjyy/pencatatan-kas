@@ -16,7 +16,7 @@ if (isset($_GET['id']) && !empty(trim($_GET['id']))) {
     $id_pengguna_dari_url = sanitize_input(trim($_GET['id']));
 
     // Ambil data pengguna berdasarkan ID
-    $sql = "SELECT id_pengguna, nama, jabatan, email FROM pengguna WHERE id_pengguna = ?";
+    $sql = "SELECT id_pengguna, username, jabatan, email FROM pengguna WHERE id_pengguna = ?";
     if ($stmt = $conn->prepare($sql)) {
         $stmt->bind_param("s", $id_pengguna_dari_url);
         if ($stmt->execute()) {
@@ -90,7 +90,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $update_password = false;
         $hashed_password = null;
 
-        $sql = "UPDATE pengguna SET nama = ?, jabatan = ?, email = ?";
+        $sql = "UPDATE pengguna SET username = ?, jabatan = ?, email = ?";
         if (!empty($password_baru)) {
             $hashed_password = hash_password($password_baru);
             $sql .= ", password = ?";
