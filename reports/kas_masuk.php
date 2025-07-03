@@ -237,6 +237,4 @@ if ($stmt === false) {
 </div>
 
 <?php
-// Sertakan footer
-require_once '../layout/footer.php';
 ?>

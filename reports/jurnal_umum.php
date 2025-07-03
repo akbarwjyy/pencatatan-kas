@@ -151,6 +151,4 @@ usort($entries, function ($a, $b) {
 </div>
 
 <?php
-// Sertakan footer
-require_once '../layout/footer.php';
 ?>

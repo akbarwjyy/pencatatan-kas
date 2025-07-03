@@ -98,6 +98,4 @@ if ($result->num_rows > 0) {
 </div>
 
 <?php
-// Sertakan footer
-require_once '../../layout/footer.php'; // Pastikan jalur ini adalah ../../
 ?>

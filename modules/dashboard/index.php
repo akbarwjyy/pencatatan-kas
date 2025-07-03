@@ -55,43 +55,60 @@ $saldo_kas_saat_ini = $total_all_kas_masuk - $total_all_kas_keluar;
 ?>
 
 <div class="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-8 rounded-lg shadow-xl mb-8">
-    <h1 class="text-3xl md:text-4xl lg:text-5xl font-extrabold leading-tight mb-2 flex items-center gap-4">
-        <!-- <span>🚀</span> -->
+    <h1 class="text-3xl md:text-4xl lg:text-5xl font-extrabold leading-tight mb-2">
         Selamat Datang di Dashboard!
     </h1>
     <p class="text-lg md:text-xl font-light opacity-90 mb-2">Aplikasi Pencatatan Kas Industri Rumah Tangga Ampyang Cap Garuda</p>
     <p class="text-sm md:text-base opacity-80">Pantau kondisi keuangan dan operasional bisnis Anda dengan mudah dan cepat.</p>
 </div>
 
-<h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-    <span>📈</span> Ringkasan Keuangan Bulan Ini
-</h2>
+<!-- Ringkasan Keuangan -->
+<div class="bg-white p-6 rounded-lg shadow-lg mb-8">
+    <h2 class="text-2xl font-bold text-gray-800 mb-6 pb-2 border-b">
+        📈 Ringkasan Keuangan Bulan <?php echo date('F Y'); ?>
+    </h2>
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 dashboard-summary">
-    <div class="card bg-gradient-to-br from-green-200 to-green-50 border-l-8 border-green-500 rounded-xl p-6 shadow-lg flex flex-col items-center">
-        <span class="text-4xl mb-2">💰</span>
-        <h3 class="text-lg font-bold text-gray-700 mb-1 text-center">Kas Masuk Bulan Ini<br><span class="text-xs font-normal">(<?php echo date('F Y'); ?>)</span></h3>
-        <p class="amount-large text-2xl font-extrabold text-green-700 mt-2"><?php echo format_rupiah($total_kas_masuk_bulan_ini); ?></p>
-    </div>
-    <div class="card bg-gradient-to-br from-green-200 to-green-50 border-l-8 border-green-500 rounded-xl p-6 shadow-lg flex flex-col items-center">
-        <span class="text-4xl mb-2">💸</span>
-        <h3 class="text-lg font-bold text-gray-700 mb-1 text-center">Kas Keluar Bulan Ini<br><span class="text-xs font-normal">(<?php echo date('F Y'); ?>)</span></h3>
-        <p class="amount-large text-2xl font-extrabold text-green-700 mt-2"><?php echo format_rupiah($total_kas_keluar_bulan_ini); ?></p>
-    </div>
-    <div class="card bg-gradient-to-br from-green-200 to-green-50 border-l-8 border-green-500 rounded-xl p-6 shadow-lg flex flex-col items-center">
-        <span class="text-4xl mb-2">📝</span>
-        <h3 class="text-lg font-bold text-gray-700 mb-1 text-center">Pemesanan Belum Lunas</h3>
-        <p class="amount-large text-2xl font-extrabold text-green-700 mt-2"><?php echo htmlspecialchars($jumlah_pemesanan_belum_lunas); ?> Pesanan</p>
-    </div>
-    <div class="card bg-gradient-to-br from-green-200 to-green-50 border-l-8 border-green-500 rounded-xl p-6 shadow-lg flex flex-col items-center">
-        <span class="text-4xl mb-2">🏦</span>
-        <h3 class="text-lg font-bold text-gray-700 mb-1 text-center">Estimasi Saldo Kas Total</h3>
-        <p class="amount-large text-2xl font-extrabold text-green-700 mt-2"><?php echo format_rupiah($saldo_kas_saat_ini); ?></p>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 rounded-xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-gray-700">Kas Masuk</h3>
+                <span class="text-2xl">💰</span>
+            </div>
+            <p class="text-2xl font-bold text-emerald-600"><?php echo format_rupiah($total_kas_masuk_bulan_ini); ?></p>
+            <p class="text-sm text-gray-500 mt-2">Total pemasukan bulan ini</p>
+        </div>
+
+        <div class="bg-gradient-to-br from-red-50 to-white border border-red-100 rounded-xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-gray-700">Kas Keluar</h3>
+                <span class="text-2xl">💸</span>
+            </div>
+            <p class="text-2xl font-bold text-red-600"><?php echo format_rupiah($total_kas_keluar_bulan_ini); ?></p>
+            <p class="text-sm text-gray-500 mt-2">Total pengeluaran bulan ini</p>
+        </div>
+
+        <div class="bg-gradient-to-br from-yellow-50 to-white border border-yellow-100 rounded-xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-gray-700">Pemesanan</h3>
+                <span class="text-2xl">📝</span>
+            </div>
+            <p class="text-2xl font-bold text-yellow-600"><?php echo htmlspecialchars($jumlah_pemesanan_belum_lunas); ?></p>
+            <p class="text-sm text-gray-500 mt-2">Pesanan belum lunas</p>
+        </div>
+
+        <div class="bg-gradient-to-br from-blue-50 to-white border border-blue-100 rounded-xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-gray-700">Saldo Kas</h3>
+                <span class="text-2xl">🏦</span>
+            </div>
+            <p class="text-2xl font-bold text-blue-600"><?php echo format_rupiah($saldo_kas_saat_ini); ?></p>
+            <p class="text-sm text-gray-500 mt-2">Total saldo saat ini</p>
+        </div>
     </div>
 </div>
 
+
 <style>
-    /* Responsive sidebar untuk mobile */
     @media (max-width: 768px) {
         .sidebar-mobile-hidden {
             transform: translateX(-100%);
@@ -101,20 +118,6 @@ $saldo_kas_saat_ini = $total_all_kas_masuk - $total_all_kas_keluar;
         .main-content-mobile {
             margin-left: 0 !important;
         }
-    }
-
-    /* Styling legacy untuk fallback jika Tailwind tidak aktif */
-    .dashboard-summary {
-        margin-top: 30px;
-    }
-
-    .card h3 {
-        margin-top: 0;
-        margin-bottom: 10px;
-    }
-
-    .card p.amount-large {
-        margin: 0;
     }
 </style>
 

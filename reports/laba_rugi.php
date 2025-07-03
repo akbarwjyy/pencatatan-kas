@@ -164,6 +164,4 @@ $laba_rugi = ($total_pendapatan ?? 0) - $total_operasional;
 </div>
 
 <?php
-// Sertakan footer
-require_once '../layout/footer.php';
 ?>
