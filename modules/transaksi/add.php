@@ -16,7 +16,7 @@ $status_pelunasan_input = "";
 
 // Ambil daftar pemesanan yang belum lunas atau partially paid untuk dropdown
 $pemesanan_options = [];
-$pemesanan_sql = "SELECT p.id_pesan, p.sub_total, p.sisa, c.nama_customer 
+$pemesanan_sql = "SELECT p.id_pesan, p.sub_total, p.sisa, p.tgl_pesan, p.tgl_kirim, p.uang_muka, c.nama_customer 
                   FROM pemesanan p 
                   JOIN customer c ON p.id_customer = c.id_customer
                   WHERE p.sisa > 0 
@@ -229,6 +229,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 data-subtotal="<?php echo htmlspecialchars($option['sub_total']); ?>"
                                 data-sisa="<?php echo htmlspecialchars($option['sisa']); ?>"
                                 data-customername="<?php echo htmlspecialchars($option['nama_customer']); ?>"
+                                data-tglpesan="<?php echo htmlspecialchars($option['tgl_pesan']); ?>"
+                                data-tglkirim="<?php echo htmlspecialchars($option['tgl_kirim']); ?>"
+                                data-uangmuka="<?php echo htmlspecialchars($option['uang_muka']); ?>"
                                 <?php echo ($id_pesan == $option['id_pesan']) ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($option['nama_customer'] . " - " . $option['id_pesan']); ?>
                             </option>
@@ -433,9 +436,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         const totalTagihan = document.getElementById('total_tagihan_display').value || 0;
         const sisaPembayaran = document.getElementById('sisa_pembayaran_display').value || 0;
         const statusPembayaran = document.getElementById('status_pembayaran_display').value || '-';
-        // Data tambahan (jika ada)
+        // Data tambahan dari dataset
         const tglPemesanan = selectedOption.dataset.tglpesan || '-';
         const tglKirim = selectedOption.dataset.tglkirim || '-';
+        const uangMuka = selectedOption.dataset.uangmuka || 0;
         // No Transaksi: generate random jika belum ada
         let noTransaksi = document.getElementById('nota-no-transaksi').textContent;
         if (!noTransaksi || noTransaksi === '-') {
@@ -450,11 +454,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         document.getElementById('nota-tgl-pemesanan').textContent = tglPemesanan;
         document.getElementById('nota-tgl-kirim').textContent = tglKirim;
         document.getElementById('nota-total-tagihan').textContent = totalTagihan;
-        document.getElementById('nota-sisa-pembayaran').textContent = sisaPembayaran;
+        document.getElementById('nota-sisa-pembayaran').textContent = document.getElementById('sisa_pembayaran_display').value;
         document.getElementById('nota-jumlah-dibayar').textContent = formatRupiah(jumlahDibayar);
         document.getElementById('nota-status').textContent = statusPembayaran;
-        // Uang muka bisa diisi jika ada fieldnya, default '-'
-        document.getElementById('nota-uang-muka').textContent = '-';
+        // Tampilkan uang muka
+        document.getElementById('nota-uang-muka').textContent = formatRupiah(uangMuka);
 
         // Tampilkan nota dan print
         document.getElementById('nota-cetak').style.display = 'block';
@@ -474,7 +478,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         document.getElementById('total_tagihan_display').value = formatRupiah(subTotal);
         document.getElementById('jumlah_dibayar').max = sisaAwal;
+
+        // Set jumlah dibayar ke sisa pembayaran secara default
         document.getElementById('jumlah_dibayar').value = sisaAwal;
+
         updateSisaSetelahPembayaran();
     }
 
@@ -503,8 +510,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // Inisialisasi saat halaman dimuat
     document.addEventListener('DOMContentLoaded', function() {
+        // Set tanggal transaksi ke hari ini secara default
+        if (!document.getElementById('tgl_transaksi').value) {
+            document.getElementById('tgl_transaksi').valueAsDate = new Date();
+        }
+
+        // Update info pemesanan jika sudah ada yang dipilih
         if (document.getElementById('id_pesan').value) {
             updatePemesananInfo();
+
+            // Set jumlah dibayar ke sisa pembayaran secara default
+            const selectedOption = document.getElementById('id_pesan').options[document.getElementById('id_pesan').selectedIndex];
+            const sisaAwal = parseFloat(selectedOption.dataset.sisa || 0);
+            document.getElementById('jumlah_dibayar').value = sisaAwal;
+            updateSisaSetelahPembayaran();
         }
     });
 </script>
