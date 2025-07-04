@@ -73,7 +73,75 @@ usort($entries, function ($a, $b) {
         <h1 class="text-2xl font-bold text-gray-800 mb-4">Laporan Jurnal Umum Kas</h1>
         <p class="text-gray-600 mb-6">Menampilkan semua pergerakan kas (masuk dan keluar) secara kronologis.</p>
 
-        <form action="" method="get" class="mb-6 p-4 bg-gray-50 rounded-lg shadow-sm flex flex-wrap items-end gap-4">
+        <div class="print-only" style="display: none;">
+            <h2 class="text-center font-bold">Periode: <?php echo date('d/m/Y', strtotime($start_date)); ?> - <?php echo date('d/m/Y', strtotime($end_date)); ?></h2>
+        </div>
+
+        <style>
+            @media print {
+                .print-hide {
+                    display: none !important;
+                }
+
+                .print-only {
+                    display: block !important;
+                }
+
+                .container {
+                    width: 100% !important;
+                    max-width: none !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                }
+
+                .bg-white {
+                    box-shadow: none !important;
+                    border: none !important;
+                }
+
+                table {
+                    width: 100% !important;
+                    border-collapse: collapse !important;
+                }
+
+                th,
+                td {
+                    padding: 5px !important;
+                    border: 1px solid #ddd !important;
+                }
+
+                th {
+                    background-color: #f2f2f2 !important;
+                    font-weight: bold !important;
+                }
+
+                .text-right {
+                    text-align: right !important;
+                }
+
+                .pl-8,
+                .pl-16 {
+                    padding-left: 10px !important;
+                }
+
+                h1 {
+                    text-align: center !important;
+                    font-size: 18px !important;
+                    margin-bottom: 10px !important;
+                }
+
+                p {
+                    text-align: center !important;
+                    margin-bottom: 20px !important;
+                }
+
+                .font-italic {
+                    font-style: italic !important;
+                }
+            }
+        </style>
+
+        <form action="" method="get" class="mb-6 p-4 bg-gray-50 rounded-lg shadow-sm flex flex-wrap items-end gap-4 print-hide">
             <div class="flex-1 min-w-[200px]">
                 <label for="start_date" class="block text-gray-700 text-sm font-bold mb-2">Dari Tanggal:</label>
                 <input type="date" id="start_date" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>"
@@ -153,7 +221,7 @@ usort($entries, function ($a, $b) {
                                 <td class="px-6 py-1 text-sm text-gray-900 text-right"><?php echo ($kredit_amount > 0) ? format_rupiah($kredit_amount) : '-'; ?></td>
                             </tr>
                             <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-2 text-sm text-gray-900 text-right "><?php echo htmlspecialchars($entry['keterangan']); ?></td>
+                                <td class="px-6 py-2 text-sm text-gray-900 font-italic"><?php echo htmlspecialchars($entry['keterangan']); ?></td>
                                 <td class="px-6 py-2 text-sm text-gray-900 text-right">-</td>
                                 <td class="px-6 py-2 text-sm text-gray-900 text-right">-</td>
                             </tr>
