@@ -63,7 +63,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // Hitung jumlah setelah validasi harga dan kuantitas
-    $jumlah = $harga * $kuantitas;
+    $jumlah = (float)$harga * (int)$kuantitas;
 
     if (empty($keterangan)) {
         $keterangan_error = "Keterangan tidak boleh kosong.";
@@ -94,12 +94,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } else {
             $stmt_check->close();
 
-            // Query untuk menambah data kas keluar
-            // $sql = "INSERT INTO kas_keluar (id_kas_keluar, id_akun, tgl_kas_keluar, jumlah, keterangan) VALUES (?, ?, ?, ?, ?)";
-            // Di sini, kita sudah punya $jumlah yang dihitung dari harga * kuantitas
+            // Query untuk menambah data kas keluar dengan kolom harga dan kuantitas
+            // Perlu menambahkan kolom harga dan kuantitas ke tabel kas_keluar jika belum ada
+            try {
+                // Cek apakah kolom harga sudah ada
+                $check_column_sql = "SHOW COLUMNS FROM kas_keluar LIKE 'harga'";
+                $column_result = $conn->query($check_column_sql);
+                if ($column_result->num_rows == 0) {
+                    // Kolom harga belum ada, tambahkan
+                    $conn->query("ALTER TABLE kas_keluar ADD COLUMN harga DECIMAL(15, 2) DEFAULT 0");
+                }
 
-            if ($stmt = $conn->prepare("INSERT INTO kas_keluar (id_kas_keluar, id_akun, tgl_kas_keluar, jumlah, keterangan) VALUES (?, ?, ?, ?, ?)")) {
-                $stmt->bind_param("sssis", $id_kas_keluar, $id_akun, $tgl_kas_keluar, $jumlah, $keterangan); // $jumlah sudah dihitung
+                // Cek apakah kolom kuantitas sudah ada
+                $check_column_sql = "SHOW COLUMNS FROM kas_keluar LIKE 'kuantitas'";
+                $column_result = $conn->query($check_column_sql);
+                if ($column_result->num_rows == 0) {
+                    // Kolom kuantitas belum ada, tambahkan
+                    $conn->query("ALTER TABLE kas_keluar ADD COLUMN kuantitas INT DEFAULT 0");
+                }
+            } catch (Exception $e) {
+                // Jika gagal menambahkan kolom, lanjutkan saja
+            }
+
+            if ($stmt = $conn->prepare("INSERT INTO kas_keluar (id_kas_keluar, id_akun, tgl_kas_keluar, jumlah, keterangan, harga, kuantitas) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
+                $stmt->bind_param("sssisii", $id_kas_keluar, $id_akun, $tgl_kas_keluar, $jumlah, $keterangan, $harga, $kuantitas); // Tambahkan harga dan kuantitas
 
                 if ($stmt->execute()) {
                     set_flash_message("Kas Keluar berhasil ditambahkan!", "success");
@@ -207,8 +225,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // Format Rupiah di sisi klien (JavaScript) (fungsi ini sudah ada di transaksi/add.php, bisa dipindahkan ke script.js jika umum)
     function formatRupiah(angka) {
+        if (!angka || isNaN(angka)) return 'Rp 0';
         var reverse = angka.toString().split('').reverse().join(''),
             ribuan = reverse.match(/\d{1,3}/g);
+        if (!ribuan) return 'Rp 0';
         ribuan = ribuan.join('.').split('').reverse().join('');
         return 'Rp ' + ribuan;
     }

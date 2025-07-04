@@ -9,6 +9,27 @@ if (!has_permission('Admin')) {
 }
 
 // Ambil semua data kas keluar dari database, join dengan akun untuk menampilkan nama akun
+// Pastikan kolom harga dan kuantitas ada di tabel
+try {
+    // Cek apakah kolom harga sudah ada
+    $check_column_sql = "SHOW COLUMNS FROM kas_keluar LIKE 'harga'";
+    $column_result = $conn->query($check_column_sql);
+    if ($column_result->num_rows == 0) {
+        // Kolom harga belum ada, tambahkan
+        $conn->query("ALTER TABLE kas_keluar ADD COLUMN harga DECIMAL(15, 2) DEFAULT 0");
+    }
+
+    // Cek apakah kolom kuantitas sudah ada
+    $check_column_sql = "SHOW COLUMNS FROM kas_keluar LIKE 'kuantitas'";
+    $column_result = $conn->query($check_column_sql);
+    if ($column_result->num_rows == 0) {
+        // Kolom kuantitas belum ada, tambahkan
+        $conn->query("ALTER TABLE kas_keluar ADD COLUMN kuantitas INT DEFAULT 0");
+    }
+} catch (Exception $e) {
+    // Jika gagal menambahkan kolom, lanjutkan saja
+}
+
 $sql = "SELECT kk.*, a.nama_akun
         FROM kas_keluar kk
         JOIN akun a ON kk.id_akun = a.id_akun
@@ -62,8 +83,8 @@ if ($result->num_rows > 0) {
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($expense['tgl_kas_keluar']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($expense['nama_akun']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($expense['keterangan']); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah(1000); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo intval($expense['jumlah'] / 1000); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($expense['harga'] ?? 1000); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo $expense['kuantitas'] ?? intval($expense['jumlah'] / 1000); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($expense['jumlah'] ?? 0); ?></td>
                                 <td class="px-3 py-2 text-sm text-center">
                                     <div class="flex justify-center space-x-1">
