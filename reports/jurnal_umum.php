@@ -22,11 +22,11 @@ $total_debit = 0;
 $total_kredit = 0;
 
 // Query untuk Kas Masuk
-$sql_kas_masuk = "SELECT km.tgl_kas_masuk AS tanggal, km.id_transaksi, km.keterangan, km.jumlah, 
-                         a.nama_akun AS nama_akun
+$sql_kas_masuk = "SELECT km.tgl_kas_masuk AS tanggal, km.id_transaksi, 'Kas Masuk' AS tipe, km.jumlah, km.keterangan, 
+                         a.nama_akun AS akun_asal, NULL AS akun_tujuan
                   FROM kas_masuk km
                   LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
-                  LEFT JOIN akun a ON tr.id_akun = a.id_akun
+                  LEFT JOIN akun a ON tr.id_akun = a.id_akun -- Ambil akun dari transaksi terkait
                   WHERE km.tgl_kas_masuk BETWEEN ? AND ?";
 $stmt_km = $conn->prepare($sql_kas_masuk);
 if ($stmt_km === false) {
@@ -36,15 +36,15 @@ if ($stmt_km === false) {
     $stmt_km->execute();
     $result_km = $stmt_km->get_result();
     while ($row = $result_km->fetch_assoc()) {
-        $row['tipe'] = 'Kas Masuk';
+        $row['akun_transaksi'] = $row['akun_asal'] ?: 'Tidak Terkait Transaksi';
         $entries[] = $row;
     }
     $stmt_km->close();
 }
 
 // Query untuk Kas Keluar
-$sql_kas_keluar = "SELECT kk.tgl_kas_keluar AS tanggal, kk.id_kas_keluar AS id_transaksi, kk.keterangan, kk.jumlah,
-                           a.nama_akun AS nama_akun
+$sql_kas_keluar = "SELECT kk.tgl_kas_keluar AS tanggal, kk.id_kas_keluar AS id_transaksi, 'Kas Keluar' AS tipe, kk.jumlah, kk.keterangan,
+                           NULL AS akun_asal, a.nama_akun AS akun_tujuan
                    FROM kas_keluar kk
                    JOIN akun a ON kk.id_akun = a.id_akun
                    WHERE kk.tgl_kas_keluar BETWEEN ? AND ?";
@@ -56,37 +56,31 @@ if ($stmt_kk === false) {
     $stmt_kk->execute();
     $result_kk = $stmt_kk->get_result();
     while ($row = $result_kk->fetch_assoc()) {
-        $row['tipe'] = 'Kas Keluar';
         $entries[] = $row;
     }
     $stmt_kk->close();
 }
 
-// Urutkan semua entri berdasarkan tanggal dan tipe (Kas Masuk dulu, baru Kas Keluar)
+// Urutkan semua entri berdasarkan tanggal
 usort($entries, function ($a, $b) {
-    $date_compare = strtotime($a['tanggal']) - strtotime($b['tanggal']);
-    if ($date_compare === 0) {
-        // Jika tanggal sama, urutkan berdasarkan tipe (Kas Masuk dulu)
-        return ($a['tipe'] == 'Kas Masuk' && $b['tipe'] == 'Kas Keluar') ? -1 : (($a['tipe'] == 'Kas Keluar' && $b['tipe'] == 'Kas Masuk') ? 1 : 0);
-    }
-    return $date_compare;
+    return strtotime($a['tanggal']) - strtotime($b['tanggal']);
 });
 
 ?>
 
 <div class="container mx-auto px-4 py-8">
     <div class="bg-white rounded-lg shadow-md p-6">
-        <h1 class="text-2xl font-bold text-gray-800 mb-4">Laporan Jurnal Per Periode</h1>
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">Laporan Jurnal Umum Kas</h1>
         <p class="text-gray-600 mb-6">Menampilkan semua pergerakan kas (masuk dan keluar) secara kronologis.</p>
 
         <form action="" method="get" class="mb-6 p-4 bg-gray-50 rounded-lg shadow-sm flex flex-wrap items-end gap-4">
             <div class="flex-1 min-w-[200px]">
-                <label for="start_date" class="block text-gray-700 text-sm font-bold mb-2">Tanggal Awal:</label>
+                <label for="start_date" class="block text-gray-700 text-sm font-bold mb-2">Dari Tanggal:</label>
                 <input type="date" id="start_date" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>"
                     class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-blue-500">
             </div>
             <div class="flex-1 min-w-[200px]">
-                <label for="end_date" class="block text-gray-700 text-sm font-bold mb-2">Tanggal Akhir :</label>
+                <label for="end_date" class="block text-gray-700 text-sm font-bold mb-2">Sampai Tanggal:</label>
                 <input type="date" id="end_date" name="end_date" value="<?php echo htmlspecialchars($end_date); ?>"
                     class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-blue-500">
             </div>
@@ -115,44 +109,61 @@ usort($entries, function ($a, $b) {
                 <table class="min-w-full bg-white border border-gray-200">
                     <thead class="bg-gray-100">
                         <tr>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">ID Transaksi</th>
+                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
                             <th class="px-6 py-3 border-b text-right text-xs font-medium text-gray-500 uppercase">Debet</th>
                             <th class="px-6 py-3 border-b text-right text-xs font-medium text-gray-500 uppercase">Kredit</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody class="divide-y divide-gray-200">
                         <?php
-                        // Hitung ulang total_debit dan total_kredit dari entri yang sudah difilter dan diurutkan
-                        $total_debit = 0;
-                        $total_kredit = 0;
+                        $total_debit_final = 0;
+                        $total_kredit_final = 0;
                         foreach ($entries as $entry) :
-                            $debit = ($entry['tipe'] == 'Kas Masuk') ? ($entry['jumlah'] ?? 0) : 0;
-                            $kredit = ($entry['tipe'] == 'Kas Keluar') ? ($entry['jumlah'] ?? 0) : 0;
-                            $total_debit += $debit;
-                            $total_kredit += $kredit;
+                            $debit_account = '';
+                            $credit_account = '';
+                            $debit_amount = 0;
+                            $kredit_amount = 0;
+
+                            if ($entry['tipe'] == 'Kas Masuk') {
+                                $debit_account = "Kas";
+                                $debit_amount = ($entry['jumlah'] ?? 0);
+                                $credit_account = $entry['akun_transaksi'] ?? 'N/A';
+                                $kredit_amount = ($entry['jumlah'] ?? 0);
+                            } else { // Kas Keluar
+                                $debit_account = $entry['akun_tujuan'] ?? 'N/A';
+                                $debit_amount = ($entry['jumlah'] ?? 0);
+                                $credit_account = "Kas";
+                                $kredit_amount = ($entry['jumlah'] ?? 0);
+                            }
+                            $total_debit_final += $debit_amount;
+                            $total_kredit_final += $kredit_amount;
                         ?>
-                            <tr class="hover:bg-gray-50 border-b border-gray-200">
-                                <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars($entry['tanggal']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($entry['id_transaksi'] ?? '-'); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900">
-                                    <?php if ($entry['tipe'] == 'Kas Keluar'): ?>
-                                        <span class="pl-8">&nbsp;&nbsp;&nbsp;&nbsp;<?php echo htmlspecialchars($entry['keterangan'] ?? $entry['nama_akun'] ?? 'N/A'); ?></span>
-                                    <?php else: ?>
-                                        <?php echo htmlspecialchars($entry['keterangan'] ?? $entry['nama_akun'] ?? 'N/A'); ?>
-                                    <?php endif; ?>
-                                </td>
-                                <td class="px-6 py-4 text-sm text-gray-900 text-right"><?php echo ($debit > 0) ? format_rupiah($debit) : '-'; ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900 text-right"><?php echo ($kredit > 0) ? format_rupiah($kredit) : '-'; ?></td>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-2 text-sm text-gray-500 align-top" rowspan="3"><?php echo htmlspecialchars($entry['id_transaksi'] ?? '-'); ?></td>
+                                <td class="px-6 py-2 text-sm text-gray-500 align-top" rowspan="3"><?php echo htmlspecialchars($entry['tanggal']); ?></td>
+                                <td class="px-6 py-1 text-sm text-gray-700 pl-8"><?php echo htmlspecialchars($debit_account); ?></td>
+                                <td class="px-6 py-1 text-sm text-gray-900 text-right"><?php echo ($debit_amount > 0) ? format_rupiah($debit_amount) : '-'; ?></td>
+                                <td class="px-6 py-1 text-sm text-gray-900 text-right">-</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-1 text-sm text-gray-700 pl-16"><?php echo htmlspecialchars($credit_account); ?></td>
+                                <td class="px-6 py-1 text-sm text-gray-900 text-right">-</td>
+                                <td class="px-6 py-1 text-sm text-gray-900 text-right"><?php echo ($kredit_amount > 0) ? format_rupiah($kredit_amount) : '-'; ?></td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-2 text-sm text-gray-900 text-right "><?php echo htmlspecialchars($entry['keterangan']); ?></td>
+                                <td class="px-6 py-2 text-sm text-gray-900 text-right">-</td>
+                                <td class="px-6 py-2 text-sm text-gray-900 text-right">-</td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                     <tfoot>
                         <tr class="bg-gray-100 font-bold">
                             <td colspan="3" class="px-6 py-3 border-t text-right text-xs uppercase text-gray-700"><strong>Total Jurnal:</strong></td>
-                            <td class="px-6 py-3 border-t text-sm text-gray-900 text-right"><strong><?php echo format_rupiah($total_debit); ?></strong></td>
-                            <td class="px-6 py-3 border-t text-sm text-gray-900 text-right"><strong><?php echo format_rupiah($total_kredit); ?></strong></td>
+                            <td class="px-6 py-3 border-t text-sm text-gray-900 text-right"><strong><?php echo format_rupiah($total_debit_final); ?></strong></td>
+                            <td class="px-6 py-3 border-t text-sm text-gray-900 text-right"><strong><?php echo format_rupiah($total_kredit_final); ?></strong></td>
                         </tr>
                     </tfoot>
                 </table>
