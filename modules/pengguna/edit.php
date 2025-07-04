@@ -16,7 +16,7 @@ if (isset($_GET['id']) && !empty(trim($_GET['id']))) {
     $id_pengguna_dari_url = sanitize_input(trim($_GET['id']));
 
     // Ambil data pengguna berdasarkan ID
-    $sql = "SELECT id_pengguna, nama, jabatan, email FROM pengguna WHERE id_pengguna = ?";
+    $sql = "SELECT id_pengguna, username, jabatan, email FROM pengguna WHERE id_pengguna = ?";
     if ($stmt = $conn->prepare($sql)) {
         $stmt->bind_param("s", $id_pengguna_dari_url);
         if ($stmt->execute()) {
@@ -90,7 +90,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $update_password = false;
         $hashed_password = null;
 
-        $sql = "UPDATE pengguna SET nama = ?, jabatan = ?, email = ?";
+        $sql = "UPDATE pengguna SET username = ?, jabatan = ?, email = ?";
         if (!empty($password_baru)) {
             $hashed_password = hash_password($password_baru);
             $sql .= ", password = ?";
@@ -132,44 +132,61 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 ?>
 
-<h1>Edit Pengguna</h1>
-<p>Ubah detail pengguna di bawah ini.</p>
+<div class="bg-white p-8 rounded-lg shadow-xl max-w-md mx-auto my-8">
+    <h1 class="text-2xl font-bold text-gray-800 mb-4 text-center">Edit Pengguna</h1>
+    <p class="text-gray-600 mb-6 text-center">Ubah detail pengguna di bawah ini.</p>
 
-<form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]) . "?id=" . htmlspecialchars($id_pengguna); ?>" method="post">
-    <!-- ID Pengguna ditampilkan sebagai non-editable, tapi tetap dikirimkan sebagai hidden input -->
-    <div class="form-group">
-        <label for="id_pengguna_display">ID Pengguna:</label>
-        <input type="text" id="id_pengguna_display" value="<?php echo htmlspecialchars($id_pengguna); ?>" disabled>
-        <input type="hidden" name="id_pengguna_asal" value="<?php echo htmlspecialchars($id_pengguna); ?>">
-    </div>
-    <div class="form-group">
-        <label for="nama">Nama:</label>
-        <input type="text" id="nama" name="nama" value="<?php echo htmlspecialchars($nama); ?>" required maxlength="30">
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $nama_error; ?></span>
-    </div>
-    <div class="form-group">
-        <label for="password">Password (kosongkan jika tidak ingin diubah, maks 8 karakter):</label>
-        <input type="password" id="password" name="password" maxlength="8">
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $password_error; ?></span>
-    </div>
-    <div class="form-group">
-        <label for="jabatan">Jabatan:</label>
-        <select id="jabatan" name="jabatan" required>
-            <option value="">-- Pilih Jabatan --</option>
-            <option value="Admin" <?php echo ($jabatan == 'Admin') ? 'selected' : ''; ?>>Admin</option>
-            <option value="Pemilik" <?php echo ($jabatan == '   Pemilik') ? 'selected' : ''; ?>>Pemilik</option>
-            <option value="Pegawai" <?php echo ($jabatan == 'Pegawai') ? 'selected' : ''; ?>>Pegawai</option>
-        </select>
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $jabatan_error; ?></span>
-    </div>
-    <div class="form-group">
-        <label for="email">Email:</label>
-        <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($email); ?>" required maxlength="30">
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $email_error; ?></span>
-    </div>
-    <button type="submit" class="btn">Simpan Perubahan</button>
-    <a href="index.php" class="btn btn-secondary">Batal</a>
-</form>
+    <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]) . "?id=" . htmlspecialchars($id_pengguna); ?>" method="post">
+        <!-- ID Pengguna ditampilkan sebagai non-editable, tapi tetap dikirimkan sebagai hidden input -->
+        <div class="mb-4">
+            <label for="id_pengguna_display" class="block text-gray-700 text-sm font-bold mb-2">ID Pengguna:</label>
+            <input type="text" id="id_pengguna_display" value="<?php echo htmlspecialchars($id_pengguna); ?>" disabled
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100">
+            <input type="hidden" name="id_pengguna_asal" value="<?php echo htmlspecialchars($id_pengguna); ?>">
+        </div>
+        <div class="mb-4">
+            <label for="nama" class="block text-gray-700 text-sm font-bold mb-2">Nama:</label>
+            <input type="text" id="nama" name="nama" value="<?php echo htmlspecialchars($nama); ?>" required maxlength="30"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $nama_error; ?></span>
+        </div>
+        <div class="mb-4">
+            <label for="password" class="block text-gray-700 text-sm font-bold mb-2">Password (kosongkan jika tidak ingin diubah, maks 8 karakter):</label>
+            <input type="password" id="password" name="password" maxlength="8"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $password_error; ?></span>
+        </div>
+        <div class="mb-4">
+            <label for="jabatan" class="block text-gray-700 text-sm font-bold mb-2">Jabatan:</label>
+            <select id="jabatan" name="jabatan" required
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+                <option value="">-- Pilih Jabatan --</option>
+                <option value="Admin" <?php echo ($jabatan == 'Admin') ? 'selected' : ''; ?>>Admin</option>
+                <option value="Pemilik" <?php echo ($jabatan == 'Pemilik') ? 'selected' : ''; ?>>Pemilik</option>
+                <option value="Pegawai" <?php echo ($jabatan == 'Pegawai') ? 'selected' : ''; ?>>Pegawai</option>
+            </select>
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $jabatan_error; ?></span>
+        </div>
+        <div class="mb-6">
+            <label for="email" class="block text-gray-700 text-sm font-bold mb-2">Email:</label>
+            <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($email); ?>" required maxlength="30"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $email_error; ?></span>
+        </div>
+        <div class="flex items-center justify-between">
+            <button type="submit"
+                class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                Simpan Perubahan
+            </button>
+            <a href="index.php"
+                class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                Batal
+            </a>
+        </div>
+    </form>
+</div>
 
 <?php
+// Sertakan footer
+require_once '../../layout/footer.php';
 ?>
