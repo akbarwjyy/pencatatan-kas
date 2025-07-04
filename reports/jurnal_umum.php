@@ -22,7 +22,7 @@ $total_debit = 0;
 $total_kredit = 0;
 
 // Query untuk Kas Masuk
-$sql_kas_masuk = "SELECT km.tgl_kas_masuk AS tanggal, km.id_transaksi, km.jumlah, 
+$sql_kas_masuk = "SELECT km.tgl_kas_masuk AS tanggal, km.id_transaksi, km.keterangan, km.jumlah, 
                          a.nama_akun AS nama_akun
                   FROM kas_masuk km
                   LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
@@ -43,7 +43,7 @@ if ($stmt_km === false) {
 }
 
 // Query untuk Kas Keluar
-$sql_kas_keluar = "SELECT kk.tgl_kas_keluar AS tanggal, kk.id_kas_keluar AS id_transaksi, kk.jumlah,
+$sql_kas_keluar = "SELECT kk.tgl_kas_keluar AS tanggal, kk.id_kas_keluar AS id_transaksi, kk.keterangan, kk.jumlah,
                            a.nama_akun AS nama_akun
                    FROM kas_keluar kk
                    JOIN akun a ON kk.id_akun = a.id_akun
@@ -62,9 +62,14 @@ if ($stmt_kk === false) {
     $stmt_kk->close();
 }
 
-// Urutkan semua entri berdasarkan tanggal
+// Urutkan semua entri berdasarkan tanggal dan tipe (Kas Masuk dulu, baru Kas Keluar)
 usort($entries, function ($a, $b) {
-    return strtotime($a['tanggal']) - strtotime($b['tanggal']);
+    $date_compare = strtotime($a['tanggal']) - strtotime($b['tanggal']);
+    if ($date_compare === 0) {
+        // Jika tanggal sama, urutkan berdasarkan tipe (Kas Masuk dulu)
+        return ($a['tipe'] == 'Kas Masuk' && $b['tipe'] == 'Kas Keluar') ? -1 : (($a['tipe'] == 'Kas Keluar' && $b['tipe'] == 'Kas Masuk') ? 1 : 0);
+    }
+    return $date_compare;
 });
 
 ?>
@@ -112,12 +117,12 @@ usort($entries, function ($a, $b) {
                         <tr>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
                             <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">ID Transaksi</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Nama Akun</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Debit</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Kredit</th>
+                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
+                            <th class="px-6 py-3 border-b text-right text-xs font-medium text-gray-500 uppercase">Debet</th>
+                            <th class="px-6 py-3 border-b text-right text-xs font-medium text-gray-500 uppercase">Kredit</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-200">
+                    <tbody>
                         <?php
                         // Hitung ulang total_debit dan total_kredit dari entri yang sudah difilter dan diurutkan
                         $total_debit = 0;
@@ -128,20 +133,26 @@ usort($entries, function ($a, $b) {
                             $total_debit += $debit;
                             $total_kredit += $kredit;
                         ?>
-                            <tr class="hover:bg-gray-50">
+                            <tr class="hover:bg-gray-50 border-b border-gray-200">
                                 <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars($entry['tanggal']); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($entry['id_transaksi'] ?? '-'); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($entry['nama_akun'] ?? 'N/A'); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo ($debit > 0) ? format_rupiah($debit) : '-'; ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo ($kredit > 0) ? format_rupiah($kredit) : '-'; ?></td>
+                                <td class="px-6 py-4 text-sm text-gray-900">
+                                    <?php if ($entry['tipe'] == 'Kas Keluar'): ?>
+                                        <span class="pl-8">&nbsp;&nbsp;&nbsp;&nbsp;<?php echo htmlspecialchars($entry['keterangan'] ?? $entry['nama_akun'] ?? 'N/A'); ?></span>
+                                    <?php else: ?>
+                                        <?php echo htmlspecialchars($entry['keterangan'] ?? $entry['nama_akun'] ?? 'N/A'); ?>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-900 text-right"><?php echo ($debit > 0) ? format_rupiah($debit) : '-'; ?></td>
+                                <td class="px-6 py-4 text-sm text-gray-900 text-right"><?php echo ($kredit > 0) ? format_rupiah($kredit) : '-'; ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                     <tfoot>
                         <tr class="bg-gray-100 font-bold">
                             <td colspan="3" class="px-6 py-3 border-t text-right text-xs uppercase text-gray-700"><strong>Total Jurnal:</strong></td>
-                            <td class="px-6 py-3 border-t text-sm text-gray-900"><strong><?php echo format_rupiah($total_debit); ?></strong></td>
-                            <td class="px-6 py-3 border-t text-sm text-gray-900"><strong><?php echo format_rupiah($total_kredit); ?></strong></td>
+                            <td class="px-6 py-3 border-t text-sm text-gray-900 text-right"><strong><?php echo format_rupiah($total_debit); ?></strong></td>
+                            <td class="px-6 py-3 border-t text-sm text-gray-900 text-right"><strong><?php echo format_rupiah($total_kredit); ?></strong></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -151,4 +162,6 @@ usort($entries, function ($a, $b) {
 </div>
 
 <?php
+// Sertakan footer
+require_once '../layout/footer.php';
 ?>
