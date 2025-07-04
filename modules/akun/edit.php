@@ -65,8 +65,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $stmt->bind_param("ss", $nama_akun_baru, $id_akun_asal); // 'ss' karena kedua parameter adalah string
 
             if ($stmt->execute()) {
+                // Tambahkan parameter timestamp untuk mencegah cache
+                $redirect_url = 'index.php?updated=' . time();
+
                 set_flash_message("Akun berhasil diperbarui!", "success");
-                redirect('index.php'); // Redirect ke halaman daftar akun
+
+                // Tambahkan header no-cache sebelum redirect
+                header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+                header("Pragma: no-cache");
+
+                redirect($redirect_url); // Redirect dengan parameter anti-cache
             } else {
                 set_flash_message("Gagal memperbarui akun: " . $stmt->error, "error");
             }

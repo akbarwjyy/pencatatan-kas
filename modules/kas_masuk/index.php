@@ -8,23 +8,38 @@ if (!has_permission('Admin') && !has_permission('Pegawai')) {
     redirect('../../modules/dashboard/index.php'); // Redirect ke dashboard
 }
 
+// Mencegah cache browser
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Pragma: no-cache");
+
 // Ambil semua data kas masuk dari database, join dengan transaksi dan akun
-// Perhatikan: kas_masuk mungkin tidak selalu punya id_transaksi (jika diinput manual)
-$sql = "SELECT km.*, tr.id_pesan, tr.jumlah_dibayar AS jumlah_transaksi, a.nama_akun
+// Perhatikan: kas_masuk selalu punya id_transaksi berdasarkan struktur database
+$sql = "SELECT km.*, tr.id_pesan, tr.jumlah_dibayar AS jumlah_transaksi, 
+        (SELECT nama_akun FROM akun WHERE id_akun = tr.id_akun) AS nama_akun
         FROM kas_masuk km
         LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
-        LEFT JOIN akun a ON tr.id_akun = a.id_akun  -- Jika akun di transaksi yang diacu
         ORDER BY km.tgl_kas_masuk DESC"; // Urutkan berdasarkan tanggal terbaru
-$result = $conn->query($sql);
 
 $cash_incomes = [];
 $total_jumlah = 0; // Inisialisasi variabel total_jumlah
 
-if ($result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $cash_incomes[] = $row;
-        $total_jumlah += (float)$row['jumlah']; // Menambahkan setiap jumlah ke total
+// Eksekusi query dengan pengecekan error
+try {
+    $result = $conn->query($sql);
+
+    if ($result === false) {
+        throw new Exception("Error executing query: " . $conn->error);
     }
+
+    if ($result->num_rows > 0) {
+        while ($row = $result->fetch_assoc()) {
+            $cash_incomes[] = $row;
+            $total_jumlah += (float)$row['jumlah']; // Menambahkan setiap jumlah ke total
+        }
+    }
+} catch (Exception $e) {
+    // Tampilkan pesan error dan tetap lanjutkan dengan array kosong
+    set_flash_message("Error: " . $e->getMessage(), "error");
 }
 ?>
 
@@ -98,4 +113,6 @@ if ($result->num_rows > 0) {
 </div>
 
 <?php
+// Sertakan footer
+require_once '../../layout/footer.php';
 ?>

@@ -25,14 +25,17 @@ if ($account_result->num_rows > 0) {
 if (isset($_GET['id']) && !empty(trim($_GET['id']))) {
     $id_kas_masuk_dari_url = sanitize_input(trim($_GET['id']));
 
-    // Ambil data kas masuk berdasarkan ID (tanpa batasan transaksi)
-    $sql = "SELECT id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan FROM kas_masuk WHERE id_kas_masuk = ?";
+    // Ambil data kas masuk berdasarkan ID dan join dengan transaksi untuk mendapatkan id_akun
+    $sql = "SELECT km.id_kas_masuk, km.id_transaksi, km.tgl_kas_masuk, km.jumlah, km.keterangan, tr.id_akun 
+            FROM kas_masuk km
+            LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
+            WHERE km.id_kas_masuk = ?";
     if ($stmt = $conn->prepare($sql)) {
         $stmt->bind_param("s", $id_kas_masuk_dari_url);
         if ($stmt->execute()) {
             $stmt->store_result();
             if ($stmt->num_rows == 1) {
-                $stmt->bind_result($id_kas_masuk, $id_transaksi_related, $tgl_kas_masuk, $jumlah, $keterangan);
+                $stmt->bind_result($id_kas_masuk, $id_transaksi_related, $tgl_kas_masuk, $jumlah, $keterangan, $id_akun);
                 $stmt->fetch();
             } else {
                 set_flash_message("Kas Masuk tidak ditemukan.", "error");
@@ -90,8 +93,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $stmt->bind_param("siss", $tgl_kas_masuk_baru, $jumlah_baru, $keterangan_baru, $id_kas_masuk_edit);
 
             if ($stmt->execute()) {
+                // Update id_akun di tabel transaksi jika ada id_transaksi
+                if (!empty($id_transaksi_related) && !empty($id_akun_baru)) {
+                    $sql_update_transaksi = "UPDATE transaksi SET id_akun = ? WHERE id_transaksi = ?";
+                    if ($stmt_tr = $conn->prepare($sql_update_transaksi)) {
+                        $stmt_tr->bind_param("ss", $id_akun_baru, $id_transaksi_related);
+                        $stmt_tr->execute();
+                        $stmt_tr->close();
+                    }
+                }
+
+                // Tambahkan parameter timestamp untuk mencegah cache
+                $redirect_url = 'index.php?updated=' . time();
+
                 set_flash_message("Kas Masuk berhasil diperbarui!", "success");
-                redirect('index.php'); // Redirect ke halaman daftar kas masuk
+
+                // Tambahkan header no-cache sebelum redirect
+                header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+                header("Pragma: no-cache");
+
+                redirect($redirect_url); // Redirect dengan parameter anti-cache
             } else {
                 set_flash_message("Gagal memperbarui kas masuk: " . $stmt->error, "error");
             }

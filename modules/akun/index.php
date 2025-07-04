@@ -8,6 +8,10 @@ if (!has_permission('Admin')) {
     redirect('../../modules/dashboard/index.php'); // Redirect ke dashboard atau halaman lain
 }
 
+// Mencegah cache browser
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Pragma: no-cache");
+
 // Ambil semua data akun dari database
 $sql = "SELECT * FROM akun";
 $result = $conn->query($sql);
@@ -71,4 +75,6 @@ if ($result->num_rows > 0) {
 </div>
 
 <?php
+// Sertakan footer
+require_once '../../layout/footer.php';
 ?>
