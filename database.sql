@@ -1,17 +1,16 @@
-
 -- Tabel pengguna
 CREATE TABLE pengguna (
     id_pengguna VARCHAR(8) PRIMARY KEY, 
     username VARCHAR(50) NOT NULL, 
     password VARCHAR(255) NOT NULL, 
     jabatan VARCHAR(20) NOT NULL,
-    email VARCHAR(50) UNIQUE NOT NULL 
+    email VARCHAR(50) NOT NULL 
 );
 
 -- Tabel akun
 CREATE TABLE akun (
     id_akun VARCHAR(8) PRIMARY KEY,
-    nama_akun VARCHAR(50) NOT NULL UNIQUE 
+    nama_akun VARCHAR(50) NOT NULL UNIQUE
 );
 
 -- Tabel customer
@@ -20,6 +19,13 @@ CREATE TABLE customer (
     nama_customer VARCHAR(50) NOT NULL,
     no_hp VARCHAR(15), 
     alamat VARCHAR(100) 
+);
+
+-- Tabel barang
+CREATE TABLE barang (
+    id_barang VARCHAR(10) PRIMARY KEY,
+    nama_barang VARCHAR(50) NOT NULL,
+    harga_satuan DECIMAL(10,2) NOT NULL
 );
 
 -- Tabel pemesanan
@@ -36,14 +42,14 @@ CREATE TABLE pemesanan (
     FOREIGN KEY (id_customer) REFERENCES customer(id_customer) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- Tabel transaksi (menggabungkan informasi dari 'Data yang Dikelola' dan 'Struktur Tabel Database')
+-- Tabel transaksi
 CREATE TABLE transaksi (
     id_transaksi VARCHAR(8) PRIMARY KEY,
     id_pesan VARCHAR(8), 
     id_akun VARCHAR(8) NOT NULL,
     id_customer VARCHAR(8) NOT NULL, 
     jumlah_dibayar DECIMAL(15, 2) NOT NULL,
-    metode_pembayaran VARCHAR(30),
+    metode_pembayaran VARCHAR(30) DEFAULT 'Tunai',
     keterangan VARCHAR(255), 
     tgl_transaksi DATE NOT NULL,
     total_tagihan DECIMAL(15, 2), 
@@ -53,13 +59,15 @@ CREATE TABLE transaksi (
     FOREIGN KEY (id_customer) REFERENCES customer(id_customer) ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
--- Tabel kas_masuk (berdasarkan transaksi)
+-- Tabel kas_masuk
 CREATE TABLE kas_masuk (
     id_kas_masuk VARCHAR(8) PRIMARY KEY,
-    id_transaksi VARCHAR(8) UNIQUE NOT NULL, 
+    id_transaksi VARCHAR(8) NOT NULL, 
     tgl_kas_masuk DATE NOT NULL,
     jumlah DECIMAL(15, 2) NOT NULL, 
-    keterangan VARCHAR(255), 
+    keterangan VARCHAR(255),
+    harga INT DEFAULT 0,
+    kuantitas INT DEFAULT 0,
     FOREIGN KEY (id_transaksi) REFERENCES transaksi(id_transaksi) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
@@ -69,7 +77,8 @@ CREATE TABLE kas_keluar (
     id_akun VARCHAR(8) NOT NULL,
     tgl_kas_keluar DATE NOT NULL,
     jumlah DECIMAL(15, 2) NOT NULL, 
-    keterangan VARCHAR(255), 
+    keterangan VARCHAR(255),
+    harga DECIMAL(15, 2) DEFAULT 0,
+    kuantitas INT DEFAULT 0,
     FOREIGN KEY (id_akun) REFERENCES akun(id_akun) ON DELETE RESTRICT ON UPDATE CASCADE
 );
-

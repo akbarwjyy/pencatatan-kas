@@ -34,9 +34,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $harga = sanitize_input($_POST['harga'] ?? 0); // Input baru
     $kuantitas = sanitize_input($_POST['kuantitas'] ?? 0); // Input baru
 
-    // Validasi input
+    // Generate ID otomatis dengan format KK-XXX
     if (empty($id_kas_keluar)) {
-        $id_kas_keluar_error = "ID Kas Keluar tidak boleh kosong.";
+        // Query untuk mendapatkan ID terakhir
+        $last_id_query = "SELECT id_kas_keluar FROM kas_keluar ORDER BY id_kas_keluar DESC LIMIT 1";
+        $result = $conn->query($last_id_query);
+
+        if ($result->num_rows > 0) {
+            $row = $result->fetch_assoc();
+            $last_id = $row['id_kas_keluar'];
+            // Ekstrak angka dari ID terakhir
+            preg_match('/KK-(\d+)/', $last_id, $matches);
+            $last_num = isset($matches[1]) ? (int)$matches[1] : 0;
+            $new_num = $last_num + 1;
+            $id_kas_keluar = sprintf("KK-%03d", $new_num); // Format KK-001, KK-002, dst
+        } else {
+            $id_kas_keluar = "KK-001"; // ID pertama jika belum ada data
+        }
     } elseif (strlen($id_kas_keluar) > 8) {
         $id_kas_keluar_error = "ID Kas Keluar maksimal 8 karakter.";
     }
@@ -141,12 +155,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <p class="text-gray-600 mb-6 text-center">Isi formulir di bawah ini untuk mencatat pengeluaran kas.</p>
 
     <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
-        <div class="mb-4">
+        <!-- <div class="mb-4">
             <label for="id_kas_keluar" class="block text-gray-700 text-sm font-bold mb-2">ID Kas Keluar:</label>
-            <input type="text" id="id_kas_keluar" name="id_kas_keluar" value="<?php echo htmlspecialchars($id_kas_keluar); ?>" required maxlength="8"
-                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <input type="text" id="id_kas_keluar" name="id_kas_keluar" value="<?php echo htmlspecialchars($id_kas_keluar); ?>" readonly
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
             <span class="text-red-500 text-xs italic mt-1 block"><?php echo $id_kas_keluar_error; ?></span>
-        </div>
+            <small class="text-gray-500">ID akan dibuat otomatis</small>
+        </div> -->
         <div class="mb-4">
             <label for="tgl_kas_keluar" class="block text-gray-700 text-sm font-bold mb-2">Tanggal:</label>
             <input type="date" id="tgl_kas_keluar" name="tgl_kas_keluar" value="<?php echo htmlspecialchars($tgl_kas_keluar); ?>" required

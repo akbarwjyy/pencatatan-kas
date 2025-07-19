@@ -11,7 +11,8 @@ if (!has_permission('Admin') && !has_permission('Pemilik') && !has_permission('P
 $start_date = isset($_GET['start_date']) ? sanitize_input($_GET['start_date']) : '';
 $end_date = isset($_GET['end_date']) ? sanitize_input($_GET['end_date']) : '';
 
-$sql = "SELECT km.*, tr.id_pesan, tr.metode_pembayaran, c.nama_customer, a.nama_akun
+$sql = "SELECT km.*, tr.id_pesan, tr.metode_pembayaran, c.nama_customer, a.nama_akun, 
+        tr.total_tagihan, tr.jumlah_dibayar, p.quantity AS pemesanan_quantity
         FROM kas_masuk km
         LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
         LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan
@@ -41,6 +42,7 @@ $sql .= " ORDER BY km.tgl_kas_masuk DESC";
 
 // Inisialisasi $cash_incomes agar selalu ada, bahkan jika query gagal
 $cash_incomes = [];
+$total_jumlah = 0; // Inisialisasi variabel total_jumlah
 
 // Perbaikan: Tambahkan pengecekan apakah prepare() berhasil
 $stmt = $conn->prepare($sql);
@@ -57,6 +59,7 @@ if ($stmt === false) {
     if ($result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
             $cash_incomes[] = $row;
+            $total_jumlah += (float)$row['jumlah']; // Menambahkan jumlah kas masuk (uang muka) ke total
         }
     }
     $stmt->close();
@@ -200,34 +203,40 @@ if ($stmt === false) {
                 <table class="min-w-full bg-white border border-gray-200">
                     <thead class="bg-gray-100">
                         <tr>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">ID Kas Masuk</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">ID Akun</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Nama Akun</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Nama Akun</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Harga</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Kuantitas</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
-                        <?php
-                        $total_jumlah = 0;
-                        foreach ($cash_incomes as $income) :
-                            $total_jumlah += ($income['jumlah'] ?? 0);
-                        ?>
+                        <?php foreach ($cash_incomes as $income) : ?>
                             <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($income['tgl_kas_masuk']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars($income['id_kas_masuk']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($income['id_transaksi'] ?? '-'); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($income['nama_akun'] ?? '-'); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($income['keterangan']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo format_rupiah($income['jumlah'] ?? 0); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-500"><?php echo htmlspecialchars($income['id_kas_masuk']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['tgl_kas_masuk']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['nama_akun'] ?? 'N/A'); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['keterangan']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($income['harga'] > 0 ? $income['harga'] : 12000); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php
+                                                                            if ($income['kuantitas'] > 0) {
+                                                                                echo $income['kuantitas'];
+                                                                            } elseif ($income['pemesanan_quantity'] > 0) {
+                                                                                echo $income['pemesanan_quantity'];
+                                                                            } else {
+                                                                                echo ceil($income['jumlah'] / ($income['harga'] > 0 ? $income['harga'] : 12000));
+                                                                            }
+                                                                            ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($income['jumlah'] ?? 0); ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                     <tfoot>
                         <tr class="bg-gray-100 font-bold">
-                            <td colspan="5" class="px-6 py-3 border-t text-right text-xs uppercase text-gray-700">Total Kas Masuk:</td>
-                            <td class="px-6 py-3 border-t text-sm text-gray-900"><?php echo format_rupiah($total_jumlah); ?></td>
+                            <td colspan="6" class="px-3 py-2 border-t text-right text-xs uppercase text-gray-700">Total:</td>
+                            <td class="px-3 py-2 border-t text-sm text-gray-900"><?php echo format_rupiah($total_jumlah); ?></td>
                         </tr>
                     </tfoot>
                 </table>

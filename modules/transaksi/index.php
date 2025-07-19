@@ -8,12 +8,54 @@ if (!has_permission('Admin') && !has_permission('Pegawai')) {
     redirect('../../modules/dashboard/index.php'); // Redirect ke dashboard
 }
 
-// Ambil semua data transaksi dari database, join dengan pemesanan, customer, dan akun
-$sql = "SELECT tr.*, p.id_pesan AS no_pesan, p.sub_total AS total_tagihan_pemesanan, p.sisa AS sisa_pemesanan, p.status_pesanan AS status_pelunasan, c.nama_customer
+// Ambil semua data pemesanan dan transaksi
+$sql = "SELECT 
+            COALESCE(tr.id_transaksi, CONCAT('PENDING-', p.id_pesan)) as id_transaksi,
+            tr.tgl_transaksi,
+            tr.jumlah_dibayar,
+            tr.metode_pembayaran,
+            p.id_pesan AS no_pesan,
+            p.sub_total AS total_tagihan_pemesanan,
+            p.sisa AS sisa_pemesanan,
+            p.status_pesanan,
+            p.tgl_pesan,
+            c.id_customer,
+            c.nama_customer,
+            CASE 
+                WHEN p.id_pesan IS NULL THEN 'Lunas'
+                WHEN p.sisa = 0 THEN 'Lunas'
+                WHEN tr.id_transaksi IS NULL THEN 'Belum Bayar'
+                ELSE 'Belum Lunas'
+            END AS status_pembayaran,
+            CASE
+                WHEN p.id_pesan IS NULL THEN COALESCE(tr.jumlah_dibayar, 0)
+                ELSE p.sub_total
+            END AS total_tagihan,
+            COALESCE(tr.jumlah_dibayar, 0) as jumlah_dibayar
+        FROM pemesanan p
+        LEFT JOIN transaksi tr ON p.id_pesan = tr.id_pesan
+        LEFT JOIN customer c ON p.id_customer = c.id_customer
+        WHERE p.status_pesanan != 'Batal'
+        UNION
+        SELECT 
+            tr.id_transaksi,
+            tr.tgl_transaksi,
+            tr.jumlah_dibayar,
+            tr.metode_pembayaran,
+            NULL as no_pesan,
+            tr.jumlah_dibayar as total_tagihan_pemesanan,
+            0 as sisa_pemesanan,
+            'Lunas' as status_pesanan,
+            tr.tgl_transaksi as tgl_pesan,
+            c.id_customer,
+            c.nama_customer,
+            'Lunas' as status_pembayaran,
+            tr.jumlah_dibayar as total_tagihan,
+            tr.jumlah_dibayar
         FROM transaksi tr
-        LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan
         LEFT JOIN customer c ON tr.id_customer = c.id_customer
-        ORDER BY tr.tgl_transaksi DESC";
+        WHERE tr.id_pesan IS NULL
+        ORDER BY tgl_transaksi DESC";
 $result = $conn->query($sql);
 
 $transactions = [];
@@ -44,36 +86,46 @@ if ($result->num_rows > 0) {
                 <table class="min-w-full bg-white border border-gray-200">
                     <thead class="bg-gray-100">
                         <tr>
-                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Pesan</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">No</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">ID Transaksi</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">No Pesan</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
-                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
-                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Metode</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Total Tagihan</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Dibayar</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Sisa</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                             <th class="px-3 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
-                        <?php foreach ($transactions as $transaction) : ?>
+                        <?php $no = 1;
+                        foreach ($transactions as $transaction) : ?>
                             <tr class="hover:bg-gray-50">
+                                <td class="px-3 py-2 text-sm text-gray-500"><?php echo $no++; ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-500"><?php echo htmlspecialchars($transaction['id_transaksi']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['no_pesan'] ?? '-'); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['nama_customer']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['tgl_transaksi']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($transaction['total_tagihan']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($transaction['jumlah_dibayar']); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['metode_pembayaran']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($transaction['sisa_pemesanan'] ?? 0); ?></td>
                                 <td class="px-3 py-2 text-sm">
                                     <?php
-                                    // Untuk transaksi beli langsung (id_pesan NULL), status selalu Lunas
-                                    // Untuk transaksi pemesanan, ambil dari status_pesanan
-                                    $status_display = 'Lunas';
-                                    if (!empty($transaction['no_pesan'])) {
-                                        $status_display = $transaction['status_pelunasan'] ?? 'Belum Lunas';
+                                    switch ($transaction['status_pembayaran']) {
+                                        case 'Lunas':
+                                            $status_class = 'bg-green-100 text-green-800';
+                                            break;
+                                        case 'Belum Lunas':
+                                            $status_class = 'bg-red-100 text-red-800';
+                                            break;
+                                        default:
+                                            $status_class = 'bg-yellow-100 text-yellow-800';
+                                            break;
                                     }
                                     ?>
-                                    <span class="px-2 py-1 text-xs rounded-full <?php echo ($status_display == 'Lunas') ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'; ?>">
-                                        <?php echo htmlspecialchars($status_display); ?>
+                                    <span class="px-2 py-1 text-xs rounded-full <?php echo $status_class; ?>">
+                                        <?php echo htmlspecialchars($transaction['status_pembayaran']); ?>
                                     </span>
                                 </td>
                                 <td class="px-3 py-2 text-sm text-center">

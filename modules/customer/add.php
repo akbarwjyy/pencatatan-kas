@@ -8,23 +8,26 @@ if (!has_permission('Admin')) {
     redirect('../../modules/dashboard/index.php');
 }
 
+// Generate ID customer otomatis
+$latest_customer_sql = "SELECT MAX(CAST(SUBSTRING(id_customer, 4) AS UNSIGNED)) as last_num FROM customer WHERE id_customer LIKE 'CUS%'";
+$latest_customer_result = $conn->query($latest_customer_sql);
+$last_customer_num = 0;
+if ($latest_customer_result && $row = $latest_customer_result->fetch_assoc()) {
+    $last_customer_num = intval($row['last_num']);
+}
+$new_customer_num = $last_customer_num + 1;
+$id_customer = sprintf("CUS%05d", $new_customer_num); // Format: CUS00001, CUS00002, dst.
+
 $id_customer_error = $nama_customer_error = $no_hp_error = $alamat_error = "";
-$id_customer = $nama_customer = $no_hp = $alamat = "";
+$nama_customer = $no_hp = $alamat = "";
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Sanitasi input
-    $id_customer = sanitize_input($_POST['id_customer']);
+    // Sanitasi input (ID customer sudah di-generate otomatis)
     $nama_customer = sanitize_input($_POST['nama_customer']);
     $no_hp = sanitize_input($_POST['no_hp']);
     $alamat = sanitize_input($_POST['alamat']);
 
-    // Validasi input
-    if (empty($id_customer)) {
-        $id_customer_error = "ID Customer tidak boleh kosong.";
-    } elseif (strlen($id_customer) > 8) {
-        $id_customer_error = "ID Customer maksimal 8 karakter.";
-    }
-
+    // Validasi input (ID customer tidak perlu validasi karena auto-generate)
     if (empty($nama_customer)) {
         $nama_customer_error = "Nama Customer tidak boleh kosong.";
     } elseif (strlen($nama_customer) > 20) {
@@ -46,37 +49,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // Jika tidak ada error validasi, coba simpan ke database
-    if (empty($id_customer_error) && empty($nama_customer_error) && empty($no_hp_error) && empty($alamat_error)) {
-        // Cek apakah id_customer sudah ada di database
-        $check_sql = "SELECT id_customer FROM customer WHERE id_customer = ?";
-        $stmt_check = $conn->prepare($check_sql);
-        $stmt_check->bind_param("s", $id_customer);
-        $stmt_check->execute();
-        $stmt_check->store_result();
+    if (empty($nama_customer_error) && empty($no_hp_error) && empty($alamat_error)) {
 
-        if ($stmt_check->num_rows > 0) {
-            $id_customer_error = "ID Customer sudah ada. Gunakan ID lain.";
-            set_flash_message("Gagal menambahkan customer: ID Customer sudah ada.", "error");
-        } else {
-            $stmt_check->close();
+        // Query untuk menambah data customer
+        $sql = "INSERT INTO customer (id_customer, nama_customer, no_hp, alamat) VALUES (?, ?, ?, ?)";
 
-            // Query untuk menambah data customer
-            $sql = "INSERT INTO customer (id_customer, nama_customer, no_hp, alamat) VALUES (?, ?, ?, ?)";
+        // Gunakan prepared statement untuk keamanan
+        if ($stmt = $conn->prepare($sql)) {
+            $stmt->bind_param("ssss", $id_customer, $nama_customer, $no_hp, $alamat);
 
-            // Gunakan prepared statement untuk keamanan
-            if ($stmt = $conn->prepare($sql)) {
-                $stmt->bind_param("ssss", $id_customer, $nama_customer, $no_hp, $alamat);
-
-                if ($stmt->execute()) {
-                    set_flash_message("Customer berhasil ditambahkan!", "success");
-                    redirect('index.php'); // Redirect ke halaman daftar customer
-                } else {
-                    set_flash_message("Gagal menambahkan customer: " . $stmt->error, "error");
-                }
-                $stmt->close();
+            if ($stmt->execute()) {
+                set_flash_message("Customer berhasil ditambahkan!", "success");
+                redirect('index.php'); // Redirect ke halaman daftar customer
             } else {
-                set_flash_message("Error prepared statement: " . $conn->error, "error");
+                set_flash_message("Gagal menambahkan customer: " . $stmt->error, "error");
             }
+            $stmt->close();
+        } else {
+            set_flash_message("Error prepared statement: " . $conn->error, "error");
         }
     } else {
         set_flash_message("Silakan perbaiki kesalahan pada formulir.", "error");
@@ -89,12 +79,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <h1 class="text-2xl font-bold text-gray-800 mb-4 text-center">Tambah Customer</h1>
 
         <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
-            <div class="mb-4">
-                <label for="id_customer" class="block text-gray-700 text-sm font-bold mb-2">ID Customer:</label>
-                <input type="text" id="id_customer" name="id_customer" value="<?php echo htmlspecialchars($id_customer); ?>" required maxlength="8"
-                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-                <span class="text-red-500 text-xs italic mt-1 block"><?php echo $id_customer_error; ?></span>
-            </div>
+
             <div class="mb-4">
                 <label for="nama_customer" class="block text-gray-700 text-sm font-bold mb-2">Nama Customer:</label>
                 <input type="text" id="nama_customer" name="nama_customer" value="<?php echo htmlspecialchars($nama_customer); ?>" required maxlength="20"

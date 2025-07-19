@@ -42,9 +42,10 @@ if (!empty($selected_akun)) {
     }
 
     // Hitung saldo awal untuk akun yang dipilih (total kas masuk sebelum start_date - total kas keluar sebelum start_date)
-    $sql_saldo_awal_masuk = "SELECT SUM(jumlah) FROM kas_masuk km 
+    // Menggunakan jumlah dari kas_masuk
+    $sql_saldo_awal_masuk = "SELECT SUM(km.jumlah) FROM kas_masuk km 
                              LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
-                             WHERE km.tgl_kas_masuk < ? AND (tr.id_akun = ? OR km.id_transaksi IS NULL)"; // Perlu penyesuaian jika kas_masuk manual tidak punya id_akun
+                             WHERE km.tgl_kas_masuk < ? AND (tr.id_akun = ? OR km.id_transaksi IS NULL)";
     $stmt_saldo_awal_masuk = $conn->prepare($sql_saldo_awal_masuk);
     if ($stmt_saldo_awal_masuk === false) {
         set_flash_message("Error menyiapkan query saldo awal masuk: " . $conn->error, "error");
@@ -71,16 +72,24 @@ if (!empty($selected_akun)) {
         $saldo_keluar_awal = $saldo_keluar_awal ?: 0;
     }
 
-    $saldo_awal = ($saldo_masuk_awal ?? 0) - ($saldo_keluar_awal ?? 0);
+    // Kas masuk adalah kredit dan kas keluar adalah debit, maka saldo awal adalah kas keluar dikurangi kas masuk
+    $saldo_awal = ($saldo_keluar_awal ?? 0) - ($saldo_masuk_awal ?? 0);
 
 
     // Ambil entri untuk akun yang dipilih dalam periode
-    // Kas Masuk
-    $sql_km_akun = "SELECT km.tgl_kas_masuk AS tanggal, km.keterangan, km.jumlah, 'Debit' AS tipe_saldo, tr.id_transaksi
+    // Kas Masuk - menggunakan jumlah dari kas_masuk - diubah menjadi Kredit
+    $sql_km_akun = "SELECT 
+                    km.tgl_kas_masuk AS tanggal, 
+                    km.keterangan, 
+                    km.jumlah, 
+                    'Kredit' AS tipe_saldo, 
+                    tr.id_transaksi,
+                    km.harga,
+                    km.kuantitas
                     FROM kas_masuk km 
                     LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
                     WHERE km.tgl_kas_masuk BETWEEN ? AND ? 
-                    AND (tr.id_akun = ? OR km.id_transaksi IS NULL)"; // Menarik dari akun yang sama atau jika manual
+                    AND (tr.id_akun = ? OR km.id_transaksi IS NULL)";
     $stmt_km_akun = $conn->prepare($sql_km_akun);
     if ($stmt_km_akun === false) {
         set_flash_message("Error menyiapkan query entri kas masuk: " . $conn->error, "error");
@@ -95,8 +104,8 @@ if (!empty($selected_akun)) {
     }
 
 
-    // Kas Keluar
-    $sql_kk_akun = "SELECT kk.tgl_kas_keluar AS tanggal, kk.keterangan, kk.jumlah, 'Kredit' AS tipe_saldo, NULL AS id_transaksi
+    // Kas Keluar - diubah menjadi Debit
+    $sql_kk_akun = "SELECT kk.tgl_kas_keluar AS tanggal, kk.keterangan, kk.jumlah, 'Debit' AS tipe_saldo, NULL AS id_transaksi, kk.harga, kk.kuantitas
                     FROM kas_keluar kk 
                     WHERE kk.tgl_kas_keluar BETWEEN ? AND ? AND kk.id_akun = ?";
     $stmt_kk_akun = $conn->prepare($sql_kk_akun);
@@ -275,22 +284,28 @@ if (!empty($selected_akun)) {
                 <table class="min-w-full bg-white border border-gray-200">
                     <thead class="bg-gray-100">
                         <tr>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">ID Transaksi</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Nama Akun</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Debit</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Kredit</th>
-                            <th class="px-6 py-3 border-b text-left text-xs font-medium text-gray-500 uppercase">Saldo</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Akun</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Harga</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Debit</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Kredit</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Saldo</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
                         <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars(date('d F Y', strtotime($start_date))); ?></td>
-                            <td class="px-6 py-4 text-sm text-gray-900">-</td>
-                            <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($account_name); ?></td>
-                            <td class="px-6 py-4 text-sm text-gray-900">-</td>
-                            <td class="px-6 py-4 text-sm text-gray-900">-</td>
-                            <td class="px-6 py-4 text-sm text-gray-900"><?php echo format_rupiah($saldo_awal); ?></td>
+                            <td class="px-3 py-2 text-sm text-gray-500"><?php echo htmlspecialchars(date('d/m/Y', strtotime($start_date))); ?></td>
+                            <td class="px-3 py-2 text-sm text-gray-900">-</td>
+                            <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($account_name); ?></td>
+                            <td class="px-3 py-2 text-sm text-gray-900">Saldo Awal</td>
+                            <td class="px-3 py-2 text-sm text-gray-900">-</td>
+                            <td class="px-3 py-2 text-sm text-gray-900">-</td>
+                            <td class="px-3 py-2 text-sm text-gray-900">-</td>
+                            <td class="px-3 py-2 text-sm text-gray-900">-</td>
+                            <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah(abs($saldo_awal)); ?></td>
                         </tr>
                         <?php
                         $current_saldo = $saldo_awal;
@@ -300,26 +315,31 @@ if (!empty($selected_akun)) {
 
                             if ($entry['tipe_saldo'] == 'Debit') {
                                 $debit = ($entry['jumlah'] ?? 0);
+                                $kredit = 0;
                                 $current_saldo += $debit;
                             } else { // Kredit
                                 $kredit = ($entry['jumlah'] ?? 0);
+                                $debit = 0;
                                 $current_saldo -= $kredit;
                             }
                         ?>
                             <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars($entry['tanggal']); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($entry['id_transaksi'] ?? '-'); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($account_name); ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo ($debit > 0) ? format_rupiah($debit) : '-'; ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo ($kredit > 0) ? format_rupiah($kredit) : '-'; ?></td>
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo format_rupiah($current_saldo); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-500"><?php echo htmlspecialchars(date('d/m/Y', strtotime($entry['tanggal']))); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($entry['id_transaksi'] ?? '-'); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($account_name); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($entry['keterangan'] ?? '-'); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($entry['harga'] ?? 0); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo $entry['kuantitas'] ?? '-'; ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo ($debit > 0) ? format_rupiah($debit) : '-'; ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo ($kredit > 0) ? format_rupiah($kredit) : '-'; ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah(abs($current_saldo)); ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                     <tfoot>
                         <tr class="bg-gray-100 font-bold">
-                            <td colspan="5" class="px-6 py-3 border-t text-right text-xs uppercase text-gray-700"><strong>Saldo Akhir:</strong></td>
-                            <td class="px-6 py-3 border-t text-sm text-gray-900"><strong><?php echo format_rupiah($current_saldo); ?></strong></td>
+                            <td colspan="8" class="px-3 py-2 border-t text-right text-xs uppercase text-gray-700"><strong>Saldo Akhir:</strong></td>
+                            <td class="px-3 py-2 border-t text-sm text-gray-900"><strong><?php echo format_rupiah(abs($current_saldo)); ?></strong></td>
                         </tr>
                     </tfoot>
                 </table>

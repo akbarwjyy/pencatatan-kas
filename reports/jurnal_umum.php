@@ -21,9 +21,21 @@ $entries = [];
 $total_debit = 0;
 $total_kredit = 0;
 
-// Query untuk Kas Masuk
-$sql_kas_masuk = "SELECT km.tgl_kas_masuk AS tanggal, km.id_transaksi, 'Kas Masuk' AS tipe, km.jumlah, km.keterangan, 
-                         a.nama_akun AS akun_asal, NULL AS akun_tujuan
+// Query untuk Kas Masuk - menggunakan total_tagihan atau jumlah_dibayar jika tersedia
+$sql_kas_masuk = "SELECT 
+                    km.tgl_kas_masuk AS tanggal, 
+                    km.id_transaksi, 
+                    'Kas Masuk' AS tipe, 
+                    CASE 
+                        WHEN tr.total_tagihan IS NOT NULL THEN tr.total_tagihan
+                        WHEN tr.jumlah_dibayar IS NOT NULL THEN tr.jumlah_dibayar
+                        ELSE km.jumlah 
+                    END AS jumlah,
+                    km.keterangan, 
+                    a.nama_akun AS akun_asal, 
+                    NULL AS akun_tujuan,
+                    tr.total_tagihan,
+                    tr.jumlah_dibayar
                   FROM kas_masuk km
                   LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
                   LEFT JOIN akun a ON tr.id_akun = a.id_akun -- Ambil akun dari transaksi terkait

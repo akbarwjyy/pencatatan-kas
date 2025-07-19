@@ -15,9 +15,11 @@ $orders = [];
 if (!$conn) {
     set_flash_message("Koneksi database gagal: " . mysqli_connect_error(), "error");
 } else {
-    $sql = "SELECT p.*, c.nama_customer
+    $sql = "SELECT p.*, c.nama_customer, t.id_akun, a.nama_akun
         FROM pemesanan p
         JOIN customer c ON p.id_customer = c.id_customer
+        LEFT JOIN transaksi t ON p.id_pesan = t.id_pesan
+        LEFT JOIN akun a ON t.id_akun = a.id_akun
         ORDER BY p.tgl_pesan DESC";
 
     $result = $conn->query($sql);
@@ -55,35 +57,37 @@ if (!$conn) {
                 <table class="min-w-full bg-white border border-gray-200">
                     <thead class="bg-gray-100">
                         <tr>
-                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Pesan</th>
-                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Kirim</th>
-                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Nama Customer</th>
-                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Jumlah Ampyang</th>
-                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Total Harga</th>
-                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Uang Muka</th>
-                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Sisa Pembayaran</th>
-                            <th class="px-4 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Status Pembayaran</th>
-                            <th class="px-4 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
+                            <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                            <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Pesan</th>
+                            <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Kirim</th>
+                            <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                            <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Akun</th>
+                            <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
+                            <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                            <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">DP</th>
+                            <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Sisa</th>
+                            <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th class="px-2 py-1 border-b text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
                         <?php foreach ($orders as $order) : ?>
                             <tr class="hover:bg-gray-50">
-                                <td class="px-4 py-2 text-sm"><?php echo htmlspecialchars($order['id_pesan']); ?></td>
-                                <td class="px-4 py-2 text-sm"><?php echo htmlspecialchars($order['tgl_pesan']); ?></td>
-                                <td class="px-4 py-2 text-sm"><?php echo htmlspecialchars($order['tgl_kirim']); ?></td>
-                                <td class="px-4 py-2 text-sm"><?php echo htmlspecialchars($order['nama_customer']); ?></td>
-                                <td class="px-4 py-2 text-sm"><?php echo htmlspecialchars($order['quantity']); ?></td>
-                                <td class="px-4 py-2 text-sm"><?php echo format_rupiah($order['sub_total']); ?></td>
-                                <td class="px-4 py-2 text-sm"><?php echo format_rupiah($order['uang_muka']); ?></td>
-                                <td class="px-4 py-2 text-sm"><?php echo format_rupiah($order['sisa']); ?></td>
-                                <td class="px-4 py-2 text-sm">
-                                    <span class="px-2 py-1 text-xs rounded-full <?php echo ($order['sisa'] == 0) ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'; ?>">
-                                        <?php echo ($order['sisa'] == 0) ? 'Lunas' : 'Belum Lunas'; ?>
+                                <td class="px-2 py-1 text-sm"><?php echo htmlspecialchars($order['id_pesan']); ?></td>
+                                <td class="px-2 py-1 text-sm"><?php echo date('d/m/Y', strtotime($order['tgl_pesan'])); ?></td>
+                                <td class="px-2 py-1 text-sm"><?php echo !empty($order['tgl_kirim']) ? date('d/m/Y', strtotime($order['tgl_kirim'])) : '-'; ?></td>
+                                <td class="px-2 py-1 text-sm"><?php echo htmlspecialchars($order['nama_customer']); ?></td>
+                                <td class="px-2 py-1 text-sm"><?php echo !empty($order['nama_akun']) ? htmlspecialchars($order['id_akun'] . ' - ' . $order['nama_akun']) : '-'; ?></td>
+                                <td class="px-2 py-1 text-sm"><?php echo htmlspecialchars($order['quantity']); ?></td>
+                                <td class="px-2 py-1 text-sm"><?php echo format_rupiah($order['sub_total']); ?></td>
+                                <td class="px-2 py-1 text-sm"><?php echo format_rupiah($order['uang_muka']); ?></td>
+                                <td class="px-2 py-1 text-sm"><?php echo format_rupiah($order['sisa']); ?></td>
+                                <td class="px-2 py-1 text-sm">
+                                    <span class="px-1 py-0 text-xs rounded <?php echo ($order['sisa'] == 0) ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'; ?>">
+                                        <?php echo ($order['sisa'] == 0) ? 'Lunas' : 'Belum'; ?>
                                     </span>
                                 </td>
-                                <td class="px-4 py-2 text-sm text-center">
+                                <td class="px-2 py-1 text-sm text-center">
                                     <?php if (has_permission('Admin') || has_permission('Pegawai')) : ?>
                                         <div class="flex justify-center space-x-1">
                                             <a href="edit.php?id=<?php echo htmlspecialchars($order['id_pesan']); ?>"

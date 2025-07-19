@@ -29,6 +29,7 @@ require_once __DIR__ . '/../includes/path_helper.php';
                     <a href="<?php echo to_url('modules/pengguna/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">👥 Manajemen Pengguna</a>
                     <a href="<?php echo to_url('modules/akun/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">💳 Manajemen Akun</a>
                     <a href="<?php echo to_url('modules/customer/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">👤 Manajemen Customer</a>
+                    <a href="<?php echo to_url('modules/barang/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">📦 Manajemen Barang</a>
                 <?php endif; ?>
                 <?php if (has_permission('Admin') || has_permission('Pegawai') || has_permission('Pemilik')) : ?>
                     <a href="<?php echo to_url('modules/pemesanan/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">📝 Manajemen Pemesanan</a>
@@ -53,6 +54,8 @@ require_once __DIR__ . '/../includes/path_helper.php';
                 <?php if (has_permission('Admin') || has_permission('Pemilik') || has_permission('Pegawai')) : ?>
                     <a href="<?php echo to_url('reports/pemesanan.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">📋 Laporan Pemesanan</a>
                     <a href="<?php echo to_url('reports/kas_masuk.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">📈 Laporan Kas Masuk</a>
+                <?php endif; ?>
+                <?php if (has_permission('Admin') || has_permission('Pemilik')) : ?>
                     <a href="<?php echo to_url('reports/kas_keluar.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">📉 Laporan Kas Keluar</a>
                 <?php endif; ?>
                 <?php if (has_permission('Admin') || has_permission('Pemilik')) : ?>

@@ -14,12 +14,14 @@ $total_tagihan_display = 0;
 $sisa_pembayaran_display = 0;
 $status_pelunasan_input = "";
 
-// Ambil daftar pemesanan yang belum lunas atau partially paid untuk dropdown
+// Ambil daftar pemesanan untuk dropdown (termasuk yang sudah lunas)
 $pemesanan_options = [];
-$pemesanan_sql = "SELECT p.id_pesan, p.sub_total, p.sisa, p.tgl_pesan, p.tgl_kirim, p.uang_muka, c.nama_customer 
+$pemesanan_sql = "SELECT p.id_pesan, p.sub_total, p.sisa, p.tgl_pesan, p.tgl_kirim, p.uang_muka, c.nama_customer,
+                  t.id_akun, a.nama_akun
                   FROM pemesanan p 
                   JOIN customer c ON p.id_customer = c.id_customer
-                  WHERE p.sisa > 0 
+                  LEFT JOIN transaksi t ON p.id_pesan = t.id_pesan
+                  LEFT JOIN akun a ON t.id_akun = a.id_akun
                   ORDER BY p.tgl_pesan DESC";
 $pemesanan_result = $conn->query($pemesanan_sql);
 if ($pemesanan_result->num_rows > 0) {
@@ -46,10 +48,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // $id_akun = sanitize_input($_POST['id_akun'] ?? ''); // Dihapus dari form
     $tgl_transaksi = sanitize_input($_POST['tgl_transaksi'] ?? '');
     $jumlah_dibayar = sanitize_input($_POST['jumlah_dibayar'] ?? 0);
-    $metode_pembayaran = sanitize_input($_POST['metode_pembayaran'] ?? '');
-    // $keterangan = sanitize_input($_POST['keterangan'] ?? '');
-    // $status_pelunasan_input = sanitize_input($_POST['status_pelunasan_input'] ?? ''); // Ambil status dari input baru
-    $keterangan = 'Pembayaran';
+    $metode_pembayaran = 'Tunai'; // Metode pembayaran selalu Tunai
+    $keterangan = sanitize_input($_POST['keterangan'] ?? '');
     $status_pelunasan_input = 'Lunas'; // Default status
 
     // === Validasi Input ===
@@ -58,8 +58,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (empty($id_pesan)) {
         $id_pesan_error = "ID Pesan tidak boleh kosong.";
     }
-    // Asumsi id_akun akan diambil dari akun pertama yang tersedia jika tidak diinput manual
-    $id_akun = !empty($accounts) ? $accounts[0]['id_akun'] : 'AK001'; // Default ke akun pertama atau 'AK001'
+    // Ambil id_akun dari pemesanan yang dipilih
+    $id_akun = '';
+    foreach ($pemesanan_options as $option) {
+        if ($option['id_pesan'] == $id_pesan && !empty($option['id_akun'])) {
+            $id_akun = $option['id_akun'];
+            break;
+        }
+    }
+
+    // Jika tidak ada id_akun dari pemesanan, gunakan default pendapatan
+    if (empty($id_akun)) {
+        $id_akun = '4001'; // Default ke akun pendapatan penjualan
+    }
 
     if (empty($tgl_transaksi)) {
         $tgl_transaksi_error = "Tanggal Transaksi tidak boleh kosong.";
@@ -71,9 +82,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $jumlah_dibayar = (int)$jumlah_dibayar;
     }
 
-    if (empty($metode_pembayaran)) {
-        $metode_pembayaran_error = "Metode Pembayaran tidak boleh kosong.";
-    }
+    // Metode pembayaran selalu Tunai, tidak perlu validasi
 
     // Validasi keterangan dan status dihapus karena sudah default
 
@@ -92,11 +101,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $stmt_pemesanan->fetch();
             $stmt_pemesanan->close();
 
-            if ($jumlah_dibayar > $current_sisa_pemesanan) {
-                // Komen ini karena status bisa diubah manual, jadi validasi ini mungkin tidak relevan jika user ingin set 'Belum Lunas'
-            }
+            // Hapus validasi jumlah dibayar > sisa pemesanan
+            // Ini memungkinkan transaksi untuk pemesanan yang sudah lunas
             $total_tagihan_display = $total_tagihan_pemesanan;
-            $sisa_pembayaran_display = $current_sisa_pemesanan - $jumlah_dibayar;
+
+            // Jika sisa pembayaran sudah 0, tetap 0 (sudah lunas)
+            if ($current_sisa_pemesanan == 0) {
+                $sisa_pembayaran_display = 0;
+                $status_pelunasan_input = 'Lunas'; // Pastikan status tetap Lunas
+            } else {
+                $sisa_pembayaran_display = $current_sisa_pemesanan - $jumlah_dibayar;
+            }
         } else {
             set_flash_message("Error saat mengambil detail pemesanan: " . $conn->error, "error");
             $id_pesan_error = "Gagal mengambil detail pemesanan.";
@@ -107,7 +122,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Jika tidak ada error validasi, coba simpan ke database
     if (
         empty($id_pesan_error) && empty($tgl_transaksi_error) &&
-        empty($jumlah_dibayar_error) && empty($metode_pembayaran_error)
+        empty($jumlah_dibayar_error)
     ) {
         // === Generate ID Transaksi Otomatis ===
         $generated_id_transaksi = 'TRX' . strtoupper(substr(uniqid(), 0, 5)); // Contoh: TRX6A8B1
@@ -161,19 +176,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             // Update sisa pembayaran di tabel pemesanan (berdasarkan sisa_pembayaran_display)
             // Perbaikan: Ubah 'status_pelunasan' menjadi 'status_pesanan' untuk tabel pemesanan
-            $sql_update_pemesanan = "UPDATE pemesanan SET sisa = ?, status_pesanan = ? WHERE id_pesan = ?";
-            if ($stmt_update_pemesanan = $conn->prepare($sql_update_pemesanan)) {
-                $stmt_update_pemesanan->bind_param("iss", $sisa_pembayaran_display, $status_pelunasan_final, $id_pesan);
-                if (!$stmt_update_pemesanan->execute()) {
-                    throw new Exception("Gagal memperbarui pemesanan: " . $stmt_update_pemesanan->error);
-                }
-                $stmt_update_pemesanan->close();
+            // Jika pemesanan sudah lunas (sisa = 0), jangan update status pesanan
+            if ($current_sisa_pemesanan == 0) {
+                // Jika sudah lunas, tidak perlu update pemesanan
+                // Hanya tambahkan transaksi dan kas masuk
             } else {
-                throw new Exception("Error prepared statement (update pemesanan): " . $conn->error);
+                $sql_update_pemesanan = "UPDATE pemesanan SET sisa = ?, status_pesanan = ? WHERE id_pesan = ?";
+                if ($stmt_update_pemesanan = $conn->prepare($sql_update_pemesanan)) {
+                    $stmt_update_pemesanan->bind_param("iss", $sisa_pembayaran_display, $status_pelunasan_final, $id_pesan);
+                    if (!$stmt_update_pemesanan->execute()) {
+                        throw new Exception("Gagal memperbarui pemesanan: " . $stmt_update_pemesanan->error);
+                    }
+                    $stmt_update_pemesanan->close();
+                } else {
+                    throw new Exception("Error prepared statement (update pemesanan): " . $conn->error);
+                }
             }
 
             // Tambahkan entri ke tabel kas_masuk
-            $sql_kas_masuk = "INSERT INTO kas_masuk (id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan) VALUES (?, ?, ?, ?, ?)";
+            $sql_kas_masuk = "INSERT INTO kas_masuk (id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan, harga, kuantitas) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
             // Generate ID kas masuk dengan format KMxxxxxx (8 karakter)
             $latest_km_sql = "SELECT MAX(CAST(SUBSTRING(id_kas_masuk, 3) AS UNSIGNED)) as last_num FROM kas_masuk WHERE id_kas_masuk LIKE 'KM%'";
@@ -185,10 +206,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $new_num = $last_num + 1;
             $id_kas_masuk = sprintf("KM%06d", $new_num); // Format: KM000001, KM000002, dst.
 
-            $keterangan_kas_masuk = "Pembayaran " . $keterangan . " untuk Pesanan " . $id_pesan;
+            // Gunakan keterangan yang sama untuk kas masuk
+            $keterangan_kas_masuk = $keterangan;
+
+            // Ambil data quantity dari pemesanan jika ada
+            $quantity_pemesanan = 0;
+            if (!empty($id_pesan)) {
+                $sql_get_quantity = "SELECT quantity FROM pemesanan WHERE id_pesan = ?";
+                if ($stmt_quantity = $conn->prepare($sql_get_quantity)) {
+                    $stmt_quantity->bind_param("s", $id_pesan);
+                    $stmt_quantity->execute();
+                    $stmt_quantity->bind_result($quantity_pemesanan);
+                    $stmt_quantity->fetch();
+                    $stmt_quantity->close();
+                }
+            }
+
+            // Hitung harga satuan dan kuantitas
+            $harga_satuan = 12000; // Default harga
+            $kuantitas = $quantity_pemesanan > 0 ? $quantity_pemesanan : ceil($jumlah_dibayar / $harga_satuan);
 
             if ($stmt_kas_masuk = $conn->prepare($sql_kas_masuk)) {
-                $stmt_kas_masuk->bind_param("sssis", $id_kas_masuk, $generated_id_transaksi, $tgl_transaksi, $jumlah_dibayar, $keterangan_kas_masuk);
+                $stmt_kas_masuk->bind_param("sssisii", $id_kas_masuk, $generated_id_transaksi, $tgl_transaksi, $jumlah_dibayar, $keterangan_kas_masuk, $harga_satuan, $kuantitas);
                 if (!$stmt_kas_masuk->execute()) {
                     throw new Exception("Gagal menambahkan entri kas masuk: " . $stmt_kas_masuk->error);
                 }
@@ -232,6 +271,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 data-tglpesan="<?php echo htmlspecialchars($option['tgl_pesan']); ?>"
                                 data-tglkirim="<?php echo htmlspecialchars($option['tgl_kirim']); ?>"
                                 data-uangmuka="<?php echo htmlspecialchars($option['uang_muka']); ?>"
+                                data-idakun="<?php echo htmlspecialchars($option['id_akun'] ?? ''); ?>"
+                                data-namaakun="<?php echo htmlspecialchars($option['nama_akun'] ?? ''); ?>"
                                 <?php echo ($id_pesan == $option['id_pesan']) ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($option['nama_customer'] . " - " . $option['id_pesan']); ?>
                             </option>
@@ -251,21 +292,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 <div class="mb-6">
                     <label for="metode_pembayaran" class="block text-gray-700 text-sm font-bold mb-2">Metode Pembayaran:</label>
-                    <select id="metode_pembayaran" name="metode_pembayaran" required
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-                        <option value="">-- Pilih Metode --</option>
-                        <option value="Cash" <?php echo ($metode_pembayaran == 'Cash') ? 'selected' : ''; ?>>Cash</option>
-                        <option value="Transfer Bank" <?php echo ($metode_pembayaran == 'Transfer Bank') ? 'selected' : ''; ?>>Transfer Bank</option>
-                        <option value="QRIS" <?php echo ($metode_pembayaran == 'QRIS') ? 'selected' : ''; ?>>QRIS</option>
-                        <option value="Lainnya" <?php echo ($metode_pembayaran == 'Lainnya') ? 'selected' : ''; ?>>Lainnya</option>
-                    </select>
-                    <span class="text-red-500 text-xs italic mt-1 block"><?php echo $metode_pembayaran_error; ?></span>
+                    <input type="hidden" id="metode_pembayaran" name="metode_pembayaran" value="Tunai">
+                    <input type="text" value="Tunai" disabled
+                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
                 </div>
 
                 <div class="mb-6">
                     <label for="keterangan" class="block text-gray-700 text-sm font-bold mb-2">Keterangan:</label>
-                    <input type="text" id="keterangan" name="keterangan" value="<?php echo htmlspecialchars($keterangan); ?>"
+                    <input type="text" id="keterangan" name="keterangan"
+                        value="<?php echo htmlspecialchars($keterangan); ?>"
+                        required
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+
                 </div>
             </div>
 
@@ -295,6 +333,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <div class="mb-6">
                     <label class="block text-gray-700 text-sm font-bold mb-2">Status Pembayaran:</label>
                     <input type="text" id="status_pembayaran_display" value="<?php echo $status_pelunasan_input; ?>" disabled
+                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100">
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Akun Pendapatan:</label>
+                    <input type="text" id="akun_display" disabled
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100">
                 </div>
             </div>
@@ -443,7 +487,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // No Transaksi: generate random jika belum ada
         let noTransaksi = document.getElementById('nota-no-transaksi').textContent;
         if (!noTransaksi || noTransaksi === '-') {
-            noTransaksi = 'TRX' + Math.random().toString(36).substr(2, 5).toUpperCase();
+            noTransaksi = 'TRX' + Math.random().toString(36).substr(2, 5).toUpperCase() + '-TUNAI';
         }
 
         // Isi nota
@@ -475,12 +519,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         const selectedOption = selectElement.options[selectElement.selectedIndex];
         const subTotal = parseFloat(selectedOption.dataset.subtotal || 0);
         const sisaAwal = parseFloat(selectedOption.dataset.sisa || 0);
+        const idAkun = selectedOption.dataset.idakun || '';
+        const namaAkun = selectedOption.dataset.namaakun || '';
+
+        // Display account info if available
+        const accountInfo = idAkun && namaAkun ? `${idAkun} - ${namaAkun}` : 'Akun Pendapatan Default (4001)';
+        document.getElementById('akun_display').value = accountInfo;
 
         document.getElementById('total_tagihan_display').value = formatRupiah(subTotal);
-        document.getElementById('jumlah_dibayar').max = sisaAwal;
 
-        // Set jumlah dibayar ke sisa pembayaran secara default
-        document.getElementById('jumlah_dibayar').value = sisaAwal;
+        // Jika sisa pembayaran adalah 0 (sudah lunas), tetap bisa menambahkan transaksi
+        if (sisaAwal > 0) {
+            document.getElementById('jumlah_dibayar').max = sisaAwal;
+            // Set jumlah dibayar ke sisa pembayaran secara default
+            document.getElementById('jumlah_dibayar').value = sisaAwal;
+        } else {
+            // Jika sudah lunas, set jumlah dibayar default ke total tagihan
+            document.getElementById('jumlah_dibayar').value = subTotal;
+        }
 
         updateSisaSetelahPembayaran();
     }
@@ -490,6 +546,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         const selectedOption = selectElement.options[selectElement.selectedIndex];
         const sisaAwal = parseFloat(selectedOption.dataset.sisa || 0);
         const jumlahDibayar = parseFloat(document.getElementById('jumlah_dibayar').value || 0);
+
+        // Jika sisa awal sudah 0 (sudah lunas), tetap tampilkan status Lunas
+        if (sisaAwal === 0) {
+            document.getElementById('sisa_pembayaran_display').value = formatRupiah(0);
+            document.getElementById('status_pembayaran_display').value = 'Lunas';
+            return;
+        }
 
         const sisaSetelahIni = Math.max(0, sisaAwal - jumlahDibayar);
         document.getElementById('sisa_pembayaran_display').value = formatRupiah(sisaSetelahIni);

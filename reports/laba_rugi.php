@@ -26,7 +26,7 @@ $biaya_lain_lain = 0;
 $total_operasional = 0;
 $laba_rugi = 0;
 
-// Query untuk total pendapatan (kas masuk)
+// Query untuk total pendapatan (kas masuk) - menggunakan jumlah dari kas_masuk
 $sql_pendapatan = "SELECT SUM(jumlah) AS total FROM kas_masuk WHERE tgl_kas_masuk BETWEEN ? AND ?";
 $stmt_pendapatan = $conn->prepare($sql_pendapatan);
 if ($stmt_pendapatan) {
@@ -162,6 +162,5 @@ $laba_rugi = ($total_pendapatan ?? 0) - $total_operasional;
         <?php endif; ?>
     </div>
 </div>
-
 <?php
 ?>

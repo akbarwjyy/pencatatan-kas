@@ -122,6 +122,4 @@ $saldo_kas_saat_ini = $total_all_kas_masuk - $total_all_kas_keluar;
 </style>
 
 <?php
-// Sertakan footer
-require_once '../../layout/footer.php';
 ?>

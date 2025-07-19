@@ -98,7 +98,32 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $conn->begin_transaction(); // Mulai transaksi database
             try {
                 // 1. Generate ID Transaksi untuk entri kas masuk "lainnya" ini
-                $generated_id_transaksi = 'TRX' . strtoupper(substr(uniqid(), 0, 5));
+                // Tambahkan pengecekan untuk memastikan ID transaksi unik
+                $is_unique = false;
+                $max_attempts = 10;
+                $attempt = 0;
+
+                while (!$is_unique && $attempt < $max_attempts) {
+                    $generated_id_transaksi = 'TRX' . strtoupper(substr(uniqid(mt_rand(), true), 0, 5));
+
+                    // Cek apakah ID sudah ada di database
+                    $check_trx_sql = "SELECT id_transaksi FROM transaksi WHERE id_transaksi = ? LIMIT 1";
+                    $stmt_check_trx = $conn->prepare($check_trx_sql);
+                    $stmt_check_trx->bind_param("s", $generated_id_transaksi);
+                    $stmt_check_trx->execute();
+                    $stmt_check_trx->store_result();
+
+                    if ($stmt_check_trx->num_rows == 0) {
+                        $is_unique = true;
+                    }
+
+                    $stmt_check_trx->close();
+                    $attempt++;
+                }
+
+                if (!$is_unique) {
+                    throw new Exception("Tidak dapat membuat ID transaksi unik setelah $max_attempts percobaan.");
+                }
                 $dummy_customer_id = 'CUST999'; // Default dummy
                 // Pastikan dummy_customer_id ada di tabel customer
                 $cek_dummy_sql = "SELECT id_customer FROM customer WHERE id_customer = ? LIMIT 1";
@@ -152,10 +177,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
 
                 // 3. Gunakan ID transaksi yang baru dibuat untuk INSERT ke kas_masuk
-                $sql = "INSERT INTO kas_masuk (id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan) VALUES (?, ?, ?, ?, ?)";
+                // Tambahkan kolom harga dan kuantitas jika belum ada
+                try {
+                    // Cek apakah kolom harga sudah ada
+                    $check_column_sql = "SHOW COLUMNS FROM kas_masuk LIKE 'harga'";
+                    $column_result = $conn->query($check_column_sql);
+                    if ($column_result->num_rows == 0) {
+                        // Kolom harga belum ada, tambahkan
+                        $conn->query("ALTER TABLE kas_masuk ADD COLUMN harga INT DEFAULT 0");
+                    }
+
+                    // Cek apakah kolom kuantitas sudah ada
+                    $check_column_sql = "SHOW COLUMNS FROM kas_masuk LIKE 'kuantitas'";
+                    $column_result = $conn->query($check_column_sql);
+                    if ($column_result->num_rows == 0) {
+                        // Kolom kuantitas belum ada, tambahkan
+                        $conn->query("ALTER TABLE kas_masuk ADD COLUMN kuantitas INT DEFAULT 0");
+                    }
+                } catch (Exception $e) {
+                    // Jika gagal menambahkan kolom, lanjutkan saja
+                }
+
+                $sql = "INSERT INTO kas_masuk (id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan, harga, kuantitas) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
                 if ($stmt = $conn->prepare($sql)) {
-                    $stmt->bind_param("sssis", $id_kas_masuk, $generated_id_transaksi, $tgl_kas_masuk, $jumlah, $keterangan);
+                    $stmt->bind_param("sssisii", $id_kas_masuk, $generated_id_transaksi, $tgl_kas_masuk, $jumlah, $keterangan, $harga, $kuantitas);
 
                     if ($stmt->execute()) {
                         $conn->commit(); // Commit transaksi jika semua berhasil
@@ -278,4 +324,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 </script>
 
 <?php
+// Sertakan footer
+require_once '../../layout/footer.php';
 ?>
