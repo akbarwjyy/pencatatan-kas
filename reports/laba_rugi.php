@@ -155,7 +155,7 @@ $laba_rugi = ($total_pendapatan ?? 0) - $total_operasional;
                 <div class="flex justify-between pt-4 font-extrabold text-lg">
                     <span class="text-gray-800">Laba Rugi:</span>
                     <span class="<?php echo ($laba_rugi >= 0) ? 'text-green-600' : 'text-red-600'; ?>">
-                        <?php echo format_rupiah($laba_rugi); ?> <?php echo ($laba_rugi >= 0) ? '(Laba)' : '(Rugi)'; ?>
+                        <?php echo format_rupiah(abs($laba_rugi)); ?> <?php echo ($laba_rugi >= 0) ? '(Laba)' : '(Rugi)'; ?>
                     </span>
                 </div>
             </div>
