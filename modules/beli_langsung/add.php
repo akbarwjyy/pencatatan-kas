@@ -9,15 +9,18 @@ if (!has_permission('Admin') && !has_permission('Pegawai')) {
 }
 
 // Inisialisasi variabel error
-$id_transaksi_error = $id_customer_error = $id_akun_error = $tgl_transaksi_error = $jumlah_dibayar_error = $metode_pembayaran_error = $keterangan_error = "";
+$id_transaksi_error = $id_customer_error = $id_akun_error = $tgl_transaksi_error = $jumlah_dibayar_error = $metode_pembayaran_error = $keterangan_error = $id_barang_error = $quantity_error = $harga_satuan_error = "";
 // Inisialisasi variabel data
 $id_transaksi = ''; // Akan digenerate otomatis
 $id_customer = '';
 $id_akun = '';
+$id_barang = '';
 $tgl_transaksi = '';
 $jumlah_dibayar = 0;
 $metode_pembayaran = '';
 $keterangan = '';
+$quantity = 0;
+$harga_satuan = 0;
 
 // Ambil daftar customer untuk dropdown
 $customers = [];
@@ -26,6 +29,16 @@ $customer_result = $conn->query($customer_sql);
 if ($customer_result->num_rows > 0) {
     while ($row = $customer_result->fetch_assoc()) {
         $customers[] = $row;
+    }
+}
+
+// Ambil daftar barang untuk dropdown
+$barang_list = [];
+$barang_sql = "SELECT id_barang, nama_barang, harga_satuan FROM barang ORDER BY nama_barang ASC";
+$barang_result = $conn->query($barang_sql);
+if ($barang_result->num_rows > 0) {
+    while ($row = $barang_result->fetch_assoc()) {
+        $barang_list[] = $row;
     }
 }
 
@@ -43,9 +56,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Sanitasi input
     $id_customer = sanitize_input($_POST['id_customer'] ?? '');
     $id_akun = sanitize_input($_POST['id_akun'] ?? '');
+    $id_barang = sanitize_input($_POST['id_barang'] ?? '');
     $tgl_transaksi = sanitize_input($_POST['tgl_transaksi'] ?? '');
+    $quantity = sanitize_input($_POST['quantity'] ?? 1);
+    $harga_satuan = sanitize_input($_POST['harga_satuan'] ?? 0);
     $jumlah_dibayar = sanitize_input($_POST['jumlah_dibayar'] ?? 0);
-    $metode_pembayaran = sanitize_input($_POST['metode_pembayaran'] ?? '');
+    $metode_pembayaran = "Tunai"; // Metode pembayaran selalu Tunai
     $keterangan = sanitize_input($_POST['keterangan'] ?? '');
 
     // Validasi input
@@ -55,19 +71,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (empty($id_akun)) {
         $id_akun_error = "Akun tidak boleh kosong.";
     }
+    if (empty($id_barang)) {
+        $id_barang_error = "Barang tidak boleh kosong.";
+    }
     if (empty($tgl_transaksi)) {
         $tgl_transaksi_error = "Tanggal Transaksi tidak boleh kosong.";
     }
 
-    if (!is_numeric($jumlah_dibayar) || $jumlah_dibayar <= 0) {
-        $jumlah_dibayar_error = "Jumlah Dibayar harus angka positif.";
+    if (!is_numeric($quantity) || $quantity <= 0) {
+        $quantity_error = "Quantity harus angka positif.";
     } else {
-        $jumlah_dibayar = (int)$jumlah_dibayar;
+        $quantity = (int)$quantity;
     }
 
-    if (empty($metode_pembayaran)) {
-        $metode_pembayaran_error = "Metode Pembayaran tidak boleh kosong.";
+    if (!is_numeric($harga_satuan) || $harga_satuan <= 0) {
+        $harga_satuan_error = "Harga Satuan harus angka positif.";
+    } else {
+        $harga_satuan = (int)$harga_satuan;
+        // Hitung jumlah dibayar berdasarkan quantity dan harga satuan
+        $jumlah_dibayar = $quantity * $harga_satuan;
     }
+
+    // Metode pembayaran selalu Tunai, tidak perlu validasi
 
     if (empty($keterangan)) {
         $keterangan_error = "Keterangan tidak boleh kosong.";
@@ -77,8 +102,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // Jika tidak ada error validasi, coba simpan ke database
     if (
-        empty($id_customer_error) && empty($id_akun_error) && empty($tgl_transaksi_error) &&
-        empty($jumlah_dibayar_error) && empty($metode_pembayaran_error) && empty($keterangan_error)
+        empty($id_customer_error) && empty($id_akun_error) && empty($id_barang_error) && empty($tgl_transaksi_error) &&
+        empty($quantity_error) && empty($harga_satuan_error) && empty($keterangan_error)
     ) {
         // Mulai transaksi database
         $conn->begin_transaction();
@@ -161,18 +186,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
 
             // Insert ke tabel kas_masuk
-            $sql_kas_masuk = "INSERT INTO kas_masuk (id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan) VALUES (?, ?, ?, ?, ?)";
+            $sql_kas_masuk = "INSERT INTO kas_masuk (id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan, harga, kuantitas) VALUES (?, ?, ?, ?, ?, ?, ?)";
             if ($stmt_kas_masuk = $conn->prepare($sql_kas_masuk)) {
                 $bind_jumlah_masuk = $jumlah_dibayar;
-                $bind_keterangan_kas = "Pembelian langsung: " . $keterangan;
+                $bind_keterangan_kas = $keterangan;
 
                 if (!$stmt_kas_masuk->bind_param(
-                    "sssis",
+                    "sssissi",
                     $generated_id_kas_masuk,
                     $generated_id_transaksi,
                     $tgl_transaksi,
                     $bind_jumlah_masuk,
-                    $bind_keterangan_kas
+                    $bind_keterangan_kas,
+                    $harga_satuan,
+                    $quantity
                 )) {
                     throw new Exception("Error binding parameters for kas_masuk: " . $stmt_kas_masuk->error);
                 }
@@ -221,7 +248,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <span class="text-red-500 text-xs italic mt-1 block"><?php echo $id_customer_error; ?></span>
         </div>
         <div class="mb-4">
-            <label for="id_akun" class="block text-gray-700 text-sm font-bold mb-2">Akun Penerima:</label>
+            <label for="id_akun" class="block text-gray-700 text-sm font-bold mb-2">Akun Pendapatan:</label>
             <select id="id_akun" name="id_akun" required
                 class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
                 <option value="">-- Pilih Akun --</option>
@@ -235,6 +262,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <span class="text-red-500 text-xs italic mt-1 block"><?php echo $id_akun_error; ?></span>
         </div>
         <div class="mb-4">
+            <label for="id_barang" class="block text-gray-700 text-sm font-bold mb-2">Nama Barang:</label>
+            <select id="id_barang" name="id_barang" required onchange="updateHargaSatuan()"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+                <option value="">-- Pilih Barang --</option>
+                <?php foreach ($barang_list as $barang) : ?>
+                    <option value="<?php echo htmlspecialchars($barang['id_barang']); ?>"
+                        data-harga="<?php echo htmlspecialchars($barang['harga_satuan']); ?>"
+                        <?php echo ($id_barang == $barang['id_barang']) ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($barang['nama_barang']); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $id_barang_error; ?></span>
+        </div>
+        <div class="mb-4">
+            <label for="harga_satuan" class="block text-gray-700 text-sm font-bold mb-2">Harga satuan:</label>
+            <input type="number" id="harga_satuan" name="harga_satuan" value="<?php echo htmlspecialchars($harga_satuan); ?>" readonly
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $harga_satuan_error; ?></span>
+        </div>
+        <div class="mb-4">
+            <label for="quantity" class="block text-gray-700 text-sm font-bold mb-2">Jumlah Barang:</label>
+            <input type="number" id="quantity" name="quantity" value="<?php echo htmlspecialchars($quantity); ?>" required min="1"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $quantity_error; ?></span>
+        </div>
+        <div class="mb-4">
             <label for="tgl_transaksi" class="block text-gray-700 text-sm font-bold mb-2">Tanggal Transaksi:</label>
             <input type="date" id="tgl_transaksi" name="tgl_transaksi" value="<?php echo htmlspecialchars($tgl_transaksi); ?>" required
                 class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
@@ -242,24 +296,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </div>
         <div class="mb-4">
             <label for="jumlah_dibayar" class="block text-gray-700 text-sm font-bold mb-2">Jumlah Dibayar (Rp):</label>
-            <input type="number" id="jumlah_dibayar" name="jumlah_dibayar" value="<?php echo htmlspecialchars($jumlah_dibayar); ?>" required min="1"
-                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+            <input type="number" id="jumlah_dibayar" name="jumlah_dibayar" value="<?php echo htmlspecialchars($jumlah_dibayar); ?>" readonly
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
             <span class="text-red-500 text-xs italic mt-1 block"><?php echo $jumlah_dibayar_error; ?></span>
         </div>
         <div class="mb-4">
             <label for="metode_pembayaran" class="block text-gray-700 text-sm font-bold mb-2">Metode Pembayaran:</label>
-            <select id="metode_pembayaran" name="metode_pembayaran" required
-                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-                <option value="">-- Pilih Metode --</option>
-                <option value="Cash" <?php echo ($metode_pembayaran == 'Cash') ? 'selected' : ''; ?>>Cash</option>
-                <option value="Transfer Bank" <?php echo ($metode_pembayaran == 'Transfer Bank') ? 'selected' : ''; ?>>Transfer Bank</option>
-                <option value="QRIS" <?php echo ($metode_pembayaran == 'QRIS') ? 'selected' : ''; ?>>QRIS</option>
-                <option value="Lainnya" <?php echo ($metode_pembayaran == 'Lainnya') ? 'selected' : ''; ?>>Lainnya</option>
-            </select>
-            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $metode_pembayaran_error; ?></span>
+            <input type="text" id="metode_pembayaran" value="Tunai" readonly
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
+            <input type="hidden" name="metode_pembayaran" value="Tunai">
         </div>
         <div class="mb-6">
-            <label for="keterangan" class="block text-gray-700 text-sm font-bold mb-2">Keterangan (misal: "Penjualan Ampyang 5pcs"):</label>
+            <label for="keterangan" class="block text-gray-700 text-sm font-bold mb-2">Keterangan:</label>
             <input type="text" id="keterangan" name="keterangan" value="<?php echo htmlspecialchars($keterangan); ?>" required maxlength="30"
                 class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
             <span class="text-red-500 text-xs italic mt-1 block"><?php echo $keterangan_error; ?></span>
@@ -274,6 +322,32 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </div>
     </form>
 </div>
+
+<script>
+    function updateHargaSatuan() {
+        const selectElement = document.getElementById('id_barang');
+        const selectedOption = selectElement.options[selectElement.selectedIndex];
+        const hargaSatuan = selectedOption.dataset.harga || 0;
+
+        document.getElementById('harga_satuan').value = hargaSatuan;
+        hitungTotal();
+    }
+
+    function hitungTotal() {
+        const quantity = parseInt(document.getElementById('quantity').value) || 0;
+        const hargaSatuan = parseInt(document.getElementById('harga_satuan').value) || 0;
+
+        const totalHarga = quantity * hargaSatuan;
+        document.getElementById('jumlah_dibayar').value = totalHarga;
+    }
+
+    document.getElementById('quantity').addEventListener('input', hitungTotal);
+
+    document.addEventListener('DOMContentLoaded', function() {
+        updateHargaSatuan();
+        hitungTotal();
+    });
+</script>
 
 <?php
 ?>
