@@ -21,21 +21,17 @@ $entries = [];
 $total_debit = 0;
 $total_kredit = 0;
 
-// Query untuk Kas Masuk - menggunakan total_tagihan atau jumlah_dibayar jika tersedia
+// Query untuk Kas Masuk - menggunakan jumlah dari kas_masuk dan akun dari transaksi
 $sql_kas_masuk = "SELECT 
                     km.tgl_kas_masuk AS tanggal, 
                     km.id_transaksi, 
                     'Kas Masuk' AS tipe, 
-                    CASE 
-                        WHEN tr.total_tagihan IS NOT NULL THEN tr.total_tagihan
-                        WHEN tr.jumlah_dibayar IS NOT NULL THEN tr.jumlah_dibayar
-                        ELSE km.jumlah 
-                    END AS jumlah,
+                    km.jumlah,
                     km.keterangan, 
                     a.nama_akun AS akun_asal, 
                     NULL AS akun_tujuan,
-                    tr.total_tagihan,
-                    tr.jumlah_dibayar
+                    km.harga,
+                    km.kuantitas
                   FROM kas_masuk km
                   LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
                   LEFT JOIN akun a ON tr.id_akun = a.id_akun -- Ambil akun dari transaksi terkait
@@ -48,7 +44,10 @@ if ($stmt_km === false) {
     $stmt_km->execute();
     $result_km = $stmt_km->get_result();
     while ($row = $result_km->fetch_assoc()) {
-        $row['akun_transaksi'] = $row['akun_asal'] ?: 'Tidak Terkait Transaksi';
+        // Jika akun_asal kosong, gunakan default 'Pendapatan'
+        if (empty($row['akun_asal'])) {
+            $row['akun_asal'] = 'Pendapatan';
+        }
         $entries[] = $row;
     }
     $stmt_km->close();
@@ -56,7 +55,9 @@ if ($stmt_km === false) {
 
 // Query untuk Kas Keluar
 $sql_kas_keluar = "SELECT kk.tgl_kas_keluar AS tanggal, kk.id_kas_keluar AS id_transaksi, 'Kas Keluar' AS tipe, kk.jumlah, kk.keterangan,
-                           NULL AS akun_asal, a.nama_akun AS akun_tujuan
+                           NULL AS akun_asal, a.nama_akun AS akun_tujuan,
+                           kk.harga,
+                           kk.kuantitas
                    FROM kas_keluar kk
                    JOIN akun a ON kk.id_akun = a.id_akun
                    WHERE kk.tgl_kas_keluar BETWEEN ? AND ?";
@@ -68,6 +69,10 @@ if ($stmt_kk === false) {
     $stmt_kk->execute();
     $result_kk = $stmt_kk->get_result();
     while ($row = $result_kk->fetch_assoc()) {
+        // Jika akun_tujuan kosong, gunakan default 'Beban'
+        if (empty($row['akun_tujuan'])) {
+            $row['akun_tujuan'] = 'Beban';
+        }
         $entries[] = $row;
     }
     $stmt_kk->close();
@@ -209,13 +214,21 @@ usort($entries, function ($a, $b) {
                             if ($entry['tipe'] == 'Kas Masuk') {
                                 $debit_account = "Kas";
                                 $debit_amount = ($entry['jumlah'] ?? 0);
-                                $credit_account = $entry['akun_transaksi'] ?? 'N/A';
+                                $credit_account = $entry['akun_asal'] ?? 'Pendapatan';
                                 $kredit_amount = ($entry['jumlah'] ?? 0);
+                                $keterangan_tambahan = "";
+                                if (!empty($entry['kuantitas']) && !empty($entry['harga'])) {
+                                    // $keterangan_tambahan = "(" . ($entry['kuantitas']) . " x " . format_rupiah($entry['harga']) . ")";
+                                }
                             } else { // Kas Keluar
-                                $debit_account = $entry['akun_tujuan'] ?? 'N/A';
+                                $debit_account = $entry['akun_tujuan'] ?? 'Beban';
                                 $debit_amount = ($entry['jumlah'] ?? 0);
                                 $credit_account = "Kas";
                                 $kredit_amount = ($entry['jumlah'] ?? 0);
+                                $keterangan_tambahan = "";
+                                if (!empty($entry['kuantitas']) && !empty($entry['harga'])) {
+                                    // $keterangan_tambahan = "(" . ($entry['kuantitas']) . " x " . format_rupiah($entry['harga']) . ")";
+                                }
                             }
                             $total_debit_final += $debit_amount;
                             $total_kredit_final += $kredit_amount;
@@ -233,7 +246,7 @@ usort($entries, function ($a, $b) {
                                 <td class="px-6 py-1 text-sm text-gray-900 text-right"><?php echo ($kredit_amount > 0) ? format_rupiah($kredit_amount) : '-'; ?></td>
                             </tr>
                             <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-2 text-sm text-gray-900 font-italic"><?php echo htmlspecialchars($entry['keterangan']); ?></td>
+                                <td class="px-6 py-2 text-sm text-gray-900 font-italic"><?php echo htmlspecialchars($entry['keterangan']) . ' ' . ($keterangan_tambahan ?? ''); ?></td>
                                 <td class="px-6 py-2 text-sm text-gray-900 text-right">-</td>
                                 <td class="px-6 py-2 text-sm text-gray-900 text-right">-</td>
                             </tr>

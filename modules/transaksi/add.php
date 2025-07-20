@@ -369,103 +369,88 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         #nota-cetak {
             position: absolute;
-            left: 0;
+            left: 50%;
             top: 0;
-            width: 100vw;
+            transform: translateX(-50%);
+            width: 72mm;
+            padding: 1mm;
             background: white;
+            font-family: monospace;
         }
-    }
 
-    .nota-hr {
-        border: none;
-        border-top: 3px dashed #000;
-        margin: 12px 0;
-    }
-
-    .nota-hr2 {
-        border: none;
-        border-top: 3px dashed #000;
-        border-style: dashed;
-        border-width: 3px 0 0 0;
-        border-top-style: dashed;
-        border-top-color: #000;
-        margin: 12px 0;
-    }
-
-    .nota-hr3 {
-        border: none;
-        border-top: 3px dashed #000;
-        border-style: dashed;
-        border-width: 3px 0 0 0;
-        border-top-style: dashed;
-        border-top-color: #000;
-        margin: 12px 0;
-        border-top: 3px dash-dot-dot #000;
+        @page {
+            size: 72mm auto;
+            margin: 0mm;
+        }
     }
 </style>
 
-<div id="nota-cetak" class="max-w-lg mx-auto my-8 p-8 bg-white border border-black text-black text-base" style="font-family: 'Times New Roman', Times, serif; display:none;">
-    <div style="font-size:1.2em; font-weight:bold;">Ampyang Cap Garuda</div>
-    <br>
-    <table style="width:100%;">
-        <tr>
-            <td style="width:30%;">Tanggal</td>
-            <td style="width:2%;">:</td>
-            <td id="nota-tanggal"></td>
-        </tr>
-        <tr>
-            <td>No Transaksi</td>
-            <td>:</td>
-            <td id="nota-no-transaksi"></td>
-        </tr>
-    </table>
-    <hr class="nota-hr">
-    <table style="width:100%;">
-        <tr>
-            <td style="width:40%;">Nama Customer</td>
-            <td style="width:2%;">:</td>
-            <td style="width:28%;" id="nota-nama-customer"></td>
-            <td style="width:20%;">Tanggal Pemesanan</td>
-            <td style="width:2%;">:</td>
-            <td id="nota-tgl-pemesanan"></td>
-        </tr>
-        <tr>
-            <td>ID Pemesanan</td>
-            <td>:</td>
-            <td id="nota-id-pemesanan"></td>
-            <td>Tanggal Kirim</td>
-            <td>:</td>
-            <td id="nota-tgl-kirim"></td>
-        </tr>
-    </table>
-    <hr class="nota-hr2">
-    <table style="width:100%;">
-        <tr>
-            <td style="width:40%;">Total Tagihan</td>
-            <td style="width:2%;">:</td>
-            <td id="nota-total-tagihan"></td>
-        </tr>
-        <tr>
-            <td>Uang Muka</td>
-            <td>:</td>
-            <td id="nota-uang-muka">-</td>
-        </tr>
-        <tr>
-            <td>Sisa Pembayaran</td>
-            <td>:</td>
-            <td id="nota-sisa-pembayaran"></td>
-        </tr>
-        <tr>
-            <td>Jumlah Dibayar</td>
-            <td>:</td>
-            <td id="nota-jumlah-dibayar"></td>
-        </tr>
-        <tr>
-            <td><b>Status</b></td>
-            <td>:</td>
-            <td><b id="nota-status"></b></td>
-        </tr>
-    </table>
+<div id="nota-cetak" class="max-w-lg mx-auto my-8 p-1 bg-white text-black text-base" style="font-family: monospace; display:none; width: 72mm; margin-left: auto; margin-right: auto;">
+    <div style="text-align: center; font-weight: bold; font-size: 14px;">=======================================</div>
+    <div style="text-align: center; font-weight: bold; font-size: 16px;">AMPYANG CAP GARUDA</div>
+    <div style="text-align: center; font-size: 12px;">Jl. Ngelosari, Srimulyo, Piyungan, Bantul, Yogyakarta</div>
+    <div style="text-align: center; font-weight: bold; font-size: 14px;">=======================================</div>
+    <div style="margin-top: 3px;">
+        <table style="width:100%; font-size: 12px;">
+            <tr>
+                <td style="width:28%;">Tanggal</td>
+                <td style="width:2%;">:</td>
+                <td id="nota-tanggal"></td>
+            </tr>
+            <tr>
+                <td>ID Transaksi</td>
+                <td>:</td>
+                <td id="nota-no-transaksi"></td>
+            </tr>
+            <tr>
+                <td>Customer</td>
+                <td>:</td>
+                <td id="nota-nama-customer"></td>
+            </tr>
+        </table>
+    </div>
+    <div style="text-align: center; font-size: 14px; margin-top: 3px;">---------------------------------------------------</div>
+    <div style="margin-top: 3px;">
+        <table style="width:100%; font-size: 12px;">
+            <tr style="font-weight: bold;">
+                <td style="width:6%;">No</td>
+                <td style="width:44%;">Nama Barang</td>
+                <td style="width:10%; text-align: center;">Qty</td>
+                <td style="width:18%; text-align: right;">Harga</td>
+                <td style="width:22%; text-align: right;">Subtotal</td>
+            </tr>
+            <tr>
+                <td>1.</td>
+                <td>Ampyang Original</td>
+                <td style="text-align: center;" id="nota-qty"></td>
+                <td style="text-align: right;" id="nota-harga"></td>
+                <td style="text-align: right;" id="nota-subtotal"></td>
+            </tr>
+        </table>
+    </div>
+    <div style="text-align: center; font-size: 14px; margin-top: 3px;">---------------------------------------------------</div>
+    <div style="margin-top: 3px;">
+        <table style="width:100%; font-size: 12px;">
+            <tr>
+                <td style="width:68%; text-align: right;">Total Pembelian:</td>
+                <td style="width:32%; text-align: right;" id="nota-total-tagihan"></td>
+            </tr>
+            <tr>
+                <td style="text-align: right;">Dibayar:</td>
+                <td style="text-align: right;" id="nota-jumlah-dibayar"></td>
+            </tr>
+            <tr>
+                <td style="text-align: right;">Keterangan:</td>
+                <td style="text-align: right; font-weight: bold;" id="nota-status"></td>
+            </tr>
+        </table>
+    </div>
+    <div style="text-align: center; font-size: 14px; margin-top: 3px;">---------------------------------------------------</div>
+    <div style="text-align: center; font-size: 12px; margin-top: 3px;">
+        <p style="margin: 2px 0;">Terima kasih telah berbelanja!</p>
+        <p style="margin: 2px 0;">Ampyang Cap Garuda - Manisnya Tradisi Nusantara</p>
+    </div>
+    <div style="text-align: center; font-weight: bold; font-size: 14px; margin-top: 3px;">=======================================</div>
 </div>
 
 <script>
@@ -487,22 +472,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // No Transaksi: generate random jika belum ada
         let noTransaksi = document.getElementById('nota-no-transaksi').textContent;
         if (!noTransaksi || noTransaksi === '-') {
-            noTransaksi = 'TRX' + Math.random().toString(36).substr(2, 5).toUpperCase() + '-TUNAI';
+            noTransaksi = 'TRX' + Math.random().toString(36).substr(2, 5).toUpperCase();
         }
 
+        // Format tanggal untuk tampilan yang lebih baik
+        const formattedDate = formatDate(tglTransaksi);
+
+        // Hitung quantity berdasarkan total tagihan dan harga satuan default
+        const hargaSatuan = 12000; // Harga satuan default
+        const quantity = Math.ceil(parseInt(jumlahDibayar) / hargaSatuan);
+
         // Isi nota
-        document.getElementById('nota-tanggal').textContent = tglTransaksi;
+        document.getElementById('nota-tanggal').textContent = formattedDate;
         document.getElementById('nota-no-transaksi').textContent = noTransaksi;
         document.getElementById('nota-nama-customer').textContent = namaCustomer;
-        document.getElementById('nota-id-pemesanan').textContent = idPemesanan;
-        document.getElementById('nota-tgl-pemesanan').textContent = tglPemesanan;
-        document.getElementById('nota-tgl-kirim').textContent = tglKirim;
-        document.getElementById('nota-total-tagihan').textContent = totalTagihan;
-        document.getElementById('nota-sisa-pembayaran').textContent = document.getElementById('sisa_pembayaran_display').value;
+        document.getElementById('nota-qty').textContent = quantity;
+        document.getElementById('nota-harga').textContent = formatRupiah(hargaSatuan);
+        document.getElementById('nota-subtotal').textContent = formatRupiah(quantity * hargaSatuan);
+        document.getElementById('nota-total-tagihan').textContent = formatRupiah(jumlahDibayar);
         document.getElementById('nota-jumlah-dibayar').textContent = formatRupiah(jumlahDibayar);
         document.getElementById('nota-status').textContent = statusPembayaran;
-        // Tampilkan uang muka
-        document.getElementById('nota-uang-muka').textContent = formatRupiah(uangMuka);
 
         // Tampilkan nota dan print
         document.getElementById('nota-cetak').style.display = 'block';
@@ -510,6 +499,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         setTimeout(function() {
             document.getElementById('nota-cetak').style.display = 'none';
         }, 500);
+    }
+
+    function formatDate(dateString) {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        const day = date.getDate();
+        const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        const month = monthNames[date.getMonth()];
+        const year = date.getFullYear();
+        return `${day} ${month} ${year}`;
     }
 </script>
 
