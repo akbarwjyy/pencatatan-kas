@@ -2,11 +2,14 @@
 // Sertakan header
 require_once '../../layout/header.php';
 
-// Ambil data ringkasan untuk dashboard
+// Filter bulan dan tahun
+$tahun = isset($_GET['tahun']) ? $_GET['tahun'] : date('Y');
+$bulan_angka = isset($_GET['bulan']) ? $_GET['bulan'] : date('m');
+$bulan = $tahun . '-' . $bulan_angka;
 
-// 1. Total Kas Masuk Bulan Ini
-$bulan_ini_awal = date('Y-m-01');
-$bulan_ini_akhir = date('Y-m-t'); // t = jumlah hari di bulan ini
+// Ambil data ringkasan untuk dashboard berdasarkan bulan yang dipilih
+$bulan_ini_awal = $tahun . '-' . $bulan_angka . '-01';
+$bulan_ini_akhir = date('Y-m-t', strtotime($bulan_ini_awal)); // t = jumlah hari di bulan ini
 $total_kas_masuk_bulan_ini = 0;
 $sql_kas_masuk_bulan_ini = "SELECT SUM(jumlah) AS total FROM kas_masuk WHERE tgl_kas_masuk BETWEEN ? AND ?";
 if ($stmt = $conn->prepare($sql_kas_masuk_bulan_ini)) {
@@ -28,29 +31,46 @@ if ($stmt = $conn->prepare($sql_kas_keluar_bulan_ini)) {
     $stmt->close();
 }
 
-// 3. Jumlah Pemesanan Belum Lunas
+// 3. Jumlah Pemesanan Belum Lunas untuk bulan yang dipilih
 $jumlah_pemesanan_belum_lunas = 0;
-$sql_pemesanan_belum_lunas = "SELECT COUNT(*) AS total FROM pemesanan WHERE sisa > 0";
-$result_pemesanan_belum_lunas = $conn->query($sql_pemesanan_belum_lunas);
-if ($result_pemesanan_belum_lunas && $row = $result_pemesanan_belum_lunas->fetch_assoc()) {
-    $jumlah_pemesanan_belum_lunas = $row['total'];
+$sql_pemesanan_belum_lunas = "SELECT COUNT(*) AS total FROM pemesanan WHERE sisa > 0 AND tgl_pesan BETWEEN ? AND ?";
+if ($stmt = $conn->prepare($sql_pemesanan_belum_lunas)) {
+    $stmt->bind_param("ss", $bulan_ini_awal, $bulan_ini_akhir);
+    $stmt->execute();
+    $stmt->bind_result($jumlah_pemesanan_belum_lunas);
+    $stmt->fetch();
+    $stmt->close();
 }
 
-// 4. Saldo Kas Saat Ini (Estimasi sederhana: Total Kas Masuk - Total Kas Keluar secara keseluruhan)
-$total_all_kas_masuk = 0;
-$sql_all_kas_masuk = "SELECT SUM(jumlah) AS total FROM kas_masuk";
-$result_all_kas_masuk = $conn->query($sql_all_kas_masuk);
-if ($result_all_kas_masuk && $row = $result_all_kas_masuk->fetch_assoc()) {
-    $total_all_kas_masuk = $row['total'];
+// 4. Saldo Kas untuk bulan yang dipilih
+// Menghitung saldo awal bulan (semua transaksi sebelum bulan ini)
+$saldo_awal_bulan = 0;
+
+// Total kas masuk sebelum bulan ini
+$sql_kas_masuk_sebelumnya = "SELECT SUM(jumlah) AS total FROM kas_masuk WHERE tgl_kas_masuk < ?";
+if ($stmt = $conn->prepare($sql_kas_masuk_sebelumnya)) {
+    $stmt->bind_param("s", $bulan_ini_awal);
+    $stmt->execute();
+    $stmt->bind_result($total_kas_masuk_sebelumnya);
+    $stmt->fetch();
+    $stmt->close();
 }
 
-$total_all_kas_keluar = 0;
-$sql_all_kas_keluar = "SELECT SUM(jumlah) AS total FROM kas_keluar";
-$result_all_kas_keluar = $conn->query($sql_all_kas_keluar);
-if ($result_all_kas_keluar && $row = $result_all_kas_keluar->fetch_assoc()) {
-    $total_all_kas_keluar = $row['total'];
+// Total kas keluar sebelum bulan ini
+$sql_kas_keluar_sebelumnya = "SELECT SUM(jumlah) AS total FROM kas_keluar WHERE tgl_kas_keluar < ?";
+if ($stmt = $conn->prepare($sql_kas_keluar_sebelumnya)) {
+    $stmt->bind_param("s", $bulan_ini_awal);
+    $stmt->execute();
+    $stmt->bind_result($total_kas_keluar_sebelumnya);
+    $stmt->fetch();
+    $stmt->close();
 }
-$saldo_kas_saat_ini = $total_all_kas_masuk - $total_all_kas_keluar;
+
+// Hitung saldo awal bulan
+$saldo_awal_bulan = ($total_kas_masuk_sebelumnya ?: 0) - ($total_kas_keluar_sebelumnya ?: 0);
+
+// Hitung saldo akhir bulan (saldo awal + transaksi bulan ini)
+$saldo_kas_saat_ini = $saldo_awal_bulan + ($total_kas_masuk_bulan_ini ?: 0) - ($total_kas_keluar_bulan_ini ?: 0);
 
 ?>
 
@@ -64,9 +84,39 @@ $saldo_kas_saat_ini = $total_all_kas_masuk - $total_all_kas_keluar;
 
 <!-- Ringkasan Keuangan -->
 <div class="bg-white p-6 rounded-lg shadow-lg mb-8">
-    <h2 class="text-2xl font-bold text-gray-800 mb-6 pb-2 border-b">
-        📈 Ringkasan Keuangan Bulan <?php echo date('F Y'); ?>
-    </h2>
+    <div class="flex flex-col md:flex-row justify-between items-center mb-6 pb-2 border-b">
+        <h2 class="text-2xl font-bold text-gray-800">
+            📈 Ringkasan Keuangan Bulan <?php echo date('F Y', strtotime($bulan_ini_awal)); ?>
+        </h2>
+
+        <form action="" method="get" class="flex flex-wrap items-center mt-4 md:mt-0">
+            <div class="flex items-center mr-2 mb-2 md:mb-0">
+                <label for="bulan" class="mr-2 text-gray-700">Bulan:</label>
+                <select id="bulan" name="bulan" class="border rounded px-3 py-1 focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <?php for ($i = 1; $i <= 12; $i++) : ?>
+                        <option value="<?php echo str_pad($i, 2, '0', STR_PAD_LEFT); ?>" <?php echo ($bulan_angka == str_pad($i, 2, '0', STR_PAD_LEFT)) ? 'selected' : ''; ?>>
+                            <?php echo date('F', mktime(0, 0, 0, $i, 1)); ?>
+                        </option>
+                    <?php endfor; ?>
+                </select>
+            </div>
+
+            <div class="flex items-center mr-2 mb-2 md:mb-0">
+                <label for="tahun" class="mr-2 text-gray-700">Tahun:</label>
+                <select id="tahun" name="tahun" class="border rounded px-3 py-1 focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <?php for ($y = date('Y'); $y >= date('Y') - 5; $y--) : ?>
+                        <option value="<?php echo $y; ?>" <?php echo ($tahun == $y) ? 'selected' : ''; ?>>
+                            <?php echo $y; ?>
+                        </option>
+                    <?php endfor; ?>
+                </select>
+            </div>
+
+            <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded">
+                Filter
+            </button>
+        </form>
+    </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div class="bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 rounded-xl p-6">
@@ -75,7 +125,7 @@ $saldo_kas_saat_ini = $total_all_kas_masuk - $total_all_kas_keluar;
                 <span class="text-2xl">💰</span>
             </div>
             <p class="text-2xl font-bold text-emerald-600"><?php echo format_rupiah($total_kas_masuk_bulan_ini); ?></p>
-            <p class="text-sm text-gray-500 mt-2">Total pemasukan bulan ini</p>
+            <p class="text-sm text-gray-500 mt-2">Total pemasukan <?php echo date('F Y', strtotime($bulan_ini_awal)); ?></p>
         </div>
 
         <div class="bg-gradient-to-br from-red-50 to-white border border-red-100 rounded-xl p-6">
@@ -84,7 +134,7 @@ $saldo_kas_saat_ini = $total_all_kas_masuk - $total_all_kas_keluar;
                 <span class="text-2xl">💸</span>
             </div>
             <p class="text-2xl font-bold text-red-600"><?php echo format_rupiah($total_kas_keluar_bulan_ini); ?></p>
-            <p class="text-sm text-gray-500 mt-2">Total pengeluaran bulan ini</p>
+            <p class="text-sm text-gray-500 mt-2">Total pengeluaran <?php echo date('F Y', strtotime($bulan_ini_awal)); ?></p>
         </div>
 
         <div class="bg-gradient-to-br from-yellow-50 to-white border border-yellow-100 rounded-xl p-6">
@@ -93,7 +143,7 @@ $saldo_kas_saat_ini = $total_all_kas_masuk - $total_all_kas_keluar;
                 <span class="text-2xl">📝</span>
             </div>
             <p class="text-2xl font-bold text-yellow-600"><?php echo htmlspecialchars($jumlah_pemesanan_belum_lunas); ?></p>
-            <p class="text-sm text-gray-500 mt-2">Pesanan belum lunas</p>
+            <p class="text-sm text-gray-500 mt-2">Pesanan belum lunas <?php echo date('F Y', strtotime($bulan_ini_awal)); ?></p>
         </div>
 
         <div class="bg-gradient-to-br from-blue-50 to-white border border-blue-100 rounded-xl p-6">
@@ -102,7 +152,7 @@ $saldo_kas_saat_ini = $total_all_kas_masuk - $total_all_kas_keluar;
                 <span class="text-2xl">🏦</span>
             </div>
             <p class="text-2xl font-bold text-blue-600"><?php echo format_rupiah($saldo_kas_saat_ini); ?></p>
-            <p class="text-sm text-gray-500 mt-2">Total saldo saat ini</p>
+            <p class="text-sm text-gray-500 mt-2">Saldo akhir <?php echo date('F Y', strtotime($bulan_ini_awal)); ?></p>
         </div>
     </div>
 </div>
