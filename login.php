@@ -74,27 +74,32 @@ require_once __DIR__ . '/layout/header.php'; //
 ?>
 
 <div class="flex items-center justify-center min-h-screen bg-gray-50">
-    <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md text-center">
-        <h2 class="text-3xl font-extrabold text-gray-900 mb-8 uppercase tracking-wide">LOGIN USER</h2>
+    <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+        <h2 class="text-3xl font-extrabold text-gray-900 mb-6 text-center">LOGIN USER</h2>
         <?php echo display_flash_message(); ?>
         <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post" class="space-y-6">
-            <div class="flex items-center">
-                <label for="username" class="w-24 text-right pr-4 text-gray-700 text-sm font-medium lowercase">Username</label>
+            <div class="mb-4">
+                <label for="username" class="block text-gray-700 text-sm font-medium mb-2">Username</label>
                 <input type="text" id="username" name="username" value="<?php echo htmlspecialchars($username_input); ?>" required
-                    class="flex-1 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
-                <span class="error text-red-600 text-sm ml-2"><?php echo $username_error; ?></span>
+                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                <span class="text-red-500 text-xs italic mt-1 block"><?php echo $username_error; ?></span>
             </div>
-            <div class="flex items-center">
-                <label for="password" class="w-24 text-right pr-4 text-gray-700 text-sm font-medium lowercase">Password</label>
+            <div class="mb-4">
+                <label for="password" class="block text-gray-700 text-sm font-medium mb-2">Password</label>
                 <input type="password" id="password" name="password" required
-                    class="flex-1 w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
-                <span class="error text-red-600 text-sm ml-2"><?php echo $password_error; ?></span>
+                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                <span class="text-red-500 text-xs italic mt-1 block"><?php echo $password_error; ?></span>
             </div>
-            <button type="submit"
-                class="mt-8 w-32 py-2 px-4 bg-green-600 text-white font-semibold rounded-md shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75 block mx-auto">
-                Masuk
-            </button>
+            <div class="text-center">
+                <button type="submit"
+                    class="mt-8 w-32 py-2 px-4 bg-green-600 text-white font-semibold rounded-md shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75">
+                    Masuk
+                </button>
+            </div>
         </form>
+        <div class="mt-4 text-center">
+            <a href="<?php echo htmlspecialchars('./register.php'); ?>" class="text-sm text-green-600 hover:text-green-800">Belum punya akun? Daftar disini</a>
+        </div>
     </div>
 </div>
 

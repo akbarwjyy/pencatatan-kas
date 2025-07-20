@@ -9,22 +9,22 @@ if (!has_permission('Admin') && !has_permission('Pemilik')) {
 }
 
 $id_pengguna_error = $nama_error = $password_error = $jabatan_error = $email_error = "";
-$id_pengguna = $username = $jabatan = $email = "";
+$username = $jabatan = $email = "";
+
+// Generate ID pengguna otomatis
+$query = "SELECT MAX(CAST(id_pengguna AS UNSIGNED)) as max_id FROM pengguna";
+$result = $conn->query($query);
+$row = $result->fetch_assoc();
+$id_pengguna = ($row['max_id'] ? $row['max_id'] + 1 : 1);
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Sanitasi input
-    $id_pengguna = sanitize_input($_POST['id_pengguna']);
+    // ID pengguna sudah di-generate otomatis
     $username = sanitize_input($_POST['username']);
     $password_input = $_POST['password']; // Password tidak disanitasi HTML karena akan di-hash
     $jabatan = sanitize_input($_POST['jabatan']);
     $email = sanitize_input($_POST['email']);
 
-    // Validasi input
-    if (empty($id_pengguna)) {
-        $id_pengguna_error = "ID Pengguna tidak boleh kosong.";
-    } elseif (strlen($id_pengguna) > 11) {
-        $id_pengguna_error = "ID Pengguna maksimal 11 karakter.";
-    }
+    // ID pengguna sudah di-generate otomatis dan divalidasi
 
     if (empty($username)) {
         $nama_error = "Nama tidak boleh kosong.";
@@ -60,19 +60,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // Jika tidak ada error validasi, coba simpan ke database
-    if (empty($id_pengguna_error) && empty($nama_error) && empty($password_error) && empty($jabatan_error) && empty($email_error)) {
-        // Cek apakah id_pengguna sudah ada di database
-        $check_sql = "SELECT id_pengguna FROM pengguna WHERE id_pengguna = ?";
-        $stmt_check = $conn->prepare($check_sql);
-        $stmt_check->bind_param("s", $id_pengguna);
-        $stmt_check->execute();
-        $stmt_check->store_result();
-
-        if ($stmt_check->num_rows > 0) {
-            $id_pengguna_error = "ID Pengguna sudah ada. Gunakan ID lain.";
-            set_flash_message("Gagal menambahkan pengguna: ID Pengguna sudah ada.", "error");
-        } else {
-            $stmt_check->close();
+    if (empty($nama_error) && empty($password_error) && empty($jabatan_error) && empty($email_error)) { {
 
             // Hash password sebelum menyimpan
             $hashed_password = hash_password($password_input);
@@ -105,12 +93,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <h1 class="text-2xl font-bold text-gray-800 mb-4 text-center">Tambah Pengguna</h1>
 
     <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
-        <div class="mb-4">
+        <!-- <div class="mb-4">
             <label for="id_pengguna" class="block text-gray-700 text-sm font-bold mb-2">ID Pengguna:</label>
-            <input type="text" id="id_pengguna" name="id_pengguna" value="<?php echo htmlspecialchars($id_pengguna); ?>" required maxlength="11"
-                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $id_pengguna_error; ?></span>
-        </div>
+            <input type="text" id="id_pengguna" name="id_pengguna" value="<?php echo htmlspecialchars($id_pengguna); ?>" readonly
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 bg-gray-100 leading-tight">
+            <p class="text-gray-600 text-xs italic mt-1">ID Pengguna akan digenerate otomatis</p>
+        </div> -->
         <div class="mb-4">
             <label for="username" class="block text-gray-700 text-sm font-bold mb-2">Nama:</label>
             <input type="text" id="username" name="username" value="<?php echo htmlspecialchars($username); ?>" required maxlength="30"

@@ -14,7 +14,8 @@ require_once __DIR__ . '/../includes/helpers.php'; // Untuk flash message, dll.
 require_once __DIR__ . '/../includes/path_helper.php'; // Helper untuk path
 
 // Cek apakah pengguna sudah login, jika tidak redirect ke halaman login
-if (!is_logged_in() && basename($_SERVER['PHP_SELF']) !== 'login.php') {
+// Kecualikan halaman login dan register dari redirect
+if (!is_logged_in() && basename($_SERVER['PHP_SELF']) !== 'login.php' && basename($_SERVER['PHP_SELF']) !== 'register.php') {
     redirect('login.php');
 }
 
@@ -40,13 +41,13 @@ $relative_path = get_relative_path_to_root();
 
 <body class="bg-gray-100 min-h-screen">
     <div class="flex">
-        <?php if ($current_page !== 'login.php') : ?>
+        <?php if ($current_page !== 'login.php' && $current_page !== 'register.php') : ?>
             <!-- Sidebar -->
             <?php include 'sidebar.php'; ?>
         <?php endif; ?>
 
         <!-- Main Content -->
-        <div class="flex-1 <?php echo ($current_page !== 'login.php') ? 'md:ml-64' : ''; ?>">
+        <div class="flex-1 <?php echo ($current_page !== 'login.php' && $current_page !== 'register.php') ? 'md:ml-64' : ''; ?>">
             <header class="bg-gray-900 text-white shadow-lg sticky top-0 z-30">
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between px-8 py-4">
                     <div class="flex items-center gap-3">
@@ -62,7 +63,7 @@ $relative_path = get_relative_path_to_root();
                         <span class="text-lg">👤</span>
                         <span class="font-semibold">Selamat datang, <span class="underline decoration-white"><?php echo htmlspecialchars($user_name); ?></span></span>
                         <span class="ml-2 text-sm">(Jabatan: <span class="font-semibold text-yellow-200"><?php echo htmlspecialchars($user_role); ?></span>)</span>
-                        <?php if ($current_page !== 'login.php') : ?>
+                        <?php if ($current_page !== 'login.php' && $current_page !== 'register.php') : ?>
                             <a href="<?php echo $relative_path; ?>logout.php" class="ml-4 py-2 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold shadow transition">Logout</a>
                         <?php endif; ?>
                     </div>
