@@ -28,13 +28,12 @@ $sql_kas_masuk = "SELECT
                     'Kas Masuk' AS tipe, 
                     km.jumlah,
                     km.keterangan, 
-                    a.nama_akun AS akun_asal, 
+                    tr.id_akun,
                     NULL AS akun_tujuan,
                     km.harga,
                     km.kuantitas
                   FROM kas_masuk km
                   LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
-                  LEFT JOIN akun a ON tr.id_akun = a.id_akun -- Ambil akun dari transaksi terkait
                   WHERE km.tgl_kas_masuk BETWEEN ? AND ?";
 $stmt_km = $conn->prepare($sql_kas_masuk);
 if ($stmt_km === false) {
@@ -44,10 +43,8 @@ if ($stmt_km === false) {
     $stmt_km->execute();
     $result_km = $stmt_km->get_result();
     while ($row = $result_km->fetch_assoc()) {
-        // Jika akun_asal kosong, gunakan default 'Pendapatan'
-        if (empty($row['akun_asal'])) {
-            $row['akun_asal'] = 'Pendapatan';
-        }
+        // Tambahkan akun_asal berdasarkan id_akun
+        $row['akun_asal'] = $row['id_akun']; // Simpan id_akun untuk digunakan di switch case nanti
         $entries[] = $row;
     }
     $stmt_km->close();
@@ -55,11 +52,10 @@ if ($stmt_km === false) {
 
 // Query untuk Kas Keluar
 $sql_kas_keluar = "SELECT kk.tgl_kas_keluar AS tanggal, kk.id_kas_keluar AS id_transaksi, 'Kas Keluar' AS tipe, kk.jumlah, kk.keterangan,
-                           NULL AS akun_asal, a.nama_akun AS akun_tujuan,
+                           NULL AS akun_asal, kk.id_akun,
                            kk.harga,
                            kk.kuantitas
                    FROM kas_keluar kk
-                   JOIN akun a ON kk.id_akun = a.id_akun
                    WHERE kk.tgl_kas_keluar BETWEEN ? AND ?";
 $stmt_kk = $conn->prepare($sql_kas_keluar);
 if ($stmt_kk === false) {
@@ -69,10 +65,8 @@ if ($stmt_kk === false) {
     $stmt_kk->execute();
     $result_kk = $stmt_kk->get_result();
     while ($row = $result_kk->fetch_assoc()) {
-        // Jika akun_tujuan kosong, gunakan default 'Beban'
-        if (empty($row['akun_tujuan'])) {
-            $row['akun_tujuan'] = 'Beban';
-        }
+        // Tambahkan akun_tujuan berdasarkan id_akun
+        $row['akun_tujuan'] = $row['id_akun']; // Simpan id_akun untuk digunakan di switch case nanti
         $entries[] = $row;
     }
     $stmt_kk->close();
@@ -214,14 +208,14 @@ usort($entries, function ($a, $b) {
                             if ($entry['tipe'] == 'Kas Masuk') {
                                 $debit_account = "Kas";
                                 $debit_amount = ($entry['jumlah'] ?? 0);
-                                $credit_account = $entry['akun_asal'] ?? 'Pendapatan';
+                                $credit_account = $entry['akun_asal'] ?? '4001'; // Default ke Pendapatan jika tidak ada
                                 $kredit_amount = ($entry['jumlah'] ?? 0);
                                 $keterangan_tambahan = "";
                                 if (!empty($entry['kuantitas']) && !empty($entry['harga'])) {
                                     // $keterangan_tambahan = "(" . ($entry['kuantitas']) . " x " . format_rupiah($entry['harga']) . ")";
                                 }
                             } else { // Kas Keluar
-                                $debit_account = $entry['akun_tujuan'] ?? 'Beban';
+                                $debit_account = $entry['akun_tujuan'] ?? '5106'; // Default ke Beban Lain-lain jika tidak ada
                                 $debit_amount = ($entry['jumlah'] ?? 0);
                                 $credit_account = "Kas";
                                 $kredit_amount = ($entry['jumlah'] ?? 0);
@@ -236,12 +230,154 @@ usort($entries, function ($a, $b) {
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-2 text-sm text-gray-500 align-top" rowspan="3"><?php echo htmlspecialchars($entry['id_transaksi'] ?? '-'); ?></td>
                                 <td class="px-6 py-2 text-sm text-gray-500 align-top" rowspan="3"><?php echo htmlspecialchars($entry['tanggal']); ?></td>
-                                <td class="px-6 py-1 text-sm text-gray-700 pl-8"><?php echo htmlspecialchars($debit_account); ?></td>
+                                <td class="px-6 py-1 text-sm text-gray-700 pl-8"><?php
+                                                                                    // Gunakan nama akun tetap untuk akun debit
+                                                                                    if ($debit_account == 'Kas') {
+                                                                                        echo 'Kas';
+                                                                                    } else {
+                                                                                        // Cek ID akun untuk akun debit
+                                                                                        $id_akun = '';
+                                                                                        if ($entry['tipe'] == 'Kas Keluar') {
+                                                                                            $id_akun = $entry['id_akun'] ?? '';
+                                                                                        }
+
+                                                                                        switch ($id_akun) {
+                                                                                            case '1101':
+                                                                                                echo 'Kas';
+                                                                                                break;
+                                                                                            case '1102':
+                                                                                                echo 'Bank';
+                                                                                                break;
+                                                                                            case '1103':
+                                                                                                echo 'Piutang Usaha';
+                                                                                                break;
+                                                                                            case '1104':
+                                                                                                echo 'Persediaan';
+                                                                                                break;
+                                                                                            case '1105':
+                                                                                                echo 'Perlengkapan';
+                                                                                                break;
+                                                                                            case '1201':
+                                                                                                echo 'Peralatan';
+                                                                                                break;
+                                                                                            case '1202':
+                                                                                                echo 'Akumulasi Penyusutan Peralatan';
+                                                                                                break;
+                                                                                            case '2101':
+                                                                                                echo 'Utang Usaha';
+                                                                                                break;
+                                                                                            case '2102':
+                                                                                                echo 'Utang Bank';
+                                                                                                break;
+                                                                                            case '3101':
+                                                                                                echo 'Modal Pemilik';
+                                                                                                break;
+                                                                                            case '3102':
+                                                                                                echo 'Prive';
+                                                                                                break;
+                                                                                            case '4001':
+                                                                                                echo 'Pendapatan';
+                                                                                                break;
+                                                                                            case '5101':
+                                                                                                echo 'Beban Gaji';
+                                                                                                break;
+                                                                                            case '5102':
+                                                                                                echo 'Beban Sewa';
+                                                                                                break;
+                                                                                            case '5103':
+                                                                                                echo 'Beban Listrik dan Air';
+                                                                                                break;
+                                                                                            case '5104':
+                                                                                                echo 'Beban Perlengkapan';
+                                                                                                break;
+                                                                                            case '5105':
+                                                                                                echo 'Beban Penyusutan Peralatan';
+                                                                                                break;
+                                                                                            case '5106':
+                                                                                                echo 'Beban Lain-lain';
+                                                                                                break;
+                                                                                            default:
+                                                                                                echo htmlspecialchars($debit_account);
+                                                                                                break;
+                                                                                        }
+                                                                                    }
+                                                                                    ?></td>
                                 <td class="px-6 py-1 text-sm text-gray-900 text-right"><?php echo ($debit_amount > 0) ? format_rupiah($debit_amount) : '-'; ?></td>
                                 <td class="px-6 py-1 text-sm text-gray-900 text-right">-</td>
                             </tr>
                             <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-1 text-sm text-gray-700 pl-16"><?php echo htmlspecialchars($credit_account); ?></td>
+                                <td class="px-6 py-1 text-sm text-gray-700 pl-16"><?php
+                                                                                    // Gunakan nama akun tetap untuk akun kredit
+                                                                                    if ($credit_account == 'Kas') {
+                                                                                        echo 'Kas';
+                                                                                    } else {
+                                                                                        // Cek ID akun untuk akun kredit
+                                                                                        $id_akun = '';
+                                                                                        if ($entry['tipe'] == 'Kas Masuk') {
+                                                                                            $id_akun = $entry['id_akun'] ?? '';
+                                                                                        }
+
+                                                                                        switch ($id_akun) {
+                                                                                            case '1101':
+                                                                                                echo 'Kas';
+                                                                                                break;
+                                                                                            case '1102':
+                                                                                                echo 'Bank';
+                                                                                                break;
+                                                                                            case '1103':
+                                                                                                echo 'Piutang Usaha';
+                                                                                                break;
+                                                                                            case '1104':
+                                                                                                echo 'Persediaan';
+                                                                                                break;
+                                                                                            case '1105':
+                                                                                                echo 'Perlengkapan';
+                                                                                                break;
+                                                                                            case '1201':
+                                                                                                echo 'Peralatan';
+                                                                                                break;
+                                                                                            case '1202':
+                                                                                                echo 'Akumulasi Penyusutan Peralatan';
+                                                                                                break;
+                                                                                            case '2101':
+                                                                                                echo 'Utang Usaha';
+                                                                                                break;
+                                                                                            case '2102':
+                                                                                                echo 'Utang Bank';
+                                                                                                break;
+                                                                                            case '3101':
+                                                                                                echo 'Modal Pemilik';
+                                                                                                break;
+                                                                                            case '3102':
+                                                                                                echo 'Prive';
+                                                                                                break;
+                                                                                            case '4001':
+                                                                                                echo 'Pendapatan';
+                                                                                                break;
+                                                                                            case '5101':
+                                                                                                echo 'Beban Gaji';
+                                                                                                break;
+                                                                                            case '5102':
+                                                                                                echo 'Beban Sewa';
+                                                                                                break;
+                                                                                            case '5103':
+                                                                                                echo 'Beban Listrik dan Air';
+                                                                                                break;
+                                                                                            case '5104':
+                                                                                                echo 'Beban Perlengkapan';
+                                                                                                break;
+                                                                                            case '5105':
+                                                                                                echo 'Beban Penyusutan Peralatan';
+                                                                                                break;
+                                                                                            case '5106':
+                                                                                                echo 'Beban Lain-lain';
+                                                                                                break;
+                                                                                            default:
+                                                                                                echo htmlspecialchars($credit_account);
+                                                                                                break;
+                                                                                        }
+                                                                                    }
+                                                                                    ?></td>
                                 <td class="px-6 py-1 text-sm text-gray-900 text-right">-</td>
                                 <td class="px-6 py-1 text-sm text-gray-900 text-right"><?php echo ($kredit_amount > 0) ? format_rupiah($kredit_amount) : '-'; ?></td>
                             </tr>

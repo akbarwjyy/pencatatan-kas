@@ -93,15 +93,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $stmt->bind_param("siss", $tgl_kas_masuk_baru, $jumlah_baru, $keterangan_baru, $id_kas_masuk_edit);
 
             if ($stmt->execute()) {
-                // Update id_akun di tabel transaksi jika ada id_transaksi
-                if (!empty($id_transaksi_related) && !empty($id_akun_baru)) {
-                    $sql_update_transaksi = "UPDATE transaksi SET id_akun = ? WHERE id_transaksi = ?";
-                    if ($stmt_tr = $conn->prepare($sql_update_transaksi)) {
-                        $stmt_tr->bind_param("ss", $id_akun_baru, $id_transaksi_related);
-                        $stmt_tr->execute();
-                        $stmt_tr->close();
-                    }
-                }
+                // Tidak perlu update id_akun di tabel transaksi untuk mempertahankan data historis
+                // Akun yang ditampilkan di form hanya untuk referensi
 
                 // Tambahkan parameter timestamp untuk mencegah cache
                 $redirect_url = 'index.php?updated=' . time();

@@ -65,7 +65,7 @@ try {
 
 // Ambil semua data kas masuk dari database, join dengan transaksi dan akun
 // Perhatikan: kas_masuk selalu punya id_transaksi berdasarkan struktur database
-$sql = "SELECT km.*, tr.id_pesan, tr.jumlah_dibayar AS jumlah_transaksi, tr.total_tagihan,
+$sql = "SELECT km.*, tr.id_pesan, tr.jumlah_dibayar AS jumlah_transaksi, tr.total_tagihan, tr.id_akun,
         (SELECT nama_akun FROM akun WHERE id_akun = tr.id_akun) AS nama_akun,
         p.quantity AS pemesanan_quantity
         FROM kas_masuk km
@@ -125,7 +125,69 @@ try {
                             <tr class="hover:bg-gray-50">
                                 <td class="px-3 py-2 text-sm text-gray-500"><?php echo htmlspecialchars($income['id_kas_masuk']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['tgl_kas_masuk']); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['nama_akun'] ?? 'N/A'); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php
+                                                                            // Gunakan nama akun tetap berdasarkan ID akun
+                                                                            $id_akun = $income['id_akun'] ?? '';
+                                                                            switch ($id_akun) {
+                                                                                case '1101':
+                                                                                    echo 'Kas';
+                                                                                    break;
+                                                                                case '1102':
+                                                                                    echo 'Bank';
+                                                                                    break;
+                                                                                case '1103':
+                                                                                    echo 'Piutang Usaha';
+                                                                                    break;
+                                                                                case '1104':
+                                                                                    echo 'Persediaan';
+                                                                                    break;
+                                                                                case '1105':
+                                                                                    echo 'Perlengkapan';
+                                                                                    break;
+                                                                                case '1201':
+                                                                                    echo 'Peralatan';
+                                                                                    break;
+                                                                                case '1202':
+                                                                                    echo 'Akumulasi Penyusutan Peralatan';
+                                                                                    break;
+                                                                                case '2101':
+                                                                                    echo 'Utang Usaha';
+                                                                                    break;
+                                                                                case '2102':
+                                                                                    echo 'Utang Bank';
+                                                                                    break;
+                                                                                case '3101':
+                                                                                    echo 'Modal Pemilik';
+                                                                                    break;
+                                                                                case '3102':
+                                                                                    echo 'Prive';
+                                                                                    break;
+                                                                                case '4001':
+                                                                                    echo 'Pendapatan';
+                                                                                    break;
+                                                                                case '5101':
+                                                                                    echo 'Beban Gaji';
+                                                                                    break;
+                                                                                case '5102':
+                                                                                    echo 'Beban Sewa';
+                                                                                    break;
+                                                                                case '5103':
+                                                                                    echo 'Beban Listrik dan Air';
+                                                                                    break;
+                                                                                case '5104':
+                                                                                    echo 'Beban Perlengkapan';
+                                                                                    break;
+                                                                                case '5105':
+                                                                                    echo 'Beban Penyusutan Peralatan';
+                                                                                    break;
+                                                                                case '5106':
+                                                                                    echo 'Beban Lain-lain';
+                                                                                    break;
+                                                                                default:
+                                                                                    echo htmlspecialchars($income['nama_akun'] ?? 'N/A');
+                                                                                    break;
+                                                                            }
+                                                                            ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['keterangan']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($income['harga'] > 0 ? $income['harga'] : 12000); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php

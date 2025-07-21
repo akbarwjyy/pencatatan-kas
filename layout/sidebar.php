@@ -20,30 +20,32 @@ require_once __DIR__ . '/../includes/path_helper.php';
         </div>
 
         <!-- Manajemen Section -->
-        <div class="mb-4">
-            <div class="mb-2">
-                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide px-4 py-2">Manajemen</h3>
+        <?php if (!($_SESSION['user_role'] === 'Pemilik')) : ?>
+            <div class="mb-4">
+                <div class="mb-2">
+                    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide px-4 py-2">Manajemen</h3>
+                </div>
+                <div class="space-y-1">
+                    <?php if (has_permission('Admin')) : ?>
+                        <a href="<?php echo to_url('modules/pengguna/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">👥 Manajemen Pengguna</a>
+                        <a href="<?php echo to_url('modules/akun/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">💳 Manajemen Akun</a>
+                        <a href="<?php echo to_url('modules/customer/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">👤 Manajemen Customer</a>
+                        <a href="<?php echo to_url('modules/barang/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">📦 Manajemen Barang</a>
+                    <?php endif; ?>
+                    <?php if (has_permission('Admin') || has_permission('Pegawai')) : ?>
+                        <a href="<?php echo to_url('modules/pemesanan/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">📝 Manajemen Pemesanan</a>
+                        <a href="<?php echo to_url('modules/beli_langsung/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">🛒 Beli Langsung</a>
+                    <?php endif; ?>
+                    <?php if (has_permission('Admin') || has_permission('Pegawai')) : ?>
+                        <a href="<?php echo to_url('modules/transaksi/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">💰 Manajemen Transaksi</a>
+                        <a href="<?php echo to_url('modules/kas_masuk/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">💵 Manajemen Kas Masuk</a>
+                    <?php endif; ?>
+                    <?php if (has_permission('Admin')) : ?>
+                        <a href="<?php echo to_url('modules/kas_keluar/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">💸 Manajemen Kas Keluar</a>
+                    <?php endif; ?>
+                </div>
             </div>
-            <div class="space-y-1">
-                <?php if (has_permission('Admin')) : ?>
-                    <a href="<?php echo to_url('modules/pengguna/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">👥 Manajemen Pengguna</a>
-                    <a href="<?php echo to_url('modules/akun/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">💳 Manajemen Akun</a>
-                    <a href="<?php echo to_url('modules/customer/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">👤 Manajemen Customer</a>
-                    <a href="<?php echo to_url('modules/barang/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">📦 Manajemen Barang</a>
-                <?php endif; ?>
-                <?php if (has_permission('Admin') || has_permission('Pegawai') || has_permission('Pemilik')) : ?>
-                    <a href="<?php echo to_url('modules/pemesanan/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">📝 Manajemen Pemesanan</a>
-                    <a href="<?php echo to_url('modules/beli_langsung/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">🛒 Beli Langsung</a>
-                <?php endif; ?>
-                <?php if (has_permission('Admin') || has_permission('Pegawai')) : ?>
-                    <a href="<?php echo to_url('modules/transaksi/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">💰 Manajemen Transaksi</a>
-                    <a href="<?php echo to_url('modules/kas_masuk/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">💵 Manajemen Kas Masuk</a>
-                <?php endif; ?>
-                <?php if (has_permission('Admin')) : ?>
-                    <a href="<?php echo to_url('modules/kas_keluar/index.php'); ?>" class="flex items-center gap-3 py-2 px-4 rounded-lg hover:bg-gray-700 text-sm">💸 Manajemen Kas Keluar</a>
-                <?php endif; ?>
-            </div>
-        </div>
+        <?php endif; ?>
 
         <!-- Laporan Section -->
         <div class="mb-4">
