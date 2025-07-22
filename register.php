@@ -70,11 +70,37 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } else {
             $stmt_check->close();
 
-            // Generate ID pengguna otomatis
-            $query = "SELECT MAX(CAST(id_pengguna AS UNSIGNED)) as max_id FROM pengguna";
-            $result = $conn->query($query);
-            $row = $result->fetch_assoc();
-            $id_pengguna = ($row['max_id'] ? $row['max_id'] + 1 : 1);
+            // Generate ID pengguna alfanumerik otomatis
+            function generateAlphanumericID()
+            {
+                // Generate 4 random characters (2 letters + 2 numbers)
+                $letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                $numbers = '0123456789';
+
+                $randomLetters = '';
+                for ($i = 0; $i < 2; $i++) {
+                    $randomLetters .= $letters[rand(0, strlen($letters) - 1)];
+                }
+
+                $randomNumbers = '';
+                for ($i = 0; $i < 2; $i++) {
+                    $randomNumbers .= $numbers[rand(0, strlen($numbers) - 1)];
+                }
+
+                return $randomLetters . $randomNumbers;
+            }
+
+            // Generate ID dan pastikan unik
+            do {
+                $id_pengguna = generateAlphanumericID();
+                $check_id = "SELECT id_pengguna FROM pengguna WHERE id_pengguna = ?";
+                $stmt_id = $conn->prepare($check_id);
+                $stmt_id->bind_param("s", $id_pengguna);
+                $stmt_id->execute();
+                $stmt_id->store_result();
+                $id_exists = $stmt_id->num_rows > 0;
+                $stmt_id->close();
+            } while ($id_exists);
 
             // Hash password sebelum menyimpan
             $hashed_password = hash_password($password_input);
