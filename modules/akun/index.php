@@ -55,10 +55,10 @@ if ($result->num_rows > 0) {
                                 <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars($account['id_akun']); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($account['nama_akun']); ?></td>
                                 <td class="px-6 py-4 text-sm space-x-2">
-                                    <a href="edit.php?id=<?php echo htmlspecialchars($account['id_akun']); ?>"
+                                    <!-- <a href="edit.php?id=<?php echo htmlspecialchars($account['id_akun']); ?>"
                                         class="inline-block bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition">
                                         Edit
-                                    </a>
+                                    </a> -->
                                     <a href="delete.php?id=<?php echo htmlspecialchars($account['id_akun']); ?>"
                                         class="inline-block bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition"
                                         onclick="return confirm('Apakah Anda yakin ingin menghapus akun ini?');">
