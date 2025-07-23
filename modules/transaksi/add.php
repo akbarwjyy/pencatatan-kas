@@ -258,6 +258,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
         <div class="grid grid-cols-2 gap-8">
+            <!-- Kolom Kiri -->
             <div>
                 <div class="mb-6">
                     <label for="id_pesan" class="block text-gray-700 text-sm font-bold mb-2">Nama Customer / ID Pesanan:</label>
@@ -311,6 +312,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
             </div>
 
+            <!-- Kolom Kanan -->
             <div>
                 <div class="mb-6">
                     <label for="tgl_transaksi" class="block text-gray-700 text-sm font-bold mb-2">Tanggal Transaksi:</label>
@@ -321,7 +323,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
 
                 <div class="mb-6">
-                    <label class="block text-gray-700 text-sm font-bold mb-2">Total Tagihan:</label>
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Total Pembelian:</label>
                     <input type="text" id="total_tagihan_display"
                         value="<?php echo format_rupiah($total_tagihan_display); ?>" disabled
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100">
@@ -443,6 +445,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </table>
     <hr class="nota-hr2">
 
+    <!-- New section for item details -->
     <table style="width:100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 10px;">
         <thead>
             <tr>
@@ -453,31 +456,39 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </tr>
         </thead>
         <tbody id="nota-detail-barang">
+            <!-- Item rows will be inserted here by JavaScript -->
         </tbody>
     </table>
     <hr class="nota-hr3">
 
     <table style="width:100%;">
         <tr>
-            <td style="width:40%;">Total Tagihan</td>
+            <td style="width:40%;">Total Pembelian</td>
             <td style="width:2%;">:</td>
             <td id="nota-total-tagihan"></td>
         </tr>
         <tr>
-            <td>Uang Muka</td>
+            <td>Dibayar (DP)</td>
             <td>:</td>
             <td id="nota-uang-muka">-</td>
         </tr>
-        <tr>
+        <!-- <tr>
             <td>Sisa Pembayaran</td>
             <td>:</td>
             <td id="nota-sisa-pembayaran"></td>
-        </tr>
+        </tr> -->
         <tr>
-            <td>Jumlah Dibayar</td>
+            <td>Pelunasan</td>
             <td>:</td>
             <td id="nota-jumlah-dibayar"></td>
         </tr>
+        <?php /* --- START PERBAIKAN: Tambahkan baris keterangan --- */ ?>
+        <tr>
+            <td>Keterangan</td>
+            <td>:</td>
+            <td id="nota-keterangan"></td>
+        </tr>
+        <?php /* --- END PERBAIKAN --- */ ?>
         <tr>
             <td><b>Status</b></td>
             <td>:</td>
@@ -502,11 +513,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         const tglPemesanan = selectedOption.dataset.tglpesan || '-';
         const tglKirim = selectedOption.dataset.tglkirim || '-';
         const uangMuka = selectedOption.dataset.uangmuka || 0;
+        const keterangan = document.getElementById('keterangan').value || '-'; // Ambil nilai keterangan
 
         // New: Item details
-        const namaBarang = "Ampyang"; // Hardcoded
+        const namaBarang = "Ampyang"; // Hardcoded karena id_barang tidak ada di tabel pemesanan
         const itemQuantity = parseFloat(selectedOption.dataset.quantity || 0);
-        const itemHargaSatuan = 12000; // Hardcoded
+        const itemHargaSatuan = 12000; // Hardcoded karena harga_satuan tidak bisa diambil dari tabel barang
         const itemSubtotal = itemQuantity * itemHargaSatuan;
 
         // No Transaksi: generate random jika belum ada
@@ -537,11 +549,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 
         document.getElementById('nota-total-tagihan').textContent = totalTagihanForm;
-        document.getElementById('nota-sisa-pembayaran').textContent = document.getElementById('sisa_pembayaran_display').value;
+        // document.getElementById('nota-sisa-pembayaran').textContent = document.getElementById('sisa_pembayaran_display').value;
         document.getElementById('nota-jumlah-dibayar').textContent = formatRupiah(jumlahDibayar);
         document.getElementById('nota-status').textContent = statusPembayaran;
-        // Tampilkan uang muka
         document.getElementById('nota-uang-muka').textContent = formatRupiah(uangMuka);
+        document.getElementById('nota-keterangan').textContent = keterangan; // Isi keterangan di nota
 
         // Tampilkan nota dan print
         document.getElementById('nota-cetak').style.display = 'block';
