@@ -455,11 +455,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <td id="nota-jumlah-dibayar"></td>
         </tr>
 
-        <tr>
-            <td>Keterangan</td>
-            <td>:</td>
-            <td id="nota-keterangan"></td>
-        </tr>
+
         <tr>
             <td><b>Status</b></td>
             <td>:</td>
@@ -488,7 +484,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         const tglPemesanan = selectedOption.dataset.tglpesan || '-';
         const tglKirim = selectedOption.dataset.tglkirim || '-';
         const uangMuka = selectedOption.dataset.uangmuka || 0;
-        const keterangan = document.getElementById('keterangan').value || '-';
+
 
         // --- START MODIFIKASI: Ambil data untuk perhitungan harga satuan dari dataset ---
         const itemQuantity = parseFloat(selectedOption.dataset.quantity || 0);
@@ -535,7 +531,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         document.getElementById('nota-jumlah-dibayar').textContent = formatRupiah(jumlahDibayar);
         document.getElementById('nota-status').textContent = statusPembayaran;
         document.getElementById('nota-uang-muka').textContent = formatRupiah(uangMuka);
-        document.getElementById('nota-keterangan').textContent = keterangan;
+
 
         document.getElementById('nota-cetak').style.display = 'block';
         window.print();

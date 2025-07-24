@@ -18,16 +18,12 @@ if (empty($start_date) && empty($end_date)) {
 }
 
 $total_pendapatan = 0;
-$biaya_bahan_baku = 0;
-$biaya_produksi = 0;
-$biaya_pengemasan = 0;
-$biaya_transportasi = 0;
-$biaya_lain_lain = 0;
 $total_operasional = 0;
 $laba_rugi = 0;
+$biaya_operasional = [];
 
-// Query untuk total pendapatan (kas masuk) - menggunakan jumlah dari kas_masuk
-$sql_pendapatan = "SELECT SUM(jumlah) AS total FROM kas_masuk WHERE tgl_kas_masuk BETWEEN ? AND ?";
+// Ambil total pendapatan dari transaksi (bukan kas_masuk agar tidak double)
+$sql_pendapatan = "SELECT SUM(jumlah_dibayar) AS total FROM transaksi WHERE tgl_transaksi BETWEEN ? AND ?";
 $stmt_pendapatan = $conn->prepare($sql_pendapatan);
 if ($stmt_pendapatan) {
     $stmt_pendapatan->bind_param("ss", $start_date, $end_date);
@@ -37,11 +33,11 @@ if ($stmt_pendapatan) {
     $stmt_pendapatan->close();
 }
 
-// Query untuk biaya berdasarkan nama akun
+// Query biaya berdasarkan akun (hanya tampil akun yang dipakai)
 $sql_biaya = "SELECT a.nama_akun, SUM(kk.jumlah) AS total 
               FROM kas_keluar kk 
               JOIN akun a ON kk.id_akun = a.id_akun 
-              WHERE kk.tgl_kas_keluar BETWEEN ? AND ? 
+              WHERE kk.tgl_kas_keluar BETWEEN ? AND ?
               GROUP BY a.nama_akun";
 $stmt_biaya = $conn->prepare($sql_biaya);
 if ($stmt_biaya) {
@@ -49,27 +45,16 @@ if ($stmt_biaya) {
     $stmt_biaya->execute();
     $result_biaya = $stmt_biaya->get_result();
     while ($row = $result_biaya->fetch_assoc()) {
-        $nama_akun = strtolower($row['nama_akun']);
-        if (strpos($nama_akun, 'bahan') !== false) {
-            $biaya_bahan_baku += $row['total'];
-        } elseif (strpos($nama_akun, 'produksi') !== false || strpos($nama_akun, 'gas') !== false || strpos($nama_akun, 'listrik') !== false) {
-            $biaya_produksi += $row['total'];
-        } elseif (strpos($nama_akun, 'kemas') !== false) {
-            $biaya_pengemasan += $row['total'];
-        } elseif (strpos($nama_akun, 'transport') !== false) {
-            $biaya_transportasi += $row['total'];
-        } else {
-            $biaya_lain_lain += $row['total'];
-        }
+        $biaya_operasional[] = $row;
+        $total_operasional += $row['total'];
     }
     $stmt_biaya->close();
 }
 
-$total_operasional = $biaya_bahan_baku + $biaya_produksi + $biaya_pengemasan + $biaya_transportasi + $biaya_lain_lain;
 $laba_rugi = ($total_pendapatan ?? 0) - $total_operasional;
-
 ?>
 
+<!-- HTML TETAP SAMA SESUAI PERMINTAAN -->
 <div class="container mx-auto px-4 py-8">
     <div class="bg-white rounded-lg shadow-md p-6">
         <h1 class="text-2xl font-bold text-gray-800 mb-4">Laporan Laba Rugi Per Periode</h1>
@@ -102,13 +87,8 @@ $laba_rugi = ($total_pendapatan ?? 0) - $total_operasional;
             </div>
         </form>
 
-        <?php
-        // Cek jika ada error dari SQL sebelumnya
-        if (display_flash_message()) :
-            // flash message sudah ditampilkan oleh display_flash_message(), jadi tidak perlu div tambahan
-        ?>
-        <?php else : // Jika tidak ada error SQL, tampilkan ringkasan laba rugi 
-        ?>
+        <?php if (display_flash_message()) : ?>
+        <?php else : ?>
             <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-md max-w-lg mx-auto">
                 <h2 class="text-xl font-bold text-gray-800 text-center mb-4">Laporan Laba Rugi</h2>
                 <p class="text-gray-600 text-center mb-6"><strong><?php echo htmlspecialchars(date('d F Y', strtotime($start_date))); ?></strong> s/d <strong><?php echo htmlspecialchars(date('d F Y', strtotime($end_date))); ?></strong></p>
@@ -122,32 +102,14 @@ $laba_rugi = ($total_pendapatan ?? 0) - $total_operasional;
                     <span class="text-gray-700 font-semibold">Biaya Operasional:</span>
                 </div>
 
-                <div class="flex justify-between py-1 pl-4">
-                    <span class="text-gray-600">Biaya Bahan Baku:</span>
-                    <span class="text-red-600"><?php echo format_rupiah($biaya_bahan_baku); ?></span>
-                </div>
+                <?php foreach ($biaya_operasional as $biaya) : ?>
+                    <div class="flex justify-between py-1 pl-4">
+                        <span class="text-gray-600"><?php echo htmlspecialchars($biaya['nama_akun']); ?>:</span>
+                        <span class="text-red-600"><?php echo format_rupiah($biaya['total']); ?></span>
+                    </div>
+                <?php endforeach; ?>
 
-                <div class="flex justify-between py-1 pl-4">
-                    <span class="text-gray-600">Biaya Produksi (Gas/Listrik):</span>
-                    <span class="text-red-600"><?php echo format_rupiah($biaya_produksi); ?></span>
-                </div>
-
-                <div class="flex justify-between py-1 pl-4">
-                    <span class="text-gray-600">Biaya Pengemasan:</span>
-                    <span class="text-red-600"><?php echo format_rupiah($biaya_pengemasan); ?></span>
-                </div>
-
-                <div class="flex justify-between py-1 pl-4">
-                    <span class="text-gray-600">Biaya Transportasi:</span>
-                    <span class="text-red-600"><?php echo format_rupiah($biaya_transportasi); ?></span>
-                </div>
-
-                <div class="flex justify-between py-1 pl-4 border-b border-gray-200 pb-2">
-                    <span class="text-gray-600">Biaya Lain-lain:</span>
-                    <span class="text-red-600"><?php echo format_rupiah($biaya_lain_lain); ?></span>
-                </div>
-
-                <div class="flex justify-between py-2 border-b border-gray-300 font-semibold">
+                <div class="flex justify-between py-2 border-b border-gray-300 font-semibold mt-2">
                     <span class="text-gray-700">Total Operasional:</span>
                     <span class="text-red-600"><?php echo format_rupiah($total_operasional); ?></span>
                 </div>
@@ -162,5 +124,4 @@ $laba_rugi = ($total_pendapatan ?? 0) - $total_operasional;
         <?php endif; ?>
     </div>
 </div>
-<?php
-?>
+<?php ?>

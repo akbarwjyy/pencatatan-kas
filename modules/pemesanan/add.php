@@ -149,13 +149,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     ) {
 
         // Query untuk menambah data pemesanan (tanpa id_barang karena kolom belum ada)
-        $sql = "INSERT INTO pemesanan (id_pesan, id_customer, tgl_pesan, tgl_kirim, quantity, uang_muka, sub_total, sisa) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO pemesanan (id_pesan, id_customer, id_barang, tgl_pesan, tgl_kirim, quantity, uang_muka, sub_total, sisa) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         // Mulai transaksi database untuk memastikan konsistensi
         $conn->begin_transaction();
         try {
             if ($stmt = $conn->prepare($sql)) {
-                $stmt->bind_param("ssssiiii", $id_pesan, $id_customer, $tgl_pesan, $tgl_kirim, $quantity, $uang_muka, $sub_total, $sisa);
+                $stmt->bind_param("sssssiiii", $id_pesan, $id_customer, $id_barang, $tgl_pesan, $tgl_kirim, $quantity, $uang_muka, $sub_total, $sisa);
 
                 if (!$stmt->execute()) {
                     throw new Exception("Gagal menambahkan pemesanan: " . $stmt->error);
