@@ -28,7 +28,7 @@ $total_quantity = 0; // Akan diisi dari total item quantity
 
 // Ambil daftar customer untuk dropdown
 $customers = [];
-$customer_sql = "SELECT id_customer, nama_customer FROM customer ORDER BY nama_customer ASC";
+$customer_sql = "SELECT id_customer, nama_customer FROM customer ORDER BY nama_customer ASC"; // Mengoreksi nama_akun menjadi nama_customer
 $customer_result = $conn->query($customer_sql);
 if ($customer_result->num_rows > 0) {
     while ($row = $customer_result->fetch_assoc()) {
@@ -56,6 +56,10 @@ if ($barang_result->num_rows > 0) {
     }
 }
 
+// === MODIFIKASI: Variabel untuk menyimpan data nota ===
+$print_nota = false;
+$nota_data = [];
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Sanitasi input utama transaksi
     $id_customer = sanitize_input($_POST['id_customer'] ?? '');
@@ -76,7 +80,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (empty($id_akun)) {
         $id_akun_error = "Akun tidak boleh kosong.";
     }
-    // Validasi format tanggal yang lebih ketat dan debugging
+    // --- START PERBAIKAN: Validasi format tanggal yang lebih ketat dan debugging ---
     if (empty($tgl_transaksi)) {
         $tgl_transaksi_error = "Tanggal Transaksi tidak boleh kosong.";
     } else {
@@ -100,6 +104,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             error_log("Date validation passed for: " . $tgl_transaksi);
         }
     }
+    // --- END PERBAIKAN ---
 
     if (empty($metode_pembayaran)) {
         $metode_pembayaran_error = "Metode Pembayaran tidak boleh kosong.";
@@ -164,7 +169,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Mulai transaksi database
         $conn->begin_transaction();
         try {
-            // --- PERBAIKAN: Implementasi Alur Pembelian Langsung dengan Flag pembelian_langsung ---
+            // --- Implementasi Alur Pembelian Langsung sebagai Pesanan Lunas ---
 
             // 1. Generate ID Pesanan untuk "dummy" pemesanan
             $latest_pesan_sql = "SELECT MAX(CAST(SUBSTRING(id_pesan, 4) AS UNSIGNED)) as last_num FROM pemesanan WHERE id_pesan LIKE 'ORD%'";
@@ -177,16 +182,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $id_pesan_dummy = sprintf("ORD%05d", $new_pesan_num); // Format: ORD00001, dst.
 
             // 2. Masukkan data ke tabel `pemesanan` (sebagai pesanan langsung lunas)
-            // PERBAIKAN: Tambahkan kolom pembelian_langsung = TRUE
-            $sql_pemesanan_dummy = "INSERT INTO pemesanan (id_pesan, id_customer, tgl_pesan, tgl_kirim, uang_muka, total_tagihan_keseluruhan, sisa, status_pesanan, keterangan, total_quantity, pembelian_langsung) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            // Kolom uang_muka, total_tagihan_keseluruhan, sisa, status_pesanan, keterangan, total_quantity
+            $sql_pemesanan_dummy = "INSERT INTO pemesanan (id_pesan, id_customer, tgl_pesan, tgl_kirim, uang_muka, total_tagihan_keseluruhan, sisa, status_pesanan, keterangan, total_quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             if ($stmt_pemesanan_dummy = $conn->prepare($sql_pemesanan_dummy)) {
                 // Gunakan variabel untuk nilai literal di bind_param
                 $sisa_pemesanan_dummy_var = 0;
                 $status_pesanan_dummy_var = 'Lunas';
-                $pembelian_langsung_flag = 1; // TRUE untuk pembelian langsung
-
                 $stmt_pemesanan_dummy->bind_param(
-                    "ssssdddssii", // PERBAIKAN: Sesuaikan tipe data - tambahkan 'i' untuk pembelian_langsung
+                    "ssssdddssi",
                     $id_pesan_dummy,
                     $id_customer,
                     $tgl_transaksi, // tgl_pesan sama dengan tgl_transaksi
@@ -196,8 +199,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $sisa_pemesanan_dummy_var, // Gunakan variabel
                     $status_pesanan_dummy_var, // Gunakan variabel
                     $keterangan,
-                    $calculated_total_quantity, // total_quantity
-                    $pembelian_langsung_flag // PERBAIKAN: Tambahkan flag pembelian_langsung
+                    $calculated_total_quantity // total_quantity
                 );
 
                 if (!$stmt_pemesanan_dummy->execute()) {
@@ -242,6 +244,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $stmt_check_gen_id->close();
 
             // 5. Masukkan data ke tabel `transaksi` (Pembelian Langsung)
+            // --- PERBAIKAN UTAMA: Pastikan parameter binding dan tipe data benar ---
             $sql_transaksi = "INSERT INTO transaksi (id_transaksi, id_pesan, id_akun, id_customer, tgl_transaksi, jumlah_dibayar, metode_pembayaran, keterangan, total_tagihan, sisa_pembayaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             if ($stmt_transaksi = $conn->prepare($sql_transaksi)) {
                 // Debug: Log nilai sebelum binding
@@ -330,22 +333,66 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 throw new Exception("Error prepared statement (kas_masuk): " . $conn->error);
             }
 
+            // === MODIFIKASI: Siapkan data untuk nota cetak ===
+            // Ambil nama customer
+            $customer_name = '';
+            foreach ($customers as $customer_option) {
+                if ($customer_option['id_customer'] == $id_customer) {
+                    $customer_name = $customer_option['nama_customer'];
+                    break;
+                }
+            }
+
+            // Siapkan data item dengan nama barang
+            $nota_items = [];
+            foreach ($items_data as $item_detail) {
+                $nama_barang = '';
+                foreach ($barang_list as $barang) {
+                    if ($barang['id_barang'] == $item_detail['id_barang']) {
+                        $nama_barang = $barang['nama_barang'];
+                        break;
+                    }
+                }
+                $nota_items[] = [
+                    'nama_barang' => $nama_barang,
+                    'quantity_item' => $item_detail['quantity_item'],
+                    'harga_satuan_item' => $item_detail['harga_satuan_item'],
+                    'sub_total_item' => $item_detail['sub_total_item']
+                ];
+            }
+
+            // Set data nota untuk JavaScript
+            $nota_data = [
+                'id_transaksi' => $generated_id_transaksi,
+                'tanggal' => $tgl_transaksi,
+                'customer_name' => $customer_name,
+                'metode_pembayaran' => $metode_pembayaran,
+                'keterangan' => $keterangan,
+                'total_tagihan' => $calculated_total_tagihan,
+                'items' => $nota_items
+            ];
+            $print_nota = true;
+
             // Commit transaksi jika semua berhasil
             $conn->commit();
             set_flash_message("Pembelian Langsung berhasil dicatat!", "success");
-            redirect('add.php'); // Tetap di halaman add.php untuk pembelian berikutnya
 
+            // Reset form data untuk pembelian berikutnya
+            $id_customer = '';
+            $id_akun = '';
+            $tgl_transaksi = '';
+            $keterangan = '';
+            $total_tagihan = 0;
+            $jumlah_dibayar = 0;
         } catch (Exception $e) {
             // Rollback transaksi jika ada error
             $conn->rollback();
             set_flash_message("Error saat memproses pembelian langsung: " . $e->getMessage(), "error");
             // Log error untuk debugging
             error_log("Transaction error: " . $e->getMessage());
-            redirect('add.php');
         }
     } else {
         set_flash_message("Silakan perbaiki kesalahan pada formulir.", "error");
-        redirect('add.php');
     }
 
     end_post_processing:; // Label untuk goto
@@ -393,18 +440,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
                     <span class="text-red-500 text-xs italic mt-1 block"><?php echo $tgl_transaksi_error; ?></span>
                 </div>
-                <div class="mb-4">
-                    <label for="metode_pembayaran" class="block text-gray-700 text-sm font-bold mb-2">Metode Pembayaran:</label>
-                    <input type="hidden" id="metode_pembayaran" name="metode_pembayaran" value="Tunai">
-                    <input type="text" value="Tunai" disabled
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
-                </div>
-                <div class="mb-6">
-                    <label for="keterangan" class="block text-gray-700 text-sm font-bold mb-2">Keterangan (misal: "Penjualan Ampyang 5pcs"):</label>
-                    <input type="text" id="keterangan" name="keterangan" value="<?php echo htmlspecialchars($keterangan); ?>" required maxlength="30"
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-                    <span class="text-red-500 text-xs italic mt-1 block"><?php echo $keterangan_error; ?></span>
-                </div>
+
             </div>
 
             <div>
@@ -417,6 +453,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <label class="block text-gray-700 text-sm font-bold mb-2">Jumlah Dibayar:</label>
                     <input type="text" id="jumlah_dibayar_display" value="<?php echo format_rupiah($jumlah_dibayar); ?>" disabled
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
+                </div>
+                <div class="mb-4">
+                    <label for="metode_pembayaran" class="block text-gray-700 text-sm font-bold mb-2">Metode Pembayaran:</label>
+                    <input type="hidden" id="metode_pembayaran" name="metode_pembayaran" value="Tunai">
+                    <input type="text" value="Tunai" disabled
+                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
+                </div>
+                <div class="mb-6">
+                    <label for="keterangan" class="block text-gray-700 text-sm font-bold mb-2">Keterangan :</label>
+                    <input type="text" id="keterangan" name="keterangan" value="<?php echo htmlspecialchars($keterangan); ?>" required maxlength="30"
+                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
+                    <span class="text-red-500 text-xs italic mt-1 block"><?php echo $keterangan_error; ?></span>
                 </div>
             </div>
         </div>
@@ -543,6 +591,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </table>
 </div>
 
+<?php if ($print_nota): ?>
+    <script>
+        // Data nota dari PHP
+        const notaData = <?php echo json_encode($nota_data); ?>;
+
+        // Auto print nota setelah halaman load
+        document.addEventListener('DOMContentLoaded', function() {
+            if (notaData) {
+                setTimeout(function() {
+                    printNotaFromData(notaData);
+                }, 1000); // Delay 1 detik untuk memastikan halaman sudah load
+            }
+        });
+    </script>
+<?php endif; ?>
+
 <script>
     // Data barang dari PHP untuk digunakan di JavaScript
     const barangList = <?php echo json_encode($barang_list); ?>;
@@ -647,22 +711,53 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         document.getElementById('jumlah_dibayar_display').value = formatRupiah(grandTotal); // Jumlah dibayar sama dengan total tagihan
     }
 
-    // Event listener untuk tombol "Tambah Item"
-    document.getElementById('add-item-btn').addEventListener('click', addItemRow);
+    // === MODIFIKASI: Fungsi untuk mencetak nota menggunakan data dari database ===
+    function printNotaFromData(data) {
+        // Format tanggal untuk tampilan
+        const tanggalFormatted = new Date(data.tanggal).toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
 
-    // Inisialisasi saat halaman dimuat
-    document.addEventListener('DOMContentLoaded', function() {
-        // Set tanggal transaksi ke hari ini secara default
-        if (!document.getElementById('tgl_transaksi').value) {
-            document.getElementById('tgl_transaksi').valueAsDate = new Date();
+        // Isi data umum nota
+        document.getElementById('nota-tanggal').textContent = tanggalFormatted;
+        document.getElementById('nota-no-transaksi').textContent = data.id_transaksi;
+        document.getElementById('nota-nama-customer').textContent = data.customer_name;
+        document.getElementById('nota-metode-pembayaran').textContent = data.metode_pembayaran;
+        document.getElementById('nota-total-pembelian').textContent = formatRupiah(data.total_tagihan);
+        document.getElementById('nota-keterangan').textContent = data.keterangan;
+
+        // Isi detail barang di nota
+        const notaDetailBarang = document.getElementById('nota-detail-barang');
+        notaDetailBarang.innerHTML = ''; // Kosongkan baris item sebelumnya
+
+        if (data.items && data.items.length > 0) {
+            data.items.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="text-align:left;">${item.nama_barang}</td>
+                    <td style="text-align:right;">${item.quantity_item}</td>
+                    <td style="text-align:right;">${formatRupiah(item.harga_satuan_item)}</td>
+                    <td style="text-align:right;">${formatRupiah(item.sub_total_item)}</td>
+                `;
+                notaDetailBarang.appendChild(row);
+            });
+        } else {
+            const row = document.createElement('tr');
+            row.innerHTML = `<td colspan="4" style="text-align:center; font-style:italic;">Tidak ada item pembelian.</td>`;
+            notaDetailBarang.appendChild(row);
         }
 
-        // Tambahkan satu baris item secara default saat halaman dimuat
-        addItemRow();
-        updateGrandTotal(); // Panggil sekali untuk inisialisasi total
-    });
+        // Tampilkan nota dan print
+        document.getElementById('nota-cetak').style.display = 'block';
+        window.print();
+        setTimeout(function() {
+            document.getElementById('nota-cetak').style.display = 'none';
+        }, 500);
+    }
 
-    // Fungsi untuk mencetak nota
+    // Fungsi untuk mencetak nota manual (dari form)
     function printNota() {
         const customerSelect = document.getElementById('id_customer');
         const customerName = customerSelect.options[customerSelect.selectedIndex].textContent || '-';
@@ -673,8 +768,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         let noTransaksi = 'TRX' + Math.random().toString(36).substr(2, 5).toUpperCase(); // Generate simple ID for receipt
 
+        // Format tanggal untuk tampilan
+        const tanggalFormatted = new Date(tglTransaksi).toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+
         // Isi data umum nota
-        document.getElementById('nota-tanggal').textContent = tglTransaksi;
+        document.getElementById('nota-tanggal').textContent = tanggalFormatted;
         document.getElementById('nota-no-transaksi').textContent = noTransaksi;
         document.getElementById('nota-nama-customer').textContent = customerName;
         document.getElementById('nota-metode-pembayaran').textContent = metodePembayaran;
@@ -717,4 +819,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             document.getElementById('nota-cetak').style.display = 'none';
         }, 500);
     }
+
+    // Event listener untuk tombol "Tambah Item"
+    document.getElementById('add-item-btn').addEventListener('click', addItemRow);
+
+    // Inisialisasi saat halaman dimuat
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set tanggal transaksi ke hari ini secara default
+        if (!document.getElementById('tgl_transaksi').value) {
+            document.getElementById('tgl_transaksi').valueAsDate = new Date();
+        }
+
+        // Tambahkan satu baris item secara default saat halaman dimuat
+        addItemRow();
+        updateGrandTotal(); // Panggil sekali untuk inisialisasi total
+    });
 </script>
