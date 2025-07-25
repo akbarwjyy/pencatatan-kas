@@ -15,11 +15,11 @@ $id_transaksi = ''; // Akan digenerate otomatis
 $id_customer = '';
 $id_akun = '';
 $tgl_transaksi = '';
-$jumlah_dibayar = 0;
+$jumlah_dibayar = 0; // Akan diisi dari total item
 $metode_pembayaran = '';
 $keterangan = '';
-$total_tagihan = 0; // Untuk menyimpan total dari semua item
-$total_quantity = 0; // Untuk menyimpan total kuantitas dari semua item
+$total_tagihan = 0; // Akan diisi dari total item
+$total_quantity = 0; // Akan diisi dari total item quantity
 
 // Ambil daftar customer untuk dropdown
 $customers = [];
@@ -57,7 +57,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $id_customer = sanitize_input($_POST['id_customer'] ?? '');
     $id_akun = sanitize_input($_POST['id_akun'] ?? '');
     $tgl_transaksi = sanitize_input($_POST['tgl_transaksi'] ?? '');
-    $metode_pembayaran = sanitize_input($_POST['metode_pembayaran'] ?? '');
+    // --- START MODIFIKASI: Metode pembayaran disetel Tunai secara paksa ---
+    $metode_pembayaran = 'Tunai'; // Selalu Tunai untuk pembelian langsung
+    // --- END MODIFIKASI ---
     $keterangan = sanitize_input($_POST['keterangan'] ?? '');
 
     // Inisialisasi total dari sisi server
@@ -75,9 +77,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (empty($tgl_transaksi)) {
         $tgl_transaksi_error = "Tanggal Transaksi tidak boleh kosong.";
     }
-    if (empty($metode_pembayaran)) {
-        $metode_pembayaran_error = "Metode Pembayaran tidak boleh kosong.";
-    }
+    // --- START MODIFIKASI: Validasi metode pembayaran dihapus karena sudah Tunai ---
+    // if (empty($metode_pembayaran)) {
+    //     $metode_pembayaran_error = "Metode Pembayaran tidak boleh kosong.";
+    // }
+    // --- END MODIFIKASI ---
     if (empty($keterangan)) {
         $keterangan_error = "Keterangan tidak boleh kosong.";
     } elseif (strlen($keterangan) > 30) {
@@ -135,61 +139,54 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         empty($id_customer_error) && empty($id_akun_error) && empty($tgl_transaksi_error) &&
         empty($metode_pembayaran_error) && empty($keterangan_error) && !empty($items_data)
     ) {
-        // --- Generate ID Transaksi Otomatis ---
-        $generated_id_transaksi = 'TRX' . strtoupper(substr(uniqid(), 0, 5));
-
-        $check_gen_id_sql = "SELECT id_transaksi FROM transaksi WHERE id_transaksi = ?";
-        $stmt_check_gen_id = $conn->prepare($check_gen_id_sql);
-        if ($stmt_check_gen_id === false) {
-            set_flash_message("Error menyiapkan pengecekan ID transaksi: " . $conn->error, "error");
-        } else {
-            $stmt_check_gen_id->bind_param("s", $generated_id_transaksi);
-            $stmt_check_gen_id->execute();
-            $stmt_check_gen_id->store_result();
-            if ($stmt_check_gen_id->num_rows > 0) {
-                $generated_id_transaksi = 'TRX' . strtoupper(substr(uniqid(rand(), true), 0, 5));
-                set_flash_message("ID Transaksi otomatis bentrok, mencoba lagi. Mohon submit ulang jika error berlanjut.", "warning");
-            }
-            $stmt_check_gen_id->close();
-        }
-
         // Mulai transaksi database
         $conn->begin_transaction();
         try {
-            // --- 1. Masukkan data ke tabel `transaksi` (Pembelian Langsung) ---
-            // id_pesan adalah NULL untuk pembelian langsung
-            // total_tagihan dan sisa_pembayaran diisi berdasarkan perhitungan item
-            // Jika Anda menambahkan kolom total_quantity di transaksi, tambahkan di sini
-            $sql_transaksi = "INSERT INTO transaksi (id_transaksi, id_pesan, id_akun, id_customer, tgl_transaksi, jumlah_dibayar, metode_pembayaran, keterangan, total_tagihan, sisa_pembayaran) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)";
-            if ($stmt_transaksi = $conn->prepare($sql_transaksi)) {
-                $stmt_transaksi->bind_param(
-                    "sssssisssi",
-                    $generated_id_transaksi,
-                    $id_akun,
+            // --- Implementasi Alur Pembelian Langsung sebagai Pesanan Lunas ---
+
+            // 1. Generate ID Pesanan untuk "dummy" pemesanan
+            $latest_pesan_sql = "SELECT MAX(CAST(SUBSTRING(id_pesan, 4) AS UNSIGNED)) as last_num FROM pemesanan WHERE id_pesan LIKE 'ORD%'";
+            $latest_pesan_result = $conn->query($latest_pesan_sql);
+            $last_pesan_num = 0;
+            if ($latest_pesan_result && $row = $latest_pesan_result->fetch_assoc()) {
+                $last_pesan_num = intval($row['last_num']);
+            }
+            $new_pesan_num = $last_pesan_num + 1;
+            $id_pesan_dummy = sprintf("ORD%05d", $new_pesan_num); // Format: ORD00001, dst.
+
+            // 2. Masukkan data ke tabel `pemesanan` (sebagai pesanan langsung lunas)
+            // Kolom uang_muka, total_tagihan_keseluruhan, sisa, status_pesanan, keterangan, total_quantity
+            $sql_pemesanan_dummy = "INSERT INTO pemesanan (id_pesan, id_customer, tgl_pesan, tgl_kirim, uang_muka, total_tagihan_keseluruhan, sisa, status_pesanan, keterangan, total_quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            if ($stmt_pemesanan_dummy = $conn->prepare($sql_pemesanan_dummy)) {
+                $stmt_pemesanan_dummy->bind_param(
+                    "ssssdddssi",
+                    $id_pesan_dummy,
                     $id_customer,
-                    $tgl_transaksi,
-                    $jumlah_dibayar, // Ini adalah total dari semua item
-                    $metode_pembayaran,
+                    $tgl_transaksi, // tgl_pesan sama dengan tgl_transaksi
+                    $tgl_transaksi, // tgl_kirim sama dengan tgl_transaksi
+                    $calculated_total_tagihan, // uang_muka adalah total tagihan
+                    $calculated_total_tagihan, // total_tagihan_keseluruhan
+                    0, // sisa = 0 (lunas)
+                    'Lunas', // status pesanan
                     $keterangan,
-                    $calculated_total_tagihan, // total_tagihan
-                    $sisa_pembayaran // sisa_pembayaran (0)
+                    $calculated_total_quantity // total_quantity
                 );
 
-                if (!$stmt_transaksi->execute()) {
-                    throw new Exception("Gagal menambahkan transaksi pembelian langsung: " . $stmt_transaksi->error);
+                if (!$stmt_pemesanan_dummy->execute()) {
+                    throw new Exception("Gagal menambahkan dummy pemesanan: " . $stmt_pemesanan_dummy->error);
                 }
-                $stmt_transaksi->close();
+                $stmt_pemesanan_dummy->close();
             } else {
-                throw new Exception("Error prepared statement (transaksi beli_langsung): " . $conn->error);
+                throw new Exception("Error prepared statement (dummy pemesanan): " . $conn->error);
             }
 
-            // --- 2. Masukkan data ke tabel `detail_beli_langsung` ---
-            $sql_detail_beli = "INSERT INTO detail_beli_langsung (id_transaksi, id_barang, quantity_item, harga_satuan_item, sub_total_item) VALUES (?, ?, ?, ?, ?)";
-            if ($stmt_detail = $conn->prepare($sql_detail_beli)) {
+            // 3. Masukkan data ke tabel `detail_pemesanan`
+            $sql_detail_pemesanan = "INSERT INTO detail_pemesanan (id_pesan, id_barang, quantity_item, harga_satuan_item, sub_total_item) VALUES (?, ?, ?, ?, ?)";
+            if ($stmt_detail = $conn->prepare($sql_detail_pemesanan)) {
                 foreach ($items_data as $item_detail) {
                     $stmt_detail->bind_param(
                         "ssidd",
-                        $generated_id_transaksi,
+                        $id_pesan_dummy, // Menggunakan id_pesan dari dummy pemesanan
                         $item_detail['id_barang'],
                         $item_detail['quantity_item'],
                         $item_detail['harga_satuan_item'],
@@ -201,10 +198,49 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
                 $stmt_detail->close();
             } else {
-                throw new Exception("Error prepared statement (detail_beli_langsung): " . $conn->error);
+                throw new Exception("Error prepared statement (detail_pemesanan beli_langsung): " . $conn->error);
             }
 
-            // --- 3. Masukkan data ke tabel `kas_masuk` ---
+
+            // 4. Generate ID Transaksi Otomatis
+            $generated_id_transaksi = 'TRX' . strtoupper(substr(uniqid(), 0, 5));
+            $check_gen_id_sql = "SELECT id_transaksi FROM transaksi WHERE id_transaksi = ?";
+            $stmt_check_gen_id = $conn->prepare($check_gen_id_sql);
+            $stmt_check_gen_id->bind_param("s", $generated_id_transaksi);
+            $stmt_check_gen_id->execute();
+            $stmt_check_gen_id->store_result();
+            if ($stmt_check_gen_id->num_rows > 0) {
+                $generated_id_transaksi = 'TRX' . strtoupper(substr(uniqid(rand(), true), 0, 5));
+            }
+            $stmt_check_gen_id->close();
+
+            // 5. Masukkan data ke tabel `transaksi` (Pembelian Langsung)
+            // Sekarang id_pesan akan terhubung ke dummy pemesanan
+            $sql_transaksi = "INSERT INTO transaksi (id_transaksi, id_pesan, id_akun, id_customer, tgl_transaksi, jumlah_dibayar, metode_pembayaran, keterangan, total_tagihan, sisa_pembayaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            if ($stmt_transaksi = $conn->prepare($sql_transaksi)) {
+                $stmt_transaksi->bind_param(
+                    "sssssisssi",
+                    $generated_id_transaksi,
+                    $id_pesan_dummy, // Menggunakan id_pesan dari dummy pemesanan
+                    $id_akun,
+                    $id_customer,
+                    $tgl_transaksi,
+                    $jumlah_dibayar, // Ini adalah total dari semua item
+                    $metode_pembayaran,
+                    $keterangan,
+                    $calculated_total_tagihan, // total_tagihan
+                    0 // sisa_pembayaran (0)
+                );
+
+                if (!$stmt_transaksi->execute()) {
+                    throw new Exception("Gagal menambahkan transaksi pembelian langsung: " . $stmt_transaksi->error);
+                }
+                $stmt_transaksi->close();
+            } else {
+                throw new Exception("Error prepared statement (transaksi beli_langsung): " . $conn->error);
+            }
+
+            // 6. Masukkan data ke tabel `kas_masuk`
             $timestamp = date("YmdHis");
             $random = mt_rand(1000, 9999);
             $generated_id_kas_masuk = "KM" . $timestamp . $random;
@@ -225,10 +261,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             $sql_kas_masuk = "INSERT INTO kas_masuk (id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan, harga, kuantitas) VALUES (?, ?, ?, ?, ?, ?, ?)";
             if ($stmt_kas_masuk = $conn->prepare($sql_kas_masuk)) {
-                // Untuk kas_masuk, harga dan kuantitas bisa dihitung dari total transaksi
-                // atau dari item pertama jika ingin representasi tunggal.
-                // Untuk kesederhanaan, kita gunakan total_tagihan sebagai jumlah,
-                // dan harga/kuantitas sebagai total_tagihan dan total_quantity.
                 $km_harga = $calculated_total_tagihan; // Harga total
                 $km_kuantitas = $calculated_total_quantity; // Kuantitas total
 
@@ -248,7 +280,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
                 $stmt_kas_masuk->close();
             } else {
-                throw new Exception("Error prepared statement (kas_masuk beli_langsung): " . $conn->error);
+                throw new Exception("Error prepared statement (kas_masuk): " . $conn->error);
             }
 
             // Commit transaksi jika semua berhasil
@@ -275,7 +307,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-            <!-- Kolom Kiri: Info Umum Transaksi -->
             <div>
                 <div class="mb-4">
                     <label for="id_customer" class="block text-gray-700 text-sm font-bold mb-2">Customer:</label>
@@ -313,15 +344,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
                 <div class="mb-4">
                     <label for="metode_pembayaran" class="block text-gray-700 text-sm font-bold mb-2">Metode Pembayaran:</label>
-                    <select id="metode_pembayaran" name="metode_pembayaran" required
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-                        <option value="">-- Pilih Metode --</option>
-                        <option value="Cash" <?php echo ($metode_pembayaran == 'Cash') ? 'selected' : ''; ?>>Cash</option>
-                        <option value="Transfer Bank" <?php echo ($metode_pembayaran == 'Transfer Bank') ? 'selected' : ''; ?>>Transfer Bank</option>
-                        <option value="QRIS" <?php echo ($metode_pembayaran == 'QRIS') ? 'selected' : ''; ?>>QRIS</option>
-                        <option value="Lainnya" <?php echo ($metode_pembayaran == 'Lainnya') ? 'selected' : ''; ?>>Lainnya</option>
-                    </select>
-                    <span class="text-red-500 text-xs italic mt-1 block"><?php echo $metode_pembayaran_error; ?></span>
+                    <input type="hidden" id="metode_pembayaran" name="metode_pembayaran" value="Tunai">
+                    <input type="text" value="Tunai" disabled
+                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
                 </div>
                 <div class="mb-6">
                     <label for="keterangan" class="block text-gray-700 text-sm font-bold mb-2">Keterangan (misal: "Penjualan Ampyang 5pcs"):</label>
@@ -331,7 +356,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
             </div>
 
-            <!-- Kolom Kanan: Detail Keuangan & Item Dinamis -->
             <div>
                 <div class="mb-4">
                     <label class="block text-gray-700 text-sm font-bold mb-2">Total Tagihan:</label>
@@ -348,7 +372,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         <h2 class="text-xl font-bold text-gray-800 mt-8 mb-4 border-b pb-2">Detail Barang Pembelian</h2>
         <div id="item-list" class="space-y-4">
-            <!-- Item rows will be dynamically added here -->
         </div>
         <button type="button" id="add-item-btn" class="mt-4 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">
             ➕ Tambah Item
@@ -441,7 +464,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </table>
     <hr class="nota-hr2">
 
-    <!-- New section for item details -->
     <table style="width:100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 10px;">
         <thead>
             <tr>
@@ -452,7 +474,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </tr>
         </thead>
         <tbody id="nota-detail-barang">
-            <!-- Item rows will be inserted here by JavaScript -->
         </tbody>
     </table>
     <hr class="nota-hr3">
