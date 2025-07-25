@@ -1,5 +1,4 @@
 <?php
-// Sertakan header (ini akan melakukan session_start(), cek login, dan include koneksi/fungsi)
 require_once '../../layout/header.php';
 
 // Pastikan hanya Admin atau Pegawai yang bisa mengakses halaman ini
@@ -8,9 +7,7 @@ if (!has_permission('Admin') && !has_permission('Pegawai')) {
     redirect('../../modules/dashboard/index.php'); // Redirect ke dashboard
 }
 
-// Ambil semua data transaksi pembelian langsung
-// --- START MODIFIKASI: Sesuaikan query SQL untuk pembelian langsung yang baru ---
-// Sekarang pembelian langsung memiliki id_pesan non-NULL dan ditandai dengan pembelian_langsung = TRUE di tabel pemesanan
+// PERBAIKAN: Sesuaikan query SQL untuk pembelian langsung dengan penanganan kolom yang tidak ada
 $sql = "SELECT tr.id_transaksi, tr.id_customer, tr.id_akun, tr.tgl_transaksi, tr.jumlah_dibayar, tr.metode_pembayaran, tr.keterangan, tr.total_tagihan, tr.sisa_pembayaran,
         c.nama_customer, a.nama_akun,
         p.total_quantity,          -- Ambil total_quantity dari pemesanan
@@ -19,14 +16,27 @@ $sql = "SELECT tr.id_transaksi, tr.id_customer, tr.id_akun, tr.tgl_transaksi, tr
         LEFT JOIN customer c ON tr.id_customer = c.id_customer
         LEFT JOIN akun a ON tr.id_akun = a.id_akun
         LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan -- Join ke pemesanan untuk filter pembelian_langsung
-        WHERE p.pembelian_langsung = TRUE -- Filter hanya untuk pembelian langsung
-        ORDER BY tr.tgl_transaksi DESC";
-// --- END MODIFIKASI ---
+        WHERE ";
+
+// Cek apakah kolom pembelian_langsung ada di tabel pemesanan
+$check_column_sql = "SHOW COLUMNS FROM pemesanan LIKE 'pembelian_langsung'";
+$check_result = $conn->query($check_column_sql);
+
+if ($check_result && $check_result->num_rows > 0) {
+    // Kolom pembelian_langsung ada, gunakan filter berdasarkan kolom ini
+    $sql .= "p.pembelian_langsung = 1"; // Filter hanya untuk pembelian langsung
+} else {
+    // Kolom pembelian_langsung tidak ada, gunakan alternatif filter
+    // Misalnya berdasarkan pola tertentu atau status_pesanan = 'Lunas' dengan metode tunai
+    $sql .= "p.status_pesanan = 'Lunas' AND tr.metode_pembayaran = 'Tunai'";
+}
+
+$sql .= " ORDER BY tr.tgl_transaksi DESC";
 
 $result = $conn->query($sql);
 
 $beli_langsung_transactions = [];
-// --- START MODIFIKASI: Tambahkan penanganan error query ---
+// Tambahkan penanganan error query
 if ($result === false) {
     set_flash_message("Error saat mengambil daftar pembelian langsung: " . $conn->error . ". Pastikan struktur database sudah sesuai.", "error");
     $beli_langsung_transactions = []; // Pastikan array kosong jika ada error
@@ -35,7 +45,6 @@ if ($result === false) {
         $beli_langsung_transactions[] = $row;
     }
 }
-// --- END MODIFIKASI ---
 ?>
 
 <div class="container mx-auto px-4 py-8">
