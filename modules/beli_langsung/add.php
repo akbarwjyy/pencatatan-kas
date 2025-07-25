@@ -281,14 +281,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
 
             // 4. Generate ID Transaksi Otomatis
-            $generated_id_transaksi = 'BLT' . strtoupper(substr(uniqid(), 0, 5)); // BLT = Beli Langsung Transaksi
+            $generated_id_transaksi = 'TRX' . strtoupper(substr(uniqid(), 0, 5)); // TRX = Beli Langsung Transaksi
             $check_gen_id_sql = "SELECT id_transaksi FROM transaksi WHERE id_transaksi = ?";
             $stmt_check_gen_id = $conn->prepare($check_gen_id_sql);
             $stmt_check_gen_id->bind_param("s", $generated_id_transaksi);
             $stmt_check_gen_id->execute();
             $stmt_check_gen_id->store_result();
             if ($stmt_check_gen_id->num_rows > 0) {
-                $generated_id_transaksi = 'BLT' . strtoupper(substr(uniqid(rand(), true), 0, 5));
+                $generated_id_transaksi = 'TRX' . strtoupper(substr(uniqid(rand(), true), 0, 5));
             }
             $stmt_check_gen_id->close();
 
