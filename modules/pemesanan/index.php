@@ -63,10 +63,10 @@ if (!$conn) {
                             <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Pesan</th>
                             <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Kirim</th>
                             <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                            <?php /* --- START MODIFIKASI: Hapus Akun dan Qty, Ganti Total, Tambah Keterangan --- */ ?>
                             <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Total Keseluruhan</th>
+                            <?php /* --- START MODIFIKASI: Ganti 'DP' menjadi 'Total Qty' --- */ ?>
+                            <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Total Qty</th>
                             <?php /* --- END MODIFIKASI --- */ ?>
-                            <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">DP</th>
                             <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Sisa</th>
                             <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                             <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
@@ -80,10 +80,10 @@ if (!$conn) {
                                 <td class="px-2 py-1 text-sm"><?php echo date('d/m/Y', strtotime($order['tgl_pesan'])); ?></td>
                                 <td class="px-2 py-1 text-sm"><?php echo !empty($order['tgl_kirim']) ? date('d/m/Y', strtotime($order['tgl_kirim'])) : '-'; ?></td>
                                 <td class="px-2 py-1 text-sm"><?php echo htmlspecialchars($order['nama_customer']); ?></td>
-                                <?php /* --- START MODIFIKASI: Tampilkan Total Keseluruhan dan Keterangan --- */ ?>
                                 <td class="px-2 py-1 text-sm"><?php echo format_rupiah($order['total_tagihan_keseluruhan']); ?></td>
+                                <?php /* --- START MODIFIKASI: Tampilkan 'total_quantity' --- */ ?>
+                                <td class="px-2 py-1 text-sm"><?php echo htmlspecialchars($order['total_quantity']); ?></td>
                                 <?php /* --- END MODIFIKASI --- */ ?>
-                                <td class="px-2 py-1 text-sm"><?php echo format_rupiah($order['uang_muka']); ?></td>
                                 <td class="px-2 py-1 text-sm"><?php echo format_rupiah($order['sisa']); ?></td>
                                 <td class="px-2 py-1 text-sm">
                                     <span class="px-1 py-0 text-xs rounded <?php echo ($order['sisa'] == 0) ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'; ?>">
