@@ -23,7 +23,7 @@ $total_quantity = 0; // Akan diisi dari total item quantity
 
 // Ambil daftar customer untuk dropdown
 $customers = [];
-$customer_sql = "SELECT id_customer, nama_customer FROM customer ORDER BY nama_customer ASC";
+$customer_sql = "SELECT id_customer, nama_customer FROM customer ORDER BY nama_customer ASC"; // Mengoreksi nama_akun menjadi nama_customer
 $customer_result = $conn->query($customer_sql);
 if ($customer_result->num_rows > 0) {
     while ($row = $customer_result->fetch_assoc()) {
@@ -153,9 +153,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // 2. Masukkan data ke tabel `pemesanan` (sebagai pesanan langsung lunas)
             // Kolom uang_muka, total_tagihan_keseluruhan, sisa, status_pesanan, keterangan, total_quantity
             $sql_pemesanan_dummy = "INSERT INTO pemesanan (id_pesan, id_customer, tgl_pesan, tgl_kirim, uang_muka, total_tagihan_keseluruhan, sisa, status_pesanan, keterangan, total_quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            // --- START PERBAIKAN: Koreksi typo variabel di prepare ---
-            if ($stmt_pemesanan_dummy = $conn->prepare($sql_pemesanan_dummy)) {
-                // --- END PERBAIKAN ---
+            if ($stmt_pemesanan_dummy = $conn->prepare($sql_pemesanan_dummy)) { // Koreksi typo variabel di prepare
+                // --- START PERBAIKAN: Gunakan variabel untuk nilai literal di bind_param ---
+                $sisa_pemesanan_dummy_var = 0;
+                $status_pesanan_dummy_var = 'Lunas';
                 $stmt_pemesanan_dummy->bind_param(
                     "ssssdddssi",
                     $id_pesan_dummy,
@@ -164,11 +165,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $tgl_transaksi, // tgl_kirim sama dengan tgl_transaksi
                     $calculated_total_tagihan, // uang_muka adalah total tagihan
                     $calculated_total_tagihan, // total_tagihan_keseluruhan
-                    0, // sisa = 0 (lunas)
-                    'Lunas', // status pesanan
+                    $sisa_pemesanan_dummy_var, // Gunakan variabel
+                    $status_pesanan_dummy_var, // Gunakan variabel
                     $keterangan,
                     $calculated_total_quantity // total_quantity
                 );
+                // --- END PERBAIKAN ---
 
                 if (!$stmt_pemesanan_dummy->execute()) {
                     throw new Exception("Gagal menambahkan dummy pemesanan: " . $stmt_pemesanan_dummy->error);
@@ -216,16 +218,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // Sekarang id_pesan akan terhubung ke dummy pemesanan
             $sql_transaksi = "INSERT INTO transaksi (id_transaksi, id_pesan, id_akun, id_customer, tgl_transaksi, jumlah_dibayar, metode_pembayaran, keterangan, total_tagihan, sisa_pembayaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             if ($stmt_transaksi = $conn->prepare($sql_transaksi)) {
-                // --- START PERBAIKAN: Pastikan semua parameter adalah variabel eksplisit ---
+                // Pastikan semua parameter adalah variabel eksplisit
                 $bind_id_transaksi = $generated_id_transaksi;
                 $bind_id_pesan_dummy = $id_pesan_dummy;
                 $bind_id_akun = $id_akun;
                 $bind_id_customer = $id_customer;
                 $bind_tgl_transaksi = $tgl_transaksi;
-                $bind_jumlah_dibayar = $jumlah_dibayar; // (float)
+                $bind_jumlah_dibayar = $jumlah_dibayar;
                 $bind_metode_pembayaran = $metode_pembayaran;
                 $bind_keterangan = $keterangan;
-                $bind_calculated_total_tagihan = $calculated_total_tagihan; // (float)
+                $bind_calculated_total_tagihan = $calculated_total_tagihan;
                 $bind_sisa_pembayaran_var = 0; // Variabel untuk nilai 0 (float)
 
                 $stmt_transaksi->bind_param(
@@ -241,7 +243,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $bind_calculated_total_tagihan,
                     $bind_sisa_pembayaran_var
                 );
-                // --- END PERBAIKAN ---
 
                 if (!$stmt_transaksi->execute()) {
                     throw new Exception("Gagal menambahkan transaksi pembelian langsung: " . $stmt_transaksi->error);
@@ -275,13 +276,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $km_harga = $calculated_total_tagihan; // Harga total
                 $km_kuantitas = $calculated_total_quantity; // Kuantitas total
 
+                $bind_keterangan_kas_masuk_text = "Pembelian langsung: " . $keterangan; // Variabel untuk string literal
                 $stmt_kas_masuk->bind_param(
                     "sssisii",
                     $generated_id_kas_masuk,
                     $generated_id_transaksi,
                     $tgl_transaksi,
                     $calculated_total_tagihan, // Jumlah kas masuk
-                    "Pembelian langsung: " . $keterangan,
+                    $bind_keterangan_kas_masuk_text,
                     $km_harga,
                     $km_kuantitas
                 );
