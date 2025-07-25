@@ -77,17 +77,32 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (empty($id_akun)) {
         $id_akun_error = "Akun tidak boleh kosong.";
     }
-    // --- START PERBAIKAN: Validasi format tanggal yang lebih ketat ---
+    // --- START PERBAIKAN: Validasi format tanggal yang lebih ketat dan debugging ---
     if (empty($tgl_transaksi)) {
         $tgl_transaksi_error = "Tanggal Transaksi tidak boleh kosong.";
     } else {
+        // Debug: Tampilkan nilai tanggal yang diterima
+        error_log("Raw tgl_transaksi received: " . var_export($tgl_transaksi, true));
+
+        // Pastikan format tanggal benar dan bersihkan whitespace
+        $tgl_transaksi = trim($tgl_transaksi);
+
         // Validasi format tanggal (YYYY-MM-DD)
         $date_obj = DateTime::createFromFormat('Y-m-d', $tgl_transaksi);
         if ($date_obj === false || $date_obj->format('Y-m-d') !== $tgl_transaksi) {
-            $tgl_transaksi_error = "Format Tanggal Transaksi tidak valid (YYYY-MM-DD).";
+            $tgl_transaksi_error = "Format Tanggal Transaksi tidak valid (YYYY-MM-DD). Diterima: " . $tgl_transaksi;
+            error_log("Date validation failed for: " . $tgl_transaksi);
+        } else {
+            // Pastikan tanggal tidak lebih dari hari ini
+            $today = new DateTime();
+            if ($date_obj > $today) {
+                $tgl_transaksi_error = "Tanggal transaksi tidak boleh lebih dari hari ini.";
+            }
+            error_log("Date validation passed for: " . $tgl_transaksi);
         }
     }
     // --- END PERBAIKAN ---
+
     if (empty($metode_pembayaran)) {
         $metode_pembayaran_error = "Metode Pembayaran tidak boleh kosong.";
     }
@@ -227,23 +242,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $stmt_check_gen_id->close();
 
             // 5. Masukkan data ke tabel `transaksi` (Pembelian Langsung)
-            // Sekarang id_pesan akan terhubung ke dummy pemesanan
+            // --- PERBAIKAN UTAMA: Pastikan parameter binding dan tipe data benar ---
             $sql_transaksi = "INSERT INTO transaksi (id_transaksi, id_pesan, id_akun, id_customer, tgl_transaksi, jumlah_dibayar, metode_pembayaran, keterangan, total_tagihan, sisa_pembayaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             if ($stmt_transaksi = $conn->prepare($sql_transaksi)) {
-                // Pastikan semua parameter adalah variabel eksplisit
+                // Debug: Log nilai sebelum binding
+                error_log("Before binding - tgl_transaksi: " . $tgl_transaksi);
+                error_log("Before binding - jumlah_dibayar: " . $jumlah_dibayar);
+                error_log("Before binding - calculated_total_tagihan: " . $calculated_total_tagihan);
+
+                // Pastikan semua parameter adalah variabel eksplisit dan tipe data benar
                 $bind_id_transaksi = $generated_id_transaksi;
                 $bind_id_pesan_dummy = $id_pesan_dummy;
                 $bind_id_akun = $id_akun;
                 $bind_id_customer = $id_customer;
-                $bind_tgl_transaksi = $tgl_transaksi;
-                $bind_jumlah_dibayar = $jumlah_dibayar;
+                $bind_tgl_transaksi = $tgl_transaksi; // Pastikan ini format DATE yang benar
+                $bind_jumlah_dibayar = (float)$jumlah_dibayar; // Cast ke float
                 $bind_metode_pembayaran = $metode_pembayaran;
                 $bind_keterangan = $keterangan;
-                $bind_calculated_total_tagihan = $calculated_total_tagihan;
-                $bind_sisa_pembayaran_var = 0; // Variabel untuk nilai 0 (float)
+                $bind_calculated_total_tagihan = (float)$calculated_total_tagihan; // Cast ke float
+                $bind_sisa_pembayaran_var = 0.0; // Float 0
 
+                // Perbaikan tipe data binding: s=string, d=double/float
                 $stmt_transaksi->bind_param(
-                    "ssssdsdsdd", // Koreksi string tipe data: d (double/float) untuk decimal
+                    "sssssdssdd", // Perbaikan: tgl_transaksi tetap string (s), jumlah decimal menggunakan d
                     $bind_id_transaksi,
                     $bind_id_pesan_dummy,
                     $bind_id_akun,
@@ -285,16 +306,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             $sql_kas_masuk = "INSERT INTO kas_masuk (id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan, harga, kuantitas) VALUES (?, ?, ?, ?, ?, ?, ?)";
             if ($stmt_kas_masuk = $conn->prepare($sql_kas_masuk)) {
-                $km_harga = $calculated_total_tagihan; // Harga total
-                $km_kuantitas = $calculated_total_quantity; // Kuantitas total
+                $km_harga = (float)$calculated_total_tagihan; // Cast ke float
+                $km_kuantitas = (int)$calculated_total_quantity; // Cast ke int
 
                 $bind_keterangan_kas_masuk_text = "Pembelian langsung: " . $keterangan; // Variabel untuk string literal
+                $bind_jumlah_kas_masuk = (float)$calculated_total_tagihan; // Cast ke float
+
                 $stmt_kas_masuk->bind_param(
-                    "sssdssi", // Corrected type string for kas_masuk
+                    "sssdsdi", // Perbaikan tipe data binding
                     $generated_id_kas_masuk,
                     $generated_id_transaksi,
-                    $tgl_transaksi,
-                    $calculated_total_tagihan, // Jumlah kas masuk (float/decimal -> d)
+                    $tgl_transaksi, // Pastikan tanggal benar
+                    $bind_jumlah_kas_masuk, // Jumlah kas masuk (float/decimal -> d)
                     $bind_keterangan_kas_masuk_text,
                     $km_harga, // (float/decimal -> d)
                     $km_kuantitas // (int -> i)
@@ -317,15 +340,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // Rollback transaksi jika ada error
             $conn->rollback();
             set_flash_message("Error saat memproses pembelian langsung: " . $e->getMessage(), "error");
-            // --- START MODIFIKASI: Tambahkan redirect setelah catch untuk menampilkan flash message ---
+            // Log error untuk debugging
+            error_log("Transaction error: " . $e->getMessage());
             redirect('add.php');
-            // --- END MODIFIKASI ---
         }
     } else {
         set_flash_message("Silakan perbaiki kesalahan pada formulir.", "error");
-        // --- START MODIFIKASI: Tambahkan redirect setelah else untuk menampilkan flash message ---
         redirect('add.php');
-        // --- END MODIFIKASI ---
     }
 
     end_post_processing:; // Label untuk goto
