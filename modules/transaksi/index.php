@@ -9,19 +9,20 @@ if (!has_permission('Admin') && !has_permission('Pegawai')) {
 }
 
 // Ambil semua data pemesanan dan transaksi
-// --- START MODIFIKASI: Sesuaikan query SQL dengan struktur tabel pemesanan yang baru ---
+// --- START MODIFIKASI: Sesuaikan query SQL dengan struktur tabel pemesanan yang baru dan tambahkan join ke akun ---
 $sql = "SELECT
             COALESCE(tr.id_transaksi, CONCAT('PENDING-', p.id_pesan)) as id_transaksi,
             tr.tgl_transaksi,
             tr.jumlah_dibayar,
             tr.metode_pembayaran,
             p.id_pesan AS no_pesan,
-            p.total_tagihan_keseluruhan AS total_tagihan_pemesanan, -- Menggunakan nama kolom baru
+            p.total_tagihan_keseluruhan AS total_tagihan_pemesanan,
             p.sisa AS sisa_pemesanan,
             p.status_pesanan,
             p.tgl_pesan,
             c.id_customer,
             c.nama_customer,
+            a.nama_akun, -- Tambahkan nama_akun
             CASE
                 WHEN p.id_pesan IS NULL THEN 'Lunas'
                 WHEN p.sisa = 0 THEN 'Lunas'
@@ -30,12 +31,13 @@ $sql = "SELECT
             END AS status_pembayaran,
             CASE
                 WHEN p.id_pesan IS NULL THEN COALESCE(tr.jumlah_dibayar, 0)
-                ELSE p.total_tagihan_keseluruhan -- Menggunakan nama kolom baru
+                ELSE p.total_tagihan_keseluruhan
             END AS total_tagihan,
             COALESCE(tr.jumlah_dibayar, 0) as jumlah_dibayar
         FROM pemesanan p
         LEFT JOIN transaksi tr ON p.id_pesan = tr.id_pesan
         LEFT JOIN customer c ON p.id_customer = c.id_customer
+        LEFT JOIN akun a ON tr.id_akun = a.id_akun -- Tambahkan join ke tabel akun
         WHERE p.status_pesanan != 'Batal'
         UNION
         SELECT
@@ -50,11 +52,13 @@ $sql = "SELECT
             tr.tgl_transaksi as tgl_pesan,
             c.id_customer,
             c.nama_customer,
+            a.nama_akun, -- Tambahkan nama_akun untuk bagian UNION kedua
             'Lunas' as status_pembayaran,
             tr.jumlah_dibayar as total_tagihan,
             tr.jumlah_dibayar
         FROM transaksi tr
         LEFT JOIN customer c ON tr.id_customer = c.id_customer
+        LEFT JOIN akun a ON tr.id_akun = a.id_akun -- Tambahkan join ke tabel akun untuk bagian UNION kedua
         WHERE tr.id_pesan IS NULL
         ORDER BY tgl_transaksi DESC";
 // --- END MODIFIKASI ---
@@ -76,7 +80,6 @@ try {
     }
 } catch (Exception $e) {
     set_flash_message("Error: " . $e->getMessage(), "error");
-    // Lanjutkan dengan array transaksi kosong jika ada error
     $transactions = [];
 }
 // --- END MODIFIKASI ---
@@ -111,6 +114,7 @@ try {
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Dibayar</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Sisa</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Nama Akun</th>
                             <th class="px-3 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
                         </tr>
                     </thead>
@@ -144,6 +148,7 @@ try {
                                         <?php echo htmlspecialchars($transaction['status_pembayaran']); ?>
                                     </span>
                                 </td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['nama_akun'] ?? '-'); ?></td>
                                 <td class="px-3 py-2 text-sm text-center">
                                     <div class="flex justify-center space-x-1">
                                         <a href="edit.php?id=<?php echo htmlspecialchars($transaction['id_transaksi']); ?>"
