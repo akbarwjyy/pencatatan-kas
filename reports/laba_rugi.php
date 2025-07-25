@@ -54,7 +54,88 @@ if ($stmt_biaya) {
 $laba_rugi = ($total_pendapatan ?? 0) - $total_operasional;
 ?>
 
-<!-- HTML TETAP SAMA SESUAI PERMINTAAN -->
+<style>
+    @media print {
+
+        /* Sembunyikan elemen yang tidak diperlukan */
+        header,
+        nav,
+        form,
+        button,
+        .bg-gray-50 {
+            display: none !important;
+        }
+
+        /* Pastikan kontainer utama terlihat */
+        .container {
+            display: block !important;
+            padding: 0;
+            margin: 0;
+        }
+
+        /* Gaya untuk bagian laporan saat mencetak */
+        .print-report {
+            display: block !important;
+            width: 100%;
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            font-size: 12pt;
+            border: 1px solid #000;
+            box-shadow: none;
+            background: #fff;
+        }
+
+        .print-report h2 {
+            font-size: 16pt;
+            text-align: center;
+            margin-bottom: 10px;
+            color: #000;
+        }
+
+        .print-report p {
+            font-size: 12pt;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #000;
+        }
+
+        .print-report .flex {
+            display: flex !important;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .print-report .border-b {
+            border-bottom: 1px solid #000;
+            margin-bottom: 10px;
+        }
+
+        .print-report .font-extrabold {
+            font-weight: bold;
+            font-size: 14pt;
+        }
+
+        .print-report .text-gray-700,
+        .print-report .text-gray-600,
+        .print-report .text-gray-800 {
+            color: #000 !important;
+        }
+
+        .print-report .text-green-600,
+        .print-report .text-red-600 {
+            color: #000 !important;
+            font-weight: bold;
+        }
+
+        /* Atur margin halaman */
+        @page {
+            margin: 2cm;
+        }
+    }
+</style>
+
 <div class="container mx-auto px-4 py-8">
     <div class="bg-white rounded-lg shadow-md p-6">
         <h1 class="text-2xl font-bold text-gray-800 mb-4">Laporan Laba Rugi Per Periode</h1>
@@ -89,7 +170,7 @@ $laba_rugi = ($total_pendapatan ?? 0) - $total_operasional;
 
         <?php if (display_flash_message()) : ?>
         <?php else : ?>
-            <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-md max-w-lg mx-auto">
+            <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-md max-w-lg mx-auto print-report">
                 <h2 class="text-xl font-bold text-gray-800 text-center mb-4">Laporan Laba Rugi</h2>
                 <p class="text-gray-600 text-center mb-6"><strong><?php echo htmlspecialchars(date('d F Y', strtotime($start_date))); ?></strong> s/d <strong><?php echo htmlspecialchars(date('d F Y', strtotime($end_date))); ?></strong></p>
 
@@ -124,4 +205,5 @@ $laba_rugi = ($total_pendapatan ?? 0) - $total_operasional;
         <?php endif; ?>
     </div>
 </div>
-<?php ?>
+<?php
+?>
