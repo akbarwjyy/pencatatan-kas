@@ -11,14 +11,15 @@ if (!has_permission('Admin') && !has_permission('Pemilik') && !has_permission('P
 $start_date = isset($_GET['start_date']) ? sanitize_input($_GET['start_date']) : '';
 $end_date = isset($_GET['end_date']) ? sanitize_input($_GET['end_date']) : '';
 
-$sql = "SELECT km.*, tr.id_pesan, tr.metode_pembayaran, c.nama_customer, 
-        tr.id_akun, a.nama_akun, 
-        tr.total_tagihan, tr.jumlah_dibayar, p.quantity AS pemesanan_quantity
+// --- START MODIFIKASI: Ganti p.quantity dengan p.total_quantity di SELECT ---
+$sql = "SELECT km.*, tr.id_pesan, tr.metode_pembayaran, c.nama_customer, a.nama_akun,
+        tr.total_tagihan, tr.jumlah_dibayar, p.total_quantity AS pemesanan_quantity
         FROM kas_masuk km
         LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
         LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan
         LEFT JOIN customer c ON p.id_customer = c.id_customer
         LEFT JOIN akun a ON tr.id_akun = a.id_akun"; // Mengambil nama akun dari transaksi jika terkait
+// --- END MODIFIKASI ---
 
 $where_clause = [];
 $params = [];
@@ -45,26 +46,32 @@ $sql .= " ORDER BY km.tgl_kas_masuk DESC";
 $cash_incomes = [];
 $total_jumlah = 0; // Inisialisasi variabel total_jumlah
 
-// Perbaikan: Tambahkan pengecekan apakah prepare() berhasil
+// --- START MODIFIKASI: Tambahkan try-catch untuk penanganan error query ---
 $stmt = $conn->prepare($sql);
 if ($stmt === false) {
     // prepare() gagal, tampilkan error MySQLi
     set_flash_message("Error menyiapkan statement SQL: " . $conn->error . " (Query: " . htmlspecialchars($sql) . ")", "error");
 } else {
-    if (!empty($params)) {
-        $stmt->bind_param($param_types, ...$params);
-    }
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($result->num_rows > 0) {
-        while ($row = $result->fetch_assoc()) {
-            $cash_incomes[] = $row;
-            $total_jumlah += (float)$row['jumlah']; // Menambahkan jumlah kas masuk (uang muka) ke total
+    try {
+        if (!empty($params)) {
+            $stmt->bind_param($param_types, ...$params);
         }
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if ($result->num_rows > 0) {
+            while ($row = $result->fetch_assoc()) {
+                $cash_incomes[] = $row;
+                $total_jumlah += (float)$row['jumlah']; // Menambahkan jumlah kas masuk (uang muka) ke total
+            }
+        }
+    } catch (mysqli_sql_exception $e) {
+        set_flash_message("Error saat menjalankan query: " . $e->getMessage() . " (Query: " . htmlspecialchars($sql) . ")", "error");
+    } finally {
+        $stmt->close();
     }
-    $stmt->close();
 }
+// --- END MODIFIKASI ---
 ?>
 
 <div class="container mx-auto px-4 py-8">
@@ -218,69 +225,7 @@ if ($stmt === false) {
                             <tr class="hover:bg-gray-50">
                                 <td class="px-3 py-2 text-sm text-gray-500"><?php echo htmlspecialchars($income['id_kas_masuk']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['tgl_kas_masuk']); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php
-                                                                            // Gunakan nama akun tetap berdasarkan ID akun
-                                                                            $id_akun = $income['id_akun'] ?? '';
-                                                                            switch ($id_akun) {
-                                                                                case '1101':
-                                                                                    echo 'Kas';
-                                                                                    break;
-                                                                                case '1102':
-                                                                                    echo 'Bank';
-                                                                                    break;
-                                                                                case '1103':
-                                                                                    echo 'Piutang Usaha';
-                                                                                    break;
-                                                                                case '1104':
-                                                                                    echo 'Persediaan';
-                                                                                    break;
-                                                                                case '1105':
-                                                                                    echo 'Perlengkapan';
-                                                                                    break;
-                                                                                case '1201':
-                                                                                    echo 'Peralatan';
-                                                                                    break;
-                                                                                case '1202':
-                                                                                    echo 'Akumulasi Penyusutan Peralatan';
-                                                                                    break;
-                                                                                case '2101':
-                                                                                    echo 'Utang Usaha';
-                                                                                    break;
-                                                                                case '2102':
-                                                                                    echo 'Utang Bank';
-                                                                                    break;
-                                                                                case '3101':
-                                                                                    echo 'Modal Pemilik';
-                                                                                    break;
-                                                                                case '3102':
-                                                                                    echo 'Prive';
-                                                                                    break;
-                                                                                case '4001':
-                                                                                    echo 'Pendapatan';
-                                                                                    break;
-                                                                                case '5101':
-                                                                                    echo 'Beban Gaji';
-                                                                                    break;
-                                                                                case '5102':
-                                                                                    echo 'Beban Sewa';
-                                                                                    break;
-                                                                                case '5103':
-                                                                                    echo 'Beban Listrik dan Air';
-                                                                                    break;
-                                                                                case '5104':
-                                                                                    echo 'Beban Perlengkapan';
-                                                                                    break;
-                                                                                case '5105':
-                                                                                    echo 'Beban Penyusutan Peralatan';
-                                                                                    break;
-                                                                                case '5106':
-                                                                                    echo 'Beban Lain-lain';
-                                                                                    break;
-                                                                                default:
-                                                                                    echo htmlspecialchars($income['nama_akun'] ?? 'N/A');
-                                                                                    break;
-                                                                            }
-                                                                            ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['nama_akun'] ?? 'N/A'); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['keterangan']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($income['harga'] > 0 ? $income['harga'] : 12000); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php
@@ -300,6 +245,7 @@ if ($stmt === false) {
                         <tr class="bg-gray-100 font-bold">
                             <td colspan="6" class="px-3 py-2 border-t text-right text-xs uppercase text-gray-700">Total:</td>
                             <td class="px-3 py-2 border-t text-sm text-gray-900"><?php echo format_rupiah($total_jumlah); ?></td>
+                            <td class="px-3 py-2 border-t"></td>
                         </tr>
                     </tfoot>
                 </table>

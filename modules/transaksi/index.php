@@ -9,19 +9,20 @@ if (!has_permission('Admin') && !has_permission('Pegawai')) {
 }
 
 // Ambil semua data pemesanan dan transaksi
-$sql = "SELECT 
+// --- START MODIFIKASI: Sesuaikan query SQL dengan struktur tabel pemesanan yang baru ---
+$sql = "SELECT
             COALESCE(tr.id_transaksi, CONCAT('PENDING-', p.id_pesan)) as id_transaksi,
             tr.tgl_transaksi,
             tr.jumlah_dibayar,
             tr.metode_pembayaran,
             p.id_pesan AS no_pesan,
-            p.sub_total AS total_tagihan_pemesanan,
+            p.total_tagihan_keseluruhan AS total_tagihan_pemesanan, -- Menggunakan nama kolom baru
             p.sisa AS sisa_pemesanan,
             p.status_pesanan,
             p.tgl_pesan,
             c.id_customer,
             c.nama_customer,
-            CASE 
+            CASE
                 WHEN p.id_pesan IS NULL THEN 'Lunas'
                 WHEN p.sisa = 0 THEN 'Lunas'
                 WHEN tr.id_transaksi IS NULL THEN 'Belum Bayar'
@@ -29,7 +30,7 @@ $sql = "SELECT
             END AS status_pembayaran,
             CASE
                 WHEN p.id_pesan IS NULL THEN COALESCE(tr.jumlah_dibayar, 0)
-                ELSE p.sub_total
+                ELSE p.total_tagihan_keseluruhan -- Menggunakan nama kolom baru
             END AS total_tagihan,
             COALESCE(tr.jumlah_dibayar, 0) as jumlah_dibayar
         FROM pemesanan p
@@ -37,7 +38,7 @@ $sql = "SELECT
         LEFT JOIN customer c ON p.id_customer = c.id_customer
         WHERE p.status_pesanan != 'Batal'
         UNION
-        SELECT 
+        SELECT
             tr.id_transaksi,
             tr.tgl_transaksi,
             tr.jumlah_dibayar,
@@ -56,14 +57,29 @@ $sql = "SELECT
         LEFT JOIN customer c ON tr.id_customer = c.id_customer
         WHERE tr.id_pesan IS NULL
         ORDER BY tgl_transaksi DESC";
-$result = $conn->query($sql);
+// --- END MODIFIKASI ---
 
 $transactions = [];
-if ($result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $transactions[] = $row;
+
+// --- START MODIFIKASI: Tambahkan penanganan error untuk query SQL ---
+try {
+    $result = $conn->query($sql);
+
+    if ($result === false) {
+        throw new Exception("Error executing query: " . $conn->error);
     }
+
+    if ($result->num_rows > 0) { // Baris 62 Anda sebelumnya
+        while ($row = $result->fetch_assoc()) {
+            $transactions[] = $row;
+        }
+    }
+} catch (Exception $e) {
+    set_flash_message("Error: " . $e->getMessage(), "error");
+    // Lanjutkan dengan array transaksi kosong jika ada error
+    $transactions = [];
 }
+// --- END MODIFIKASI ---
 ?>
 
 <div class="container mx-auto px-4 py-8">
