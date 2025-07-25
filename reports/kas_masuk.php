@@ -11,15 +11,13 @@ if (!has_permission('Admin') && !has_permission('Pemilik') && !has_permission('P
 $start_date = isset($_GET['start_date']) ? sanitize_input($_GET['start_date']) : '';
 $end_date = isset($_GET['end_date']) ? sanitize_input($_GET['end_date']) : '';
 
-// --- START MODIFIKASI: Ganti p.quantity dengan p.total_quantity di SELECT ---
 $sql = "SELECT km.*, tr.id_pesan, tr.metode_pembayaran, c.nama_customer, a.nama_akun,
         tr.total_tagihan, tr.jumlah_dibayar, p.total_quantity AS pemesanan_quantity
         FROM kas_masuk km
         LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
         LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan
         LEFT JOIN customer c ON p.id_customer = c.id_customer
-        LEFT JOIN akun a ON tr.id_akun = a.id_akun"; // Mengambil nama akun dari transaksi jika terkait
-// --- END MODIFIKASI ---
+        LEFT JOIN akun a ON tr.id_akun = a.id_akun";
 
 $where_clause = [];
 $params = [];
@@ -42,14 +40,11 @@ if (!empty($where_clause)) {
 
 $sql .= " ORDER BY km.tgl_kas_masuk DESC";
 
-// Inisialisasi $cash_incomes agar selalu ada, bahkan jika query gagal
 $cash_incomes = [];
-$total_jumlah = 0; // Inisialisasi variabel total_jumlah
+$total_jumlah = 0;
 
-// --- START MODIFIKASI: Tambahkan try-catch untuk penanganan error query ---
 $stmt = $conn->prepare($sql);
 if ($stmt === false) {
-    // prepare() gagal, tampilkan error MySQLi
     set_flash_message("Error menyiapkan statement SQL: " . $conn->error . " (Query: " . htmlspecialchars($sql) . ")", "error");
 } else {
     try {
@@ -62,7 +57,7 @@ if ($stmt === false) {
         if ($result->num_rows > 0) {
             while ($row = $result->fetch_assoc()) {
                 $cash_incomes[] = $row;
-                $total_jumlah += (float)$row['jumlah']; // Menambahkan jumlah kas masuk (uang muka) ke total
+                $total_jumlah += (float)$row['jumlah'];
             }
         }
     } catch (mysqli_sql_exception $e) {
@@ -71,15 +66,14 @@ if ($stmt === false) {
         $stmt->close();
     }
 }
-// --- END MODIFIKASI ---
 ?>
 
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8" id="report-container">
     <div class="bg-white rounded-lg shadow-md p-6">
         <h1 class="text-2xl font-bold text-gray-800 mb-4">Laporan Pemasukan Kas Per Periode</h1>
         <p class="text-gray-600 mb-6">Lihat daftar pemasukan kas berdasarkan periode tanggal.</p>
 
-        <form action="" method="get" class="mb-6 p-4 bg-gray-50 rounded-lg shadow-sm flex flex-wrap items-end gap-4">
+        <form action="" method="get" class="mb-6 p-4 bg-gray-50 rounded-lg shadow-sm flex flex-wrap items-end gap-4 print-hidden">
             <div class="flex-1 min-w-[200px]">
                 <label for="start_date" class="block text-gray-700 text-sm font-bold mb-2">Tanggal Awal:</label>
                 <input type="date" id="start_date" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>"
@@ -100,7 +94,7 @@ if ($stmt === false) {
                     Reset Filter
                 </a>
                 <button type="button" onclick="window.print()"
-                    class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ml-2 print:hidden">
+                    class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ml-2 print-hidden">
                     Cetak Laporan
                 </button>
             </div>
@@ -108,12 +102,48 @@ if ($stmt === false) {
 
         <style>
             @media print {
-                .print\:hidden {
+
+                /* Hide everything except the report container */
+                body * {
+                    visibility: hidden !important;
+                }
+
+                #report-container,
+                #report-container * {
+                    visibility: visible !important;
+                }
+
+                #report-container {
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    width: 100%;
+                    margin: 0 !important;
+                    padding: 10px !important;
+                }
+
+                /* Explicitly hide header, nav, and common layout elements */
+                header,
+                nav,
+                .navbar,
+                .header,
+                .topbar,
+                .sidebar,
+                footer,
+                .print-hidden {
                     display: none !important;
                 }
 
-                .bg-gray-50 {
+                /* Remove unnecessary styling for print */
+                .bg-white {
                     background: white !important;
+                }
+
+                .bg-gray-50,
+                .bg-gray-100,
+                .bg-yellow-100 {
+                    background: white !important;
+                    border: none !important;
                 }
 
                 .shadow-md,
@@ -125,59 +155,27 @@ if ($stmt === false) {
                     border-radius: 0 !important;
                 }
 
-                .container {
-                    max-width: none !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
+                .border {
+                    border: 1px solid black !important;
                 }
 
                 .px-4,
-                .py-8 {
-                    padding: 0 !important;
-                }
-
+                .py-8,
                 .p-6 {
-                    padding: 8px !important;
+                    padding: 4px !important;
                 }
 
                 .mb-6,
                 .mb-4 {
-                    margin-bottom: 8px !important;
+                    margin-bottom: 4px !important;
                 }
 
-                .text-gray-600 {
+                .text-gray-600,
+                .text-gray-800,
+                .text-gray-500,
+                .text-gray-900,
+                .text-yellow-700 {
                     color: black !important;
-                }
-
-                .text-gray-800 {
-                    color: black !important;
-                }
-
-                .text-gray-500 {
-                    color: black !important;
-                }
-
-                .text-gray-900 {
-                    color: black !important;
-                }
-
-                .bg-gray-100 {
-                    background: #f5f5f5 !important;
-                }
-
-                .hover\:bg-gray-50:hover {
-                    background: white !important;
-                }
-
-                .px-6 {
-                    padding-left: 4px !important;
-                    padding-right: 4px !important;
-                }
-
-                .py-3,
-                .py-4 {
-                    padding-top: 2px !important;
-                    padding-bottom: 2px !important;
                 }
 
                 .text-xs {
@@ -188,16 +186,32 @@ if ($stmt === false) {
                     font-size: 11px !important;
                 }
 
+                .text-xl,
+                .text-2xl {
+                    font-size: 14px !important;
+                }
+
                 .overflow-x-auto {
                     overflow: visible !important;
                 }
 
                 .min-w-full {
-                    min-width: auto !important;
+                    width: 100% !important;
+                }
+
+                table {
+                    border-collapse: collapse !important;
+                }
+
+                th,
+                td {
+                    border: 1px solid black !important;
+                    padding: 4px !important;
                 }
 
                 thead {
-                    display: none !important;
+                    display: table-header-group !important;
+                    /* Ensure table header is printed */
                 }
             }
         </style>

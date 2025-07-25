@@ -41,8 +41,7 @@ if (!empty($selected_akun)) {
         }
     }
 
-    // Hitung saldo awal untuk akun yang dipilih (total kas masuk sebelum start_date - total kas keluar sebelum start_date)
-    // Menggunakan jumlah dari kas_masuk
+    // Hitung saldo awal untuk akun yang dipilih
     $sql_saldo_awal_masuk = "SELECT SUM(km.jumlah) FROM kas_masuk km 
                              LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
                              WHERE km.tgl_kas_masuk < ? AND (tr.id_akun = ? OR km.id_transaksi IS NULL)";
@@ -58,7 +57,6 @@ if (!empty($selected_akun)) {
         $saldo_masuk_awal = $saldo_masuk_awal ?: 0;
     }
 
-
     $sql_saldo_awal_keluar = "SELECT SUM(jumlah) FROM kas_keluar WHERE tgl_kas_keluar < ? AND id_akun = ?";
     $stmt_saldo_awal_keluar = $conn->prepare($sql_saldo_awal_keluar);
     if ($stmt_saldo_awal_keluar === false) {
@@ -72,12 +70,10 @@ if (!empty($selected_akun)) {
         $saldo_keluar_awal = $saldo_keluar_awal ?: 0;
     }
 
-    // Kas masuk adalah kredit dan kas keluar adalah debit, maka saldo awal adalah kas keluar dikurangi kas masuk
+    // Kas masuk adalah kredit, kas keluar adalah debit
     $saldo_awal = ($saldo_keluar_awal ?? 0) - ($saldo_masuk_awal ?? 0);
 
-
-    // Ambil entri untuk akun yang dipilih dalam periode
-    // Kas Masuk - menggunakan jumlah dari kas_masuk - diubah menjadi Kredit
+    // Ambil entri kas masuk
     $sql_km_akun = "SELECT 
                     km.tgl_kas_masuk AS tanggal, 
                     km.keterangan, 
@@ -103,8 +99,7 @@ if (!empty($selected_akun)) {
         $stmt_km_akun->close();
     }
 
-
-    // Kas Keluar - diubah menjadi Debit
+    // Ambil entri kas keluar
     $sql_kk_akun = "SELECT kk.tgl_kas_keluar AS tanggal, kk.keterangan, kk.jumlah, 'Debit' AS tipe_saldo, NULL AS id_transaksi, kk.harga, kk.kuantitas
                     FROM kas_keluar kk 
                     WHERE kk.tgl_kas_keluar BETWEEN ? AND ? AND kk.id_akun = ?";
@@ -121,19 +116,18 @@ if (!empty($selected_akun)) {
         $stmt_kk_akun->close();
     }
 
-    // Urutkan semua entri berdasarkan tanggal
+    // Urutkan entri berdasarkan tanggal
     usort($account_ledger_entries, function ($a, $b) {
         return strtotime($a['tanggal']) - strtotime($b['tanggal']);
     });
 }
 ?>
 
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8" id="report-container">
     <div class="bg-white rounded-lg shadow-md p-6">
         <h1 class="text-2xl font-bold text-gray-800 mb-4">Laporan Buku Besar Kas Per Periode</h1>
-        <p class="text-gray-600 mb-6">Lihat pergerakan saldo untuk akun kas tertentu.</p>
 
-        <form action="" method="get" class="mb-6 p-4 bg-gray-50 rounded-lg shadow-sm flex flex-wrap items-end gap-4">
+        <form action="" method="get" class="mb-6 p-4 bg-gray-50 rounded-lg shadow-sm flex flex-wrap items-end gap-4 print-hidden">
             <div class="flex-1 min-w-[200px]">
                 <label for="id_akun" class="block text-gray-700 text-sm font-bold mb-2">Pilih Akun:</label>
                 <select id="id_akun" name="id_akun" required
@@ -167,7 +161,7 @@ if (!empty($selected_akun)) {
                     Reset Filter
                 </a>
                 <button type="button" onclick="window.print()"
-                    class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ml-2 print:hidden">
+                    class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ml-2 print-hidden">
                     Cetak Laporan
                 </button>
             </div>
@@ -175,12 +169,48 @@ if (!empty($selected_akun)) {
 
         <style>
             @media print {
-                .print\:hidden {
+
+                /* Hide everything except the report container */
+                body * {
+                    visibility: hidden !important;
+                }
+
+                #report-container,
+                #report-container * {
+                    visibility: visible !important;
+                }
+
+                #report-container {
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    width: 100%;
+                    margin: 0 !important;
+                    padding: 10px !important;
+                }
+
+                /* Explicitly hide header, nav, and common layout elements */
+                header,
+                nav,
+                .navbar,
+                .header,
+                .topbar,
+                .sidebar,
+                footer,
+                .print-hidden {
                     display: none !important;
                 }
 
-                .bg-gray-50 {
+                /* Remove unnecessary styling for print */
+                .bg-white {
                     background: white !important;
+                }
+
+                .bg-gray-50,
+                .bg-gray-100,
+                .bg-yellow-100 {
+                    background: white !important;
+                    border: none !important;
                 }
 
                 .shadow-md,
@@ -192,59 +222,27 @@ if (!empty($selected_akun)) {
                     border-radius: 0 !important;
                 }
 
-                .container {
-                    max-width: none !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
+                .border {
+                    border: 1px solid black !important;
                 }
 
                 .px-4,
-                .py-8 {
-                    padding: 0 !important;
-                }
-
+                .py-8,
                 .p-6 {
-                    padding: 8px !important;
+                    padding: 4px !important;
                 }
 
                 .mb-6,
                 .mb-4 {
-                    margin-bottom: 8px !important;
+                    margin-bottom: 4px !important;
                 }
 
-                .text-gray-600 {
+                .text-gray-600,
+                .text-gray-800,
+                .text-gray-500,
+                .text-gray-900,
+                .text-yellow-700 {
                     color: black !important;
-                }
-
-                .text-gray-800 {
-                    color: black !important;
-                }
-
-                .text-gray-500 {
-                    color: black !important;
-                }
-
-                .text-gray-900 {
-                    color: black !important;
-                }
-
-                .bg-gray-100 {
-                    background: #f5f5f5 !important;
-                }
-
-                .hover\:bg-gray-50:hover {
-                    background: white !important;
-                }
-
-                .px-6 {
-                    padding-left: 4px !important;
-                    padding-right: 4px !important;
-                }
-
-                .py-3,
-                .py-4 {
-                    padding-top: 2px !important;
-                    padding-bottom: 2px !important;
                 }
 
                 .text-xs {
@@ -255,16 +253,32 @@ if (!empty($selected_akun)) {
                     font-size: 11px !important;
                 }
 
+                .text-xl,
+                .text-2xl {
+                    font-size: 14px !important;
+                }
+
                 .overflow-x-auto {
                     overflow: visible !important;
                 }
 
                 .min-w-full {
-                    min-width: auto !important;
+                    width: 100% !important;
+                }
+
+                table {
+                    border-collapse: collapse !important;
+                }
+
+                th,
+                td {
+                    border: 1px solid black !important;
+                    padding: 4px !important;
                 }
 
                 thead {
-                    display: none !important;
+                    display: table-header-group !important;
+                    /* Ensure header is printed */
                 }
             }
         </style>
@@ -317,7 +331,7 @@ if (!empty($selected_akun)) {
                                 $debit = ($entry['jumlah'] ?? 0);
                                 $kredit = 0;
                                 $current_saldo += $debit;
-                            } else { // Kredit
+                            } else {
                                 $kredit = ($entry['jumlah'] ?? 0);
                                 $debit = 0;
                                 $current_saldo -= $kredit;
