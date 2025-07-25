@@ -57,9 +57,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $id_customer = sanitize_input($_POST['id_customer'] ?? '');
     $id_akun = sanitize_input($_POST['id_akun'] ?? '');
     $tgl_transaksi = sanitize_input($_POST['tgl_transaksi'] ?? '');
-    // --- START MODIFIKASI: Metode pembayaran disetel Tunai secara paksa ---
     $metode_pembayaran = 'Tunai'; // Selalu Tunai untuk pembelian langsung
-    // --- END MODIFIKASI ---
     $keterangan = sanitize_input($_POST['keterangan'] ?? '');
 
     // Inisialisasi total dari sisi server
@@ -77,11 +75,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (empty($tgl_transaksi)) {
         $tgl_transaksi_error = "Tanggal Transaksi tidak boleh kosong.";
     }
-    // --- START MODIFIKASI: Validasi metode pembayaran dihapus karena sudah Tunai ---
-    // if (empty($metode_pembayaran)) {
-    //     $metode_pembayaran_error = "Metode Pembayaran tidak boleh kosong.";
-    // }
-    // --- END MODIFIKASI ---
+    if (empty($metode_pembayaran)) {
+        $metode_pembayaran_error = "Metode Pembayaran tidak boleh kosong.";
+    }
     if (empty($keterangan)) {
         $keterangan_error = "Keterangan tidak boleh kosong.";
     } elseif (strlen($keterangan) > 30) {
@@ -132,7 +128,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // Jumlah dibayar untuk pembelian langsung biasanya sama dengan total tagihan
     $jumlah_dibayar = $calculated_total_tagihan;
-    $sisa_pembayaran = 0; // Pembelian langsung dianggap lunas
+    $sisa_pembayaran_for_db = 0; // Pembelian langsung dianggap lunas
 
     // Jika tidak ada error validasi, coba simpan ke database
     if (
@@ -157,7 +153,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // 2. Masukkan data ke tabel `pemesanan` (sebagai pesanan langsung lunas)
             // Kolom uang_muka, total_tagihan_keseluruhan, sisa, status_pesanan, keterangan, total_quantity
             $sql_pemesanan_dummy = "INSERT INTO pemesanan (id_pesan, id_customer, tgl_pesan, tgl_kirim, uang_muka, total_tagihan_keseluruhan, sisa, status_pesanan, keterangan, total_quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            // --- START PERBAIKAN: Koreksi typo variabel di prepare ---
             if ($stmt_pemesanan_dummy = $conn->prepare($sql_pemesanan_dummy)) {
+                // --- END PERBAIKAN ---
                 $stmt_pemesanan_dummy->bind_param(
                     "ssssdddssi",
                     $id_pesan_dummy,
@@ -218,19 +216,32 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // Sekarang id_pesan akan terhubung ke dummy pemesanan
             $sql_transaksi = "INSERT INTO transaksi (id_transaksi, id_pesan, id_akun, id_customer, tgl_transaksi, jumlah_dibayar, metode_pembayaran, keterangan, total_tagihan, sisa_pembayaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             if ($stmt_transaksi = $conn->prepare($sql_transaksi)) {
+                // --- START PERBAIKAN: Pastikan semua parameter adalah variabel eksplisit ---
+                $bind_id_transaksi = $generated_id_transaksi;
+                $bind_id_pesan_dummy = $id_pesan_dummy;
+                $bind_id_akun = $id_akun;
+                $bind_id_customer = $id_customer;
+                $bind_tgl_transaksi = $tgl_transaksi;
+                $bind_jumlah_dibayar = $jumlah_dibayar; // (float)
+                $bind_metode_pembayaran = $metode_pembayaran;
+                $bind_keterangan = $keterangan;
+                $bind_calculated_total_tagihan = $calculated_total_tagihan; // (float)
+                $bind_sisa_pembayaran_var = 0; // Variabel untuk nilai 0 (float)
+
                 $stmt_transaksi->bind_param(
-                    "sssssisssi",
-                    $generated_id_transaksi,
-                    $id_pesan_dummy, // Menggunakan id_pesan dari dummy pemesanan
-                    $id_akun,
-                    $id_customer,
-                    $tgl_transaksi,
-                    $jumlah_dibayar, // Ini adalah total dari semua item
-                    $metode_pembayaran,
-                    $keterangan,
-                    $calculated_total_tagihan, // total_tagihan
-                    0 // sisa_pembayaran (0)
+                    "ssssdsdsdd", // Koreksi string tipe data: d (double/float) untuk decimal
+                    $bind_id_transaksi,
+                    $bind_id_pesan_dummy,
+                    $bind_id_akun,
+                    $bind_id_customer,
+                    $bind_tgl_transaksi,
+                    $bind_jumlah_dibayar,
+                    $bind_metode_pembayaran,
+                    $bind_keterangan,
+                    $bind_calculated_total_tagihan,
+                    $bind_sisa_pembayaran_var
                 );
+                // --- END PERBAIKAN ---
 
                 if (!$stmt_transaksi->execute()) {
                     throw new Exception("Gagal menambahkan transaksi pembelian langsung: " . $stmt_transaksi->error);
