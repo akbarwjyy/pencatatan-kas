@@ -8,19 +8,21 @@ if (!has_permission('Admin') && !has_permission('Pemilik') && !has_permission('P
     redirect('../../modules/dashboard/index.php'); // Redirect ke dashboard
 }
 
-// Ambil semua data pemesanan dari database, join dengan customer dan akun untuk menampilkan nama
+// Ambil semua data pemesanan dari database, join dengan customer
 $orders = [];
 
 // Cek koneksi database
 if (!$conn) {
     set_flash_message("Koneksi database gagal: " . mysqli_connect_error(), "error");
 } else {
-    $sql = "SELECT p.*, c.nama_customer, t.id_akun, a.nama_akun
-        FROM pemesanan p
-        JOIN customer c ON p.id_customer = c.id_customer
-        LEFT JOIN transaksi t ON p.id_pesan = t.id_pesan
-        LEFT JOIN akun a ON t.id_akun = a.id_akun
-        ORDER BY p.tgl_pesan DESC";
+    // --- START MODIFIKASI: Sesuaikan query SQL dengan struktur tabel pemesanan yang baru ---
+    // Menghapus JOIN ke transaksi dan akun karena kolom-kolom tersebut tidak lagi di pemesanan
+    // Menggunakan total_tagihan_keseluruhan dan keterangan yang baru
+    $sql = "SELECT p.*, c.nama_customer
+            FROM pemesanan p
+            JOIN customer c ON p.id_customer = c.id_customer
+            ORDER BY p.tgl_pesan DESC";
+    // --- END MODIFIKASI ---
 
     $result = $conn->query($sql);
 
@@ -61,12 +63,13 @@ if (!$conn) {
                             <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Pesan</th>
                             <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Tgl Kirim</th>
                             <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                            <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Akun</th>
-                            <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
-                            <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                            <?php /* --- START MODIFIKASI: Hapus Akun dan Qty, Ganti Total, Tambah Keterangan --- */ ?>
+                            <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Total Keseluruhan</th>
+                            <?php /* --- END MODIFIKASI --- */ ?>
                             <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">DP</th>
                             <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Sisa</th>
                             <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
                             <th class="px-2 py-1 border-b text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
                         </tr>
                     </thead>
@@ -77,9 +80,9 @@ if (!$conn) {
                                 <td class="px-2 py-1 text-sm"><?php echo date('d/m/Y', strtotime($order['tgl_pesan'])); ?></td>
                                 <td class="px-2 py-1 text-sm"><?php echo !empty($order['tgl_kirim']) ? date('d/m/Y', strtotime($order['tgl_kirim'])) : '-'; ?></td>
                                 <td class="px-2 py-1 text-sm"><?php echo htmlspecialchars($order['nama_customer']); ?></td>
-                                <td class="px-2 py-1 text-sm"><?php echo !empty($order['nama_akun']) ? htmlspecialchars($order['id_akun'] . ' - ' . $order['nama_akun']) : '-'; ?></td>
-                                <td class="px-2 py-1 text-sm"><?php echo htmlspecialchars($order['quantity']); ?></td>
-                                <td class="px-2 py-1 text-sm"><?php echo format_rupiah($order['sub_total']); ?></td>
+                                <?php /* --- START MODIFIKASI: Tampilkan Total Keseluruhan dan Keterangan --- */ ?>
+                                <td class="px-2 py-1 text-sm"><?php echo format_rupiah($order['total_tagihan_keseluruhan']); ?></td>
+                                <?php /* --- END MODIFIKASI --- */ ?>
                                 <td class="px-2 py-1 text-sm"><?php echo format_rupiah($order['uang_muka']); ?></td>
                                 <td class="px-2 py-1 text-sm"><?php echo format_rupiah($order['sisa']); ?></td>
                                 <td class="px-2 py-1 text-sm">
@@ -87,6 +90,7 @@ if (!$conn) {
                                         <?php echo ($order['sisa'] == 0) ? 'Lunas' : 'Belum'; ?>
                                     </span>
                                 </td>
+                                <td class="px-2 py-1 text-sm"><?php echo htmlspecialchars($order['keterangan'] ?? '-'); ?></td>
                                 <td class="px-2 py-1 text-sm text-center">
                                     <?php if (has_permission('Admin') || has_permission('Pegawai')) : ?>
                                         <div class="flex justify-center space-x-1">
