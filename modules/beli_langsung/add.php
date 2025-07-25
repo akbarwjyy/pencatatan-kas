@@ -536,7 +536,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 </style>
 
 <div id="nota-cetak" class="max-w-lg mx-auto my-8 p-8 bg-white border border-black text-black text-base" style="font-family: 'Times New Roman', Times, serif; display:none;">
-    <div style="font-size:1.2em; font-weight:bold;">Ampyang Cap Garuda</div>
+    <div style="text-align: center; font-size:1.2em; font-weight:bold;">Ampyang Cap Garuda</div>
+    <div style="text-align: center; font-size: 0.9em;">Jl. Ngelosari, Srimulyo, Piyungan, Bantul, Yogyakarta</div>
     <br>
     <table style="width:100%;">
         <tr>
@@ -589,6 +590,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <td id="nota-keterangan"></td>
         </tr>
     </table>
+    <div style="text-align: center; font-size: 0.9em; margin-top: 10px;">
+        Terima kasih telah berbelanja!<br>
+        Ampyang Cap Garuda - Manisnya Tradisi Nusantara
+    </div>
 </div>
 
 <?php if ($print_nota): ?>
