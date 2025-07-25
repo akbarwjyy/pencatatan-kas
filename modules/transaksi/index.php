@@ -69,7 +69,7 @@ try {
         throw new Exception("Error executing query: " . $conn->error);
     }
 
-    if ($result->num_rows > 0) { // Baris 62 Anda sebelumnya
+    if ($result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
             $transactions[] = $row;
         }
@@ -165,6 +165,5 @@ try {
         <?php endif; ?>
     </div>
 </div>
-
 <?php
 ?>

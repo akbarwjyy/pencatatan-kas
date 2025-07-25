@@ -16,27 +16,27 @@ $status_pelunasan_input = "";
 
 // Ambil daftar pemesanan untuk dropdown (termasuk yang sudah lunas)
 $pemesanan_options = [];
-// Query SQL tanpa JOIN ke tabel barang karena batasan database.
-// Kita tidak bisa mengambil nama_barang dan harga_satuan dari tabel 'barang'
-// jika tabel 'pemesanan' tidak memiliki kolom 'id_barang'.
-$pemesanan_sql = "SELECT p.id_pesan, p.sub_total, p.sisa, p.tgl_pesan, p.tgl_kirim, p.uang_muka, p.quantity, c.nama_customer,
+// --- START MODIFIKASI: Sesuaikan query SQL untuk dropdown dengan struktur tabel pemesanan yang baru ---
+$pemesanan_sql = "SELECT p.id_pesan, p.total_tagihan_keseluruhan AS sub_total, p.sisa, p.tgl_pesan, p.tgl_kirim, p.uang_muka, p.total_quantity AS quantity, p.keterangan, c.nama_customer,
                   t.id_akun, a.nama_akun
                   FROM pemesanan p
                   JOIN customer c ON p.id_customer = c.id_customer
                   LEFT JOIN transaksi t ON p.id_pesan = t.id_pesan
                   LEFT JOIN akun a ON t.id_akun = a.id_akun
                   ORDER BY p.tgl_pesan DESC";
+// --- END MODIFIKASI ---
 $pemesanan_result = $conn->query($pemesanan_sql);
 
+// --- START MODIFIKASI: Tambahkan penanganan error untuk query SQL dropdown ---
 if ($pemesanan_result === false) {
-    // Query gagal, tampilkan pesan error dan inisialisasi array kosong
-    set_flash_message("Error saat mengambil data pemesanan: " . $conn->error . ". Pastikan struktur database Anda sesuai dengan yang dibutuhkan aplikasi.", "error");
-    $pemesanan_options = []; // Inisialisasi array kosong untuk mencegah error lebih lanjut
+    set_flash_message("Error saat mengambil daftar pesanan: " . $conn->error . ". Pastikan struktur database 'pemesanan' sudah diperbarui.", "error");
+    $pemesanan_options = [];
 } else if ($pemesanan_result->num_rows > 0) {
     while ($row = $pemesanan_result->fetch_assoc()) {
         $pemesanan_options[] = $row;
     }
 }
+// --- END MODIFIKASI ---
 
 // Ambil daftar akun untuk dropdown (Ini masih diperlukan di PHP untuk proses transaksi, meski tidak di form)
 $accounts = [];
@@ -71,7 +71,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $id_akun = $option['id_akun'];
             }
             $quantity_pemesanan_db = $option['quantity'] ?? 0;
-            $sub_total_pemesanan_db = $option['sub_total'] ?? 0; // Ambil sub_total
+            $sub_total_pemesanan_db = $option['sub_total'] ?? 0; // Ambil sub_total (alias total_tagihan_keseluruhan)
             break;
         }
     }
@@ -95,16 +95,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $id_customer_related = '';
     $tgl_kirim_related = '';
     if (!empty($id_pesan)) {
-        // Query detail pemesanan hanya mengambil kolom yang ada di tabel 'pemesanan'
-        $pemesanan_detail_sql = "SELECT sisa, sub_total, id_customer, tgl_kirim, quantity FROM pemesanan WHERE id_pesan = ?";
+        // --- START MODIFIKASI: Query detail pemesanan hanya mengambil kolom yang ada di tabel 'pemesanan' ---
+        $pemesanan_detail_sql = "SELECT sisa, total_tagihan_keseluruhan, id_customer, tgl_kirim, total_quantity, keterangan FROM pemesanan WHERE id_pesan = ?"; // Menggunakan nama kolom baru
+        // --- END MODIFIKASI ---
         if ($stmt_pemesanan = $conn->prepare($pemesanan_detail_sql)) {
             $stmt_pemesanan->bind_param("s", $id_pesan);
             $stmt_pemesanan->execute();
-            $stmt_pemesanan->bind_result($current_sisa_pemesanan, $total_tagihan_pemesanan, $id_customer_related, $tgl_kirim_related, $quantity_pemesanan_db);
+            // --- START MODIFIKASI: bind_result menggunakan total_tagihan_keseluruhan dan total_quantity ---
+            $stmt_pemesanan->bind_result($current_sisa_pemesanan, $total_tagihan_pemesanan, $id_customer_related, $tgl_kirim_related, $quantity_pemesanan_db, $keterangan_pemesanan_db); // Menambahkan $keterangan_pemesanan_db
+            // --- END MODIFIKASI ---
             $stmt_pemesanan->fetch();
             $stmt_pemesanan->close();
 
             $total_tagihan_display = $total_tagihan_pemesanan;
+            $keterangan = $keterangan_pemesanan_db; // Update keterangan dari pemesanan
 
             if ($current_sisa_pemesanan == 0) {
                 $sisa_pembayaran_display = 0;
@@ -154,7 +158,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $tgl_transaksi,
                     $jumlah_dibayar,
                     $metode_pembayaran,
-                    $keterangan,
+                    $keterangan, // Menggunakan keterangan dari pemesanan/form
                     $total_tagihan_pemesanan,
                     $sisa_pembayaran_display
                 );
@@ -193,15 +197,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             $keterangan_kas_masuk = $keterangan;
 
-            // --- START MODIFIKASI: Hitung harga_satuan_item dari sub_total dan quantity pemesanan ---
-            $harga_satuan_item = 0;
-            if ($quantity_pemesanan_db > 0) {
-                $harga_satuan_item = $sub_total_pemesanan_db / $quantity_pemesanan_db;
+            $harga_satuan_item = 0; // Inisialisasi
+            if ($quantity_pemesanan_db > 0) { // Gunakan total_quantity dari pemesanan
+                $harga_satuan_item = $total_tagihan_pemesanan / $quantity_pemesanan_db;
             }
             if ($harga_satuan_item == 0) {
-                $harga_satuan_item = 12000; // Fallback jika perhitungan menghasilkan 0 atau quantity 0
+                $harga_satuan_item = 12000;
             }
-            // --- END MODIFIKASI ---
 
             $kuantitas = $quantity_pemesanan_db > 0 ? $quantity_pemesanan_db : ceil($jumlah_dibayar / $harga_satuan_item);
 
@@ -233,7 +235,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
         <div class="grid grid-cols-2 gap-8">
-            <!-- Kolom Kiri -->
             <div>
                 <div class="mb-6">
                     <label for="id_pesan" class="block text-gray-700 text-sm font-bold mb-2">Nama Customer / ID Pesanan:</label>
@@ -251,9 +252,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 data-idakun="<?php echo htmlspecialchars($option['id_akun'] ?? ''); ?>"
                                 data-namaakun="<?php echo htmlspecialchars($option['nama_akun'] ?? ''); ?>"
                                 data-quantity="<?php echo htmlspecialchars($option['quantity'] ?? 0); ?>"
-                                <?php /* --- START MODIFIKASI: Tambahkan data-subtotal-item untuk JS --- */ ?>
-                                data-subtotal-item="<?php echo htmlspecialchars($option['sub_total'] ?? 0); ?>"
-                                <?php /* --- END MODIFIKASI --- */ ?>
+                                data-keterangan="<?php echo htmlspecialchars($option['keterangan'] ?? ''); ?>"
                                 <?php echo ($id_pesan == $option['id_pesan']) ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($option['nama_customer'] . " - " . $option['id_pesan']); ?>
                             </option>
@@ -288,7 +287,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
             </div>
 
-            <!-- Kolom Kanan -->
             <div>
                 <div class="mb-6">
                     <label for="tgl_transaksi" class="block text-gray-700 text-sm font-bold mb-2">Tanggal Transaksi:</label>
@@ -386,8 +384,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 </style>
 
 <div id="nota-cetak" class="max-w-lg mx-auto my-8 p-8 bg-white border border-black text-black text-base" style="font-family: 'Times New Roman', Times, serif; display:none;">
-    <div style="text-align: center; font-size:1.2em; font-weight:bold;">Ampyang Cap Garuda</div>
-    <div style="text-align: center; font-size: 0.9em;">Jl. Ngelosari, Srimulyo, Piyungan, Bantul, Yogyakarta</div>
+    <div style="font-size:1.2em; font-weight:bold;">Ampyang Cap Garuda</div>
     <br>
     <table style="width:100%;">
         <tr>
@@ -422,7 +419,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </table>
     <hr class="nota-hr2">
 
-    <!-- New section for item details -->
     <table style="width:100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 10px;">
         <thead>
             <tr>
@@ -433,41 +429,47 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </tr>
         </thead>
         <tbody id="nota-detail-barang">
-            <!-- Item rows will be inserted here by JavaScript -->
         </tbody>
     </table>
     <hr class="nota-hr3">
 
     <table style="width:100%;">
         <tr>
-            <td style="width:40%;">Total Pembelian</td>
+            <td style="width:40%;">Total Tagihan</td>
             <td style="width:2%;">:</td>
             <td id="nota-total-tagihan"></td>
         </tr>
         <tr>
-            <td>Dibayar (DP)</td>
+            <td>Uang Muka</td>
             <td>:</td>
             <td id="nota-uang-muka">-</td>
         </tr>
         <tr>
-            <td>Pelunasan</td>
+            <td>Sisa Pembayaran</td>
+            <td>:</td>
+            <td id="nota-sisa-pembayaran"></td>
+        </tr>
+        <tr>
+            <td>Jumlah Dibayar</td>
             <td>:</td>
             <td id="nota-jumlah-dibayar"></td>
         </tr>
-
-
+        <tr>
+            <td colspan="2" style="padding-left: 20px; font-style: italic;">(Jumlah yang Diterima)</td>
+            <td id="nota-jumlah-dibayar-konfirmasi"></td>
+        </tr>
+        <tr>
+            <td>Keterangan</td>
+            <td>:</td>
+            <td id="nota-keterangan"></td>
+        </tr>
         <tr>
             <td><b>Status</b></td>
             <td>:</td>
             <td><b id="nota-status"></b></td>
         </tr>
     </table>
-    <div style="text-align: center; font-size: 0.9em; margin-top: 10px;">
-        Terima kasih telah berbelanja!<br>
-        Ampyang Cap Garuda - Manisnya Tradisi Nusantara
-    </div>
 </div>
-
 
 <script>
     function printNota() {
@@ -484,25 +486,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         const tglPemesanan = selectedOption.dataset.tglpesan || '-';
         const tglKirim = selectedOption.dataset.tglkirim || '-';
         const uangMuka = selectedOption.dataset.uangmuka || 0;
-
+        const keterangan = document.getElementById('keterangan').value || '-';
 
         // --- START MODIFIKASI: Ambil data untuk perhitungan harga satuan dari dataset ---
-        const itemQuantity = parseFloat(selectedOption.dataset.quantity || 0);
-        const itemSubtotalFromOrder = parseFloat(selectedOption.dataset.subtotalItem || 0); // Mengambil sub_total asli dari pesanan
+        // Kita perlu mendapatkan nama barang dan harga satuan dari detail pesanan yang terkait.
+        // Karena di halaman add.php ini tidak ada detail_pemesanan, kita akan menggunakan
+        // pendekatan dari pemesanan/index.php yang menunjukkan total_quantity
+        // dan menghitung harga satuan rata-rata atau menggunakan default.
+        // Jika ingin menampilkan detail multi-item di nota transaksi/add.php,
+        // maka data detail_pemesanan harus diambil di PHP dan dilewatkan ke JS.
+        // Untuk saat ini, kita akan menggunakan pendekatan yang paling aman tanpa mengubah lebih lanjut.
+        // Nama barang akan di-hardcode "Ampyang" dan harga satuan akan dihitung dari total_tagihan_pemesanan / total_quantity.
+        const itemQuantity = parseFloat(selectedOption.dataset.quantity || 0); // Ini adalah total_quantity dari pemesanan
+        const totalTagihanPemesananUntukNota = parseFloat(selectedOption.dataset.subtotal || 0); // Ini adalah total_tagihan_keseluruhan dari pemesanan
 
-        // Hitung harga satuan berdasarkan sub_total dan quantity dari pesanan
         let itemHargaSatuan = 0;
         if (itemQuantity > 0) {
-            itemHargaSatuan = itemSubtotalFromOrder / itemQuantity;
+            itemHargaSatuan = totalTagihanPemesananUntukNota / itemQuantity;
         }
-        // Fallback jika perhitungan menghasilkan 0 atau quantity 0
         if (itemHargaSatuan === 0) {
-            itemHargaSatuan = 12000; // Harga default jika tidak dapat dihitung
+            itemHargaSatuan = 12000; // Fallback jika perhitungan gagal atau total_quantity 0
         }
-        const namaBarang = "Ampyang"; // Hardcode nama barang karena tidak ada di database pemesanan
+        const namaBarang = "Ampyang"; // Hardcode nama barang
         // --- END MODIFIKASI ---
 
-        const itemSubtotal = itemQuantity * itemHargaSatuan; // Hitung ulang subtotal barang di nota
+        const itemSubtotal = itemQuantity * itemHargaSatuan; // Ini akan menjadi (total_quantity * harga_satuan_rata2)
 
         let noTransaksi = document.getElementById('nota-no-transaksi').textContent;
         if (!noTransaksi || noTransaksi.startsWith('TRX') && noTransaksi.endsWith('-TUNAI')) {
@@ -528,10 +536,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         `;
 
         document.getElementById('nota-total-tagihan').textContent = totalTagihanForm;
+        document.getElementById('nota-sisa-pembayaran').textContent = document.getElementById('sisa_pembayaran_display').value;
         document.getElementById('nota-jumlah-dibayar').textContent = formatRupiah(jumlahDibayar);
+        document.getElementById('nota-jumlah-dibayar-konfirmasi').textContent = formatRupiah(jumlahDibayar);
         document.getElementById('nota-status').textContent = statusPembayaran;
-        document.getElementById('nota-uang-muka').textContent = formatRupiah(uangMuka);
-
+        document.getElementById('nota-uang_muka').textContent = formatRupiah(uangMuka);
+        document.getElementById('nota-keterangan').textContent = keterangan;
 
         document.getElementById('nota-cetak').style.display = 'block';
         window.print();
@@ -545,15 +555,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     function updatePemesananInfo() {
         const selectElement = document.getElementById('id_pesan');
         const selectedOption = selectElement.options[selectElement.selectedIndex];
-        const subTotal = parseFloat(selectedOption.dataset.subtotal || 0);
+        const subTotal = parseFloat(selectedOption.dataset.subtotal || 0); // Ini adalah total_tagihan_keseluruhan
         const sisaAwal = parseFloat(selectedOption.dataset.sisa || 0);
         const idAkun = selectedOption.dataset.idakun || '';
         const namaAkun = selectedOption.dataset.namaakun || '';
+        const keteranganPemesanan = selectedOption.dataset.keterangan || ''; // Ambil keterangan dari pesanan
 
         const accountInfo = idAkun && namaAkun ? `${idAkun} - ${namaAkun}` : 'Akun Pendapatan Default (4001)';
         document.getElementById('akun_display').value = accountInfo;
 
         document.getElementById('total_tagihan_display').value = formatRupiah(subTotal);
+        document.getElementById('keterangan').value = keteranganPemesanan; // Set keterangan form dengan keterangan pesanan
 
         if (sisaAwal > 0) {
             document.getElementById('jumlah_dibayar').max = sisaAwal;
