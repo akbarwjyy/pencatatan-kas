@@ -1,4 +1,9 @@
 <?php
+// --- START MODIFIKASI: Paksa tampilkan semua error PHP ---
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+// --- END MODIFIKASI ---
+
 // Sertakan header
 require_once '../../layout/header.php';
 
@@ -72,9 +77,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (empty($id_akun)) {
         $id_akun_error = "Akun tidak boleh kosong.";
     }
+    // --- START PERBAIKAN: Validasi format tanggal yang lebih ketat ---
     if (empty($tgl_transaksi)) {
         $tgl_transaksi_error = "Tanggal Transaksi tidak boleh kosong.";
+    } else {
+        // Validasi format tanggal (YYYY-MM-DD)
+        $date_obj = DateTime::createFromFormat('Y-m-d', $tgl_transaksi);
+        if ($date_obj === false || $date_obj->format('Y-m-d') !== $tgl_transaksi) {
+            $tgl_transaksi_error = "Format Tanggal Transaksi tidak valid (YYYY-MM-DD).";
+        }
     }
+    // --- END PERBAIKAN ---
     if (empty($metode_pembayaran)) {
         $metode_pembayaran_error = "Metode Pembayaran tidak boleh kosong.";
     }
@@ -153,8 +166,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // 2. Masukkan data ke tabel `pemesanan` (sebagai pesanan langsung lunas)
             // Kolom uang_muka, total_tagihan_keseluruhan, sisa, status_pesanan, keterangan, total_quantity
             $sql_pemesanan_dummy = "INSERT INTO pemesanan (id_pesan, id_customer, tgl_pesan, tgl_kirim, uang_muka, total_tagihan_keseluruhan, sisa, status_pesanan, keterangan, total_quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            if ($stmt_pemesanan_dummy = $conn->prepare($sql_pemesanan_dummy)) { // Koreksi typo variabel di prepare
-                // --- START PERBAIKAN: Gunakan variabel untuk nilai literal di bind_param ---
+            if ($stmt_pemesanan_dummy = $conn->prepare($sql_pemesanan_dummy)) {
+                // Gunakan variabel untuk nilai literal di bind_param
                 $sisa_pemesanan_dummy_var = 0;
                 $status_pesanan_dummy_var = 'Lunas';
                 $stmt_pemesanan_dummy->bind_param(
@@ -170,7 +183,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $keterangan,
                     $calculated_total_quantity // total_quantity
                 );
-                // --- END PERBAIKAN ---
 
                 if (!$stmt_pemesanan_dummy->execute()) {
                     throw new Exception("Gagal menambahkan dummy pemesanan: " . $stmt_pemesanan_dummy->error);
@@ -278,14 +290,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 $bind_keterangan_kas_masuk_text = "Pembelian langsung: " . $keterangan; // Variabel untuk string literal
                 $stmt_kas_masuk->bind_param(
-                    "sssisii",
+                    "sssdssi", // Corrected type string for kas_masuk
                     $generated_id_kas_masuk,
                     $generated_id_transaksi,
                     $tgl_transaksi,
-                    $calculated_total_tagihan, // Jumlah kas masuk
+                    $calculated_total_tagihan, // Jumlah kas masuk (float/decimal -> d)
                     $bind_keterangan_kas_masuk_text,
-                    $km_harga,
-                    $km_kuantitas
+                    $km_harga, // (float/decimal -> d)
+                    $km_kuantitas // (int -> i)
                 );
 
                 if (!$stmt_kas_masuk->execute()) {
@@ -305,9 +317,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // Rollback transaksi jika ada error
             $conn->rollback();
             set_flash_message("Error saat memproses pembelian langsung: " . $e->getMessage(), "error");
+            // --- START MODIFIKASI: Tambahkan redirect setelah catch untuk menampilkan flash message ---
+            redirect('add.php');
+            // --- END MODIFIKASI ---
         }
     } else {
         set_flash_message("Silakan perbaiki kesalahan pada formulir.", "error");
+        // --- START MODIFIKASI: Tambahkan redirect setelah else untuk menampilkan flash message ---
+        redirect('add.php');
+        // --- END MODIFIKASI ---
     }
 
     end_post_processing:; // Label untuk goto
