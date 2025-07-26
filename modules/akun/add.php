@@ -18,7 +18,8 @@ $jenis_akun_list = [
     '2' => 'Kewajiban',
     '3' => 'Modal',
     '4' => 'Pendapatan',
-    '5' => 'Beban'
+    '5' => 'Beban',
+    '6' => 'Kas'
 ];
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
