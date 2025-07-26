@@ -88,10 +88,11 @@ $laba_rugi = ($total_pendapatan ?? 0) - $total_operasional;
         }
 
         .print-report h2 {
-            font-size: 16pt;
+            font-size: 18pt;
             text-align: center;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
             color: #000;
+            font-weight: bold;
         }
 
         .print-report p {
@@ -101,38 +102,54 @@ $laba_rugi = ($total_pendapatan ?? 0) - $total_operasional;
             color: #000;
         }
 
-        .print-report .flex {
-            display: flex !important;
+        .print-report .report-row {
+            display: flex;
             justify-content: space-between;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
         }
 
         .print-report .border-b {
             border-bottom: 1px solid #000;
-            margin-bottom: 10px;
+            padding-bottom: 5px;
         }
 
-        .print-report .font-extrabold {
+        .print-report .bold {
             font-weight: bold;
-            font-size: 14pt;
         }
 
-        .print-report .text-gray-700,
-        .print-report .text-gray-600,
-        .print-report .text-gray-800 {
-            color: #000 !important;
-        }
-
-        .print-report .text-green-600,
-        .print-report .text-red-600 {
-            color: #000 !important;
-            font-weight: bold;
+        .print-report .profit-row {
+            background-color: #d4edda;
+            /* Light green background for profit */
+            padding: 5px 0;
+            margin-top: 10px;
         }
 
         /* Atur margin halaman */
         @page {
             margin: 2cm;
         }
+    }
+
+    /* Gaya untuk tampilan layar */
+    .report-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 5px;
+    }
+
+    .border-b {
+        border-bottom: 1px solid #000;
+        padding-bottom: 5px;
+    }
+
+    .bold {
+        font-weight: bold;
+    }
+
+    .profit-row {
+        background-color: #d4edda;
+        padding: 5px 0;
+        margin-top: 10px;
     }
 </style>
 
@@ -172,34 +189,35 @@ $laba_rugi = ($total_pendapatan ?? 0) - $total_operasional;
         <?php else : ?>
             <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-md max-w-lg mx-auto print-report">
                 <h2 class="text-xl font-bold text-gray-800 text-center mb-4">Laporan Laba Rugi</h2>
-                <p class="text-gray-600 text-center mb-6"><strong><?php echo htmlspecialchars(date('d F Y', strtotime($start_date))); ?></strong> s/d <strong><?php echo htmlspecialchars(date('d F Y', strtotime($end_date))); ?></strong></p>
+                <p class="text-gray-600 text-center mb-6">Ampyang Cap Garuda<br>Periode: <?php echo htmlspecialchars(date('d F Y', strtotime($start_date))); ?> s/d <?php echo htmlspecialchars(date('d F Y', strtotime($end_date))); ?></p>
 
-                <div class="flex justify-between py-2 border-b border-gray-200">
-                    <span class="text-gray-700 font-semibold">Total Pendapatan:</span>
-                    <span class="text-green-600 font-bold"><?php echo format_rupiah($total_pendapatan ?? 0); ?></span>
-                </div>
-
-                <div class="mt-4 mb-2">
-                    <span class="text-gray-700 font-semibold">Biaya Operasional:</span>
-                </div>
-
-                <?php foreach ($biaya_operasional as $biaya) : ?>
-                    <div class="flex justify-between py-1 pl-4">
-                        <span class="text-gray-600"><?php echo htmlspecialchars($biaya['nama_akun']); ?>:</span>
-                        <span class="text-red-600"><?php echo format_rupiah($biaya['total']); ?></span>
+                <div class="border-b">
+                    <div class="report-row bold">
+                        <span>PENDAPATAN</span>
+                        <span><?php echo format_rupiah($total_pendapatan ?? 0); ?></span>
                     </div>
-                <?php endforeach; ?>
-
-                <div class="flex justify-between py-2 border-b border-gray-300 font-semibold mt-2">
-                    <span class="text-gray-700">Total Operasional:</span>
-                    <span class="text-red-600"><?php echo format_rupiah($total_operasional); ?></span>
                 </div>
 
-                <div class="flex justify-between pt-4 font-extrabold text-lg">
-                    <span class="text-gray-800">Laba Rugi:</span>
-                    <span class="<?php echo ($laba_rugi >= 0) ? 'text-green-600' : 'text-red-600'; ?>">
-                        <?php echo format_rupiah(abs($laba_rugi)); ?> <?php echo ($laba_rugi >= 0) ? '(Laba)' : '(Rugi)'; ?>
-                    </span>
+                <div class="border-b mt-4">
+                    <div class="report-row bold">
+                        <span>PENGELUARAN</span>
+                        <span></span>
+                    </div>
+                    <?php foreach ($biaya_operasional as $biaya) : ?>
+                        <div class="report-row">
+                            <span><?php echo htmlspecialchars($biaya['nama_akun']); ?></span>
+                            <span><?php echo format_rupiah($biaya['total']); ?></span>
+                        </div>
+                    <?php endforeach; ?>
+                    <div class="report-row bold">
+                        <span>Total Pengeluaran</span>
+                        <span><?php echo format_rupiah($total_operasional); ?></span>
+                    </div>
+                </div>
+
+                <div class="profit-row report-row bold">
+                    <span>LABA / RUGI BERSIH</span>
+                    <span><?php echo format_rupiah(abs($laba_rugi)); ?></span>
                 </div>
             </div>
         <?php endif; ?>
