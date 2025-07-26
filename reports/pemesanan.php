@@ -234,7 +234,7 @@ if ($stmt === false) {
                         $total_sub_total = 0;
                         $total_sisa = 0;
                         foreach ($orders as $order) :
-                            $total_quantity += ($order['quantity'] ?? 0);
+                            $total_quantity += ($order['total_quantity'] ?? 0);
                             $total_uang_muka += ($order['uang_muka'] ?? 0); // Use ?? 0 for potential NULLs
                             $total_sub_total += ($order['sub_total'] ?? 0); // Use ?? 0 for potential NULLs
                             $total_sisa += ($order['sisa'] ?? 0); // Use ?? 0 for potential NULLs
@@ -244,7 +244,7 @@ if ($stmt === false) {
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($order['tgl_pesan']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($order['tgl_kirim']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($order['nama_customer']); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($order['quantity']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($order['total_quantity']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($order['sub_total'] ?? 0); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($order['uang_muka'] ?? 0); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($order['sisa'] ?? 0); ?></td>
