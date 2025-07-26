@@ -28,7 +28,7 @@ $total_quantity = 0; // Akan diisi dari total item quantity
 
 // Ambil daftar customer untuk dropdown
 $customers = [];
-$customer_sql = "SELECT id_customer, nama_customer FROM customer ORDER BY nama_customer ASC";
+$customer_sql = "SELECT id_customer, nama_customer FROM customer ORDER BY nama_customer ASC"; // Mengoreksi nama_akun menjadi nama_customer
 $customer_result = $conn->query($customer_sql);
 if ($customer_result->num_rows > 0) {
     while ($row = $customer_result->fetch_assoc()) {
@@ -80,7 +80,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (empty($id_akun)) {
         $id_akun_error = "Akun tidak boleh kosong.";
     }
-
+    // --- START PERBAIKAN: Validasi format tanggal yang lebih ketat dan debugging ---
     if (empty($tgl_transaksi)) {
         $tgl_transaksi_error = "Tanggal Transaksi tidak boleh kosong.";
     } else {
@@ -104,6 +104,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             error_log("Date validation passed for: " . $tgl_transaksi);
         }
     }
+    // --- END PERBAIKAN ---
 
     if (empty($metode_pembayaran)) {
         $metode_pembayaran_error = "Metode Pembayaran tidak boleh kosong.";
@@ -168,19 +169,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Mulai transaksi database
         $conn->begin_transaction();
         try {
-            // PERBAIKAN UTAMA: Cek apakah kolom pembelian_langsung ada di tabel pemesanan
-            $check_column_sql = "SHOW COLUMNS FROM pemesanan LIKE 'pembelian_langsung'";
-            $check_result = $conn->query($check_column_sql);
-            $has_pembelian_langsung_column = ($check_result && $check_result->num_rows > 0);
-
-            // Jika kolom tidak ada, tambahkan kolom pembelian_langsung
-            if (!$has_pembelian_langsung_column) {
-                $add_column_sql = "ALTER TABLE pemesanan ADD COLUMN pembelian_langsung TINYINT(1) DEFAULT 0 COMMENT 'Flag untuk pembelian langsung: 1=Ya, 0=Tidak'";
-                if (!$conn->query($add_column_sql)) {
-                    error_log("Warning: Gagal menambahkan kolom pembelian_langsung: " . $conn->error);
-                    // Lanjutkan tanpa kolom ini, gunakan metode alternatif
-                }
-            }
+            // --- Implementasi Alur Pembelian Langsung sebagai Pesanan Lunas ---
 
             // 1. Generate ID Pesanan untuk "dummy" pemesanan
             $latest_pesan_sql = "SELECT MAX(CAST(SUBSTRING(id_pesan, 4) AS UNSIGNED)) as last_num FROM pemesanan WHERE id_pesan LIKE 'ORD%'";
@@ -190,73 +179,35 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $last_pesan_num = intval($row['last_num']);
             }
             $new_pesan_num = $last_pesan_num + 1;
-            $id_pesan_dummy = sprintf("BL%05d", $new_pesan_num); // Format: BL00001 (Beli Langsung)
+            $id_pesan_dummy = sprintf("ORD%05d", $new_pesan_num); // Format: ORD00001, dst.
 
-            // 2. PERBAIKAN: Masukkan data ke tabel `pemesanan` dengan flag pembelian_langsung = 1
-            // Cek lagi apakah kolom pembelian_langsung berhasil ditambahkan
-            $check_column_again = "SHOW COLUMNS FROM pemesanan LIKE 'pembelian_langsung'";
-            $check_again_result = $conn->query($check_column_again);
-            $column_exists = ($check_again_result && $check_again_result->num_rows > 0);
+            // 2. Masukkan data ke tabel `pemesanan` (sebagai pesanan langsung lunas)
+            // Kolom uang_muka, total_tagihan_keseluruhan, sisa, status_pesanan, keterangan, total_quantity
+            $sql_pemesanan_dummy = "INSERT INTO pemesanan (id_pesan, id_customer, tgl_pesan, tgl_kirim, uang_muka, total_tagihan_keseluruhan, sisa, status_pesanan, keterangan, total_quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            if ($stmt_pemesanan_dummy = $conn->prepare($sql_pemesanan_dummy)) {
+                // Gunakan variabel untuk nilai literal di bind_param
+                $sisa_pemesanan_dummy_var = 0;
+                $status_pesanan_dummy_var = 'Lunas';
+                $stmt_pemesanan_dummy->bind_param(
+                    "ssssdddssi",
+                    $id_pesan_dummy,
+                    $id_customer,
+                    $tgl_transaksi, // tgl_pesan sama dengan tgl_transaksi
+                    $tgl_transaksi, // tgl_kirim sama dengan tgl_transaksi
+                    $calculated_total_tagihan, // uang_muka adalah total tagihan
+                    $calculated_total_tagihan, // total_tagihan_keseluruhan
+                    $sisa_pemesanan_dummy_var, // Gunakan variabel
+                    $status_pesanan_dummy_var, // Gunakan variabel
+                    $keterangan,
+                    $calculated_total_quantity // total_quantity
+                );
 
-            if ($column_exists) {
-                // Gunakan query dengan kolom pembelian_langsung
-                $sql_pemesanan_dummy = "INSERT INTO pemesanan (id_pesan, id_customer, tgl_pesan, tgl_kirim, uang_muka, total_tagihan_keseluruhan, sisa, status_pesanan, keterangan, total_quantity, pembelian_langsung) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                if ($stmt_pemesanan_dummy = $conn->prepare($sql_pemesanan_dummy)) {
-                    $sisa_pemesanan_dummy_var = 0;
-                    $status_pesanan_dummy_var = 'Lunas';
-                    $pembelian_langsung_flag = 1; // Flag untuk pembelian langsung
-
-                    $stmt_pemesanan_dummy->bind_param(
-                        "ssssdddsiii",
-                        $id_pesan_dummy,
-                        $id_customer,
-                        $tgl_transaksi, // tgl_pesan sama dengan tgl_transaksi
-                        $tgl_transaksi, // tgl_kirim sama dengan tgl_transaksi
-                        $calculated_total_tagihan, // uang_muka adalah total tagihan
-                        $calculated_total_tagihan, // total_tagihan_keseluruhan
-                        $sisa_pemesanan_dummy_var,
-                        $status_pesanan_dummy_var,
-                        $keterangan,
-                        $calculated_total_quantity, // total_quantity
-                        $pembelian_langsung_flag // Flag pembelian langsung
-                    );
-
-                    if (!$stmt_pemesanan_dummy->execute()) {
-                        throw new Exception("Gagal menambahkan dummy pemesanan: " . $stmt_pemesanan_dummy->error);
-                    }
-                    $stmt_pemesanan_dummy->close();
-                } else {
-                    throw new Exception("Error prepared statement (dummy pemesanan): " . $conn->error);
+                if (!$stmt_pemesanan_dummy->execute()) {
+                    throw new Exception("Gagal menambahkan dummy pemesanan: " . $stmt_pemesanan_dummy->error);
                 }
+                $stmt_pemesanan_dummy->close();
             } else {
-                // Gunakan query tanpa kolom pembelian_langsung dan tambahkan prefix khusus di keterangan
-                $sql_pemesanan_dummy = "INSERT INTO pemesanan (id_pesan, id_customer, tgl_pesan, tgl_kirim, uang_muka, total_tagihan_keseluruhan, sisa, status_pesanan, keterangan, total_quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                if ($stmt_pemesanan_dummy = $conn->prepare($sql_pemesanan_dummy)) {
-                    $sisa_pemesanan_dummy_var = 0;
-                    $status_pesanan_dummy_var = 'Lunas';
-                    $keterangan_with_flag = "[BELI_LANGSUNG] " . $keterangan; // Tambahkan prefix khusus
-
-                    $stmt_pemesanan_dummy->bind_param(
-                        "ssssdddssi",
-                        $id_pesan_dummy,
-                        $id_customer,
-                        $tgl_transaksi,
-                        $tgl_transaksi,
-                        $calculated_total_tagihan,
-                        $calculated_total_tagihan,
-                        $sisa_pemesanan_dummy_var,
-                        $status_pesanan_dummy_var,
-                        $keterangan_with_flag, // Gunakan keterangan dengan flag
-                        $calculated_total_quantity
-                    );
-
-                    if (!$stmt_pemesanan_dummy->execute()) {
-                        throw new Exception("Gagal menambahkan dummy pemesanan: " . $stmt_pemesanan_dummy->error);
-                    }
-                    $stmt_pemesanan_dummy->close();
-                } else {
-                    throw new Exception("Error prepared statement (dummy pemesanan): " . $conn->error);
-                }
+                throw new Exception("Error prepared statement (dummy pemesanan): " . $conn->error);
             }
 
             // 3. Masukkan data ke tabel `detail_pemesanan`
@@ -265,7 +216,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 foreach ($items_data as $item_detail) {
                     $stmt_detail->bind_param(
                         "ssidd",
-                        $id_pesan_dummy,
+                        $id_pesan_dummy, // Menggunakan id_pesan dari dummy pemesanan
                         $item_detail['id_barang'],
                         $item_detail['quantity_item'],
                         $item_detail['harga_satuan_item'],
@@ -281,7 +232,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
 
             // 4. Generate ID Transaksi Otomatis
-            $generated_id_transaksi = 'TRX' . strtoupper(substr(uniqid(), 0, 5)); // TRX = Beli Langsung Transaksi
+            $generated_id_transaksi = 'TRX' . strtoupper(substr(uniqid(), 0, 5));
             $check_gen_id_sql = "SELECT id_transaksi FROM transaksi WHERE id_transaksi = ?";
             $stmt_check_gen_id = $conn->prepare($check_gen_id_sql);
             $stmt_check_gen_id->bind_param("s", $generated_id_transaksi);
@@ -293,6 +244,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $stmt_check_gen_id->close();
 
             // 5. Masukkan data ke tabel `transaksi` (Pembelian Langsung)
+            // --- PERBAIKAN UTAMA: Pastikan parameter binding dan tipe data benar ---
             $sql_transaksi = "INSERT INTO transaksi (id_transaksi, id_pesan, id_akun, id_customer, tgl_transaksi, jumlah_dibayar, metode_pembayaran, keterangan, total_tagihan, sisa_pembayaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             if ($stmt_transaksi = $conn->prepare($sql_transaksi)) {
                 // Debug: Log nilai sebelum binding
@@ -305,15 +257,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $bind_id_pesan_dummy = $id_pesan_dummy;
                 $bind_id_akun = $id_akun;
                 $bind_id_customer = $id_customer;
-                $bind_tgl_transaksi = $tgl_transaksi;
-                $bind_jumlah_dibayar = (float)$jumlah_dibayar;
+                $bind_tgl_transaksi = $tgl_transaksi; // Pastikan ini format DATE yang benar
+                $bind_jumlah_dibayar = (float)$jumlah_dibayar; // Cast ke float
                 $bind_metode_pembayaran = $metode_pembayaran;
-                $bind_keterangan = $keterangan; // Keterangan asli tanpa prefix
-                $bind_calculated_total_tagihan = (float)$calculated_total_tagihan;
-                $bind_sisa_pembayaran_var = 0.0;
+                $bind_keterangan = $keterangan;
+                $bind_calculated_total_tagihan = (float)$calculated_total_tagihan; // Cast ke float
+                $bind_sisa_pembayaran_var = 0.0; // Float 0
 
+                // Perbaikan tipe data binding: s=string, d=double/float
                 $stmt_transaksi->bind_param(
-                    "sssssdssdd",
+                    "sssssdssdd", // Perbaikan: tgl_transaksi tetap string (s), jumlah decimal menggunakan d
                     $bind_id_transaksi,
                     $bind_id_pesan_dummy,
                     $bind_id_akun,
@@ -355,21 +308,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             $sql_kas_masuk = "INSERT INTO kas_masuk (id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan, harga, kuantitas) VALUES (?, ?, ?, ?, ?, ?, ?)";
             if ($stmt_kas_masuk = $conn->prepare($sql_kas_masuk)) {
-                $km_harga = (float)$calculated_total_tagihan;
-                $km_kuantitas = (int)$calculated_total_quantity;
+                $km_harga = (float)$calculated_total_tagihan; // Cast ke float
+                $km_kuantitas = (int)$calculated_total_quantity; // Cast ke int
 
-                $bind_keterangan_kas_masuk_text = "Pembelian langsung: " . $keterangan;
-                $bind_jumlah_kas_masuk = (float)$calculated_total_tagihan;
+                $bind_keterangan_kas_masuk_text = "Pembelian langsung: " . $keterangan; // Variabel untuk string literal
+                $bind_jumlah_kas_masuk = (float)$calculated_total_tagihan; // Cast ke float
 
                 $stmt_kas_masuk->bind_param(
-                    "sssdsdi",
+                    "sssdsdi", // Perbaikan tipe data binding
                     $generated_id_kas_masuk,
                     $generated_id_transaksi,
-                    $tgl_transaksi,
-                    $bind_jumlah_kas_masuk,
+                    $tgl_transaksi, // Pastikan tanggal benar
+                    $bind_jumlah_kas_masuk, // Jumlah kas masuk (float/decimal -> d)
                     $bind_keterangan_kas_masuk_text,
-                    $km_harga,
-                    $km_kuantitas
+                    $km_harga, // (float/decimal -> d)
+                    $km_kuantitas // (int -> i)
                 );
 
                 if (!$stmt_kas_masuk->execute()) {
