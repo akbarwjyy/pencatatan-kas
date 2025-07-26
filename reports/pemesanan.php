@@ -11,10 +11,12 @@ if (!has_permission('Admin') && !has_permission('Pemilik') && !has_permission('P
 $start_date = isset($_GET['start_date']) ? sanitize_input($_GET['start_date']) : '';
 $end_date = isset($_GET['end_date']) ? sanitize_input($_GET['end_date']) : '';
 
+// --- START MODIFIKASI: Ambil total_tagihan_keseluruhan dan total_quantity ---
 $sql = "SELECT p.*, c.nama_customer
         FROM pemesanan p
         JOIN customer c ON p.id_customer = c.id_customer
         ";
+// --- END MODIFIKASI ---
 
 $where_clause = [];
 $params = [];
@@ -231,21 +233,21 @@ if ($stmt === false) {
                         <?php
                         $total_quantity = 0;
                         $total_uang_muka = 0;
-                        $total_sub_total = 0;
+                        $total_tagihan_keseluruhan = 0; // Mengubah nama variabel
                         $total_sisa = 0;
                         foreach ($orders as $order) :
-                            $total_quantity += ($order['total_quantity'] ?? 0);
-                            $total_uang_muka += ($order['uang_muka'] ?? 0); // Use ?? 0 for potential NULLs
-                            $total_sub_total += ($order['sub_total'] ?? 0); // Use ?? 0 for potential NULLs
-                            $total_sisa += ($order['sisa'] ?? 0); // Use ?? 0 for potential NULLs
+                            $total_quantity += ($order['total_quantity'] ?? 0); // Menggunakan total_quantity
+                            $total_uang_muka += ($order['uang_muka'] ?? 0);
+                            $total_tagihan_keseluruhan += ($order['total_tagihan_keseluruhan'] ?? 0); // Menggunakan total_tagihan_keseluruhan
+                            $total_sisa += ($order['sisa'] ?? 0);
                         ?>
                             <tr class="hover:bg-gray-50">
                                 <td class="px-3 py-2 text-sm text-gray-500"><?php echo htmlspecialchars($order['id_pesan']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($order['tgl_pesan']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($order['tgl_kirim']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($order['nama_customer']); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($order['total_quantity']); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($order['sub_total'] ?? 0); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($order['total_quantity'] ?? 0); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($order['total_tagihan_keseluruhan'] ?? 0); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($order['uang_muka'] ?? 0); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($order['sisa'] ?? 0); ?></td>
                                 <td class="px-3 py-2 text-sm">
@@ -273,7 +275,7 @@ if ($stmt === false) {
                         <tr class="bg-gray-100 font-bold">
                             <td colspan="4" class="px-3 py-2 border-t text-right text-xs uppercase text-gray-700">Total:</td>
                             <td class="px-3 py-2 border-t text-sm text-gray-900"><?php echo htmlspecialchars($total_quantity); ?></td>
-                            <td class="px-3 py-2 border-t text-sm text-gray-900"><?php echo format_rupiah($total_sub_total); ?></td>
+                            <td class="px-3 py-2 border-t text-sm text-gray-900"><?php echo format_rupiah($total_tagihan_keseluruhan); ?></td>
                             <td class="px-3 py-2 border-t text-sm text-gray-900"><?php echo format_rupiah($total_uang_muka); ?></td>
                             <td class="px-3 py-2 border-t text-sm text-gray-900"><?php echo format_rupiah($total_sisa); ?></td>
                             <td class="px-3 py-2 border-t print:hidden"></td>
