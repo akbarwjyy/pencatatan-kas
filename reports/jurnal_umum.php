@@ -82,28 +82,40 @@ if ($stmt_kk === false) {
 usort($entries, function ($a, $b) {
     return strtotime($a['tanggal']) - strtotime($b['tanggal']);
 });
-
 ?>
 
 <div class="container mx-auto px-4 py-8">
     <div class="bg-white rounded-lg shadow-md p-6">
-        <h1 class="text-2xl font-bold text-gray-800 mb-4">Laporan Jurnal Umum Kas</h1>
-        <p class="text-gray-600 mb-6">Menampilkan semua pergerakan kas (masuk dan keluar) secara kronologis.</p>
-
         <div class="print-only" style="display: none;">
-            <h2 class="text-center font-bold">Periode: <?php echo date('d/m/Y', strtotime($start_date)); ?> - <?php echo date('d/m/Y', strtotime($end_date)); ?></h2>
+            <h1 class="text-center text-2xl font-bold mb-2">Laporan Jurnal Umum Kas</h1>
+            <h2 class="text-center font-semibold">Periode: <?php echo date('d/m/Y', strtotime($start_date)); ?> - <?php echo date('d/m/Y', strtotime($end_date)); ?></h2>
         </div>
 
         <style>
             @media print {
-                .print-hide {
+
+                /* Hide non-essential elements */
+                .print-hide,
+                header,
+                nav,
+                .bg-gray-50,
+                button,
+                form {
                     display: none !important;
                 }
 
+                /* Show print-only content */
                 .print-only {
                     display: block !important;
+                    margin-bottom: 20px;
                 }
 
+                /* Page layout */
+                @page {
+                    margin: 1cm;
+                }
+
+                /* Container adjustments */
                 .container {
                     width: 100% !important;
                     max-width: none !important;
@@ -111,49 +123,69 @@ usort($entries, function ($a, $b) {
                     margin: 0 !important;
                 }
 
+                /* Remove shadows and borders from main container */
                 .bg-white {
                     box-shadow: none !important;
                     border: none !important;
                 }
 
+                /* Table styling */
                 table {
                     width: 100% !important;
                     border-collapse: collapse !important;
+                    font-size: 10pt !important;
                 }
 
                 th,
                 td {
-                    padding: 5px !important;
-                    border: 1px solid #ddd !important;
+                    padding: 8px !important;
+                    border: 1px solid #000 !important;
+                    vertical-align: top;
                 }
 
                 th {
-                    background-color: #f2f2f2 !important;
+                    background-color: #e6e6e6 !important;
                     font-weight: bold !important;
+                    text-transform: uppercase;
                 }
 
+                /* Text alignment */
                 .text-right {
                     text-align: right !important;
                 }
 
-                .pl-8,
-                .pl-16 {
-                    padding-left: 10px !important;
+                /* Indentation for account names */
+                .pl-8 {
+                    padding-left: 20px !important;
                 }
 
+                .pl-16 {
+                    padding-left: 40px !important;
+                }
+
+                /* Header styling */
                 h1 {
                     text-align: center !important;
-                    font-size: 18px !important;
+                    font-size: 18pt !important;
                     margin-bottom: 10px !important;
+                    font-weight: bold !important;
                 }
 
-                p {
+                h2 {
                     text-align: center !important;
+                    font-size: 14pt !important;
                     margin-bottom: 20px !important;
                 }
 
+                /* Italic text for descriptions */
                 .font-italic {
                     font-style: italic !important;
+                }
+
+                /* Footer totals */
+                tfoot tr {
+                    background-color: #e6e6e6 !important;
+                    font-weight: bold !important;
                 }
             }
         </style>
@@ -186,7 +218,7 @@ usort($entries, function ($a, $b) {
         </form>
 
         <?php if (empty($entries)) : ?>
-            <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6">
+            <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6 print-hide">
                 <p class="font-medium">Tidak ada entri jurnal ditemukan untuk periode ini.</p>
             </div>
         <?php else : ?>
