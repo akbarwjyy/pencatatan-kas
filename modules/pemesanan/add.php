@@ -227,7 +227,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                     // Tambahkan transaksi untuk uang muka
                     $sql_transaksi = "INSERT INTO transaksi (id_transaksi, id_pesan, id_akun, id_customer, tgl_transaksi, jumlah_dibayar, metode_pembayaran, keterangan, total_tagihan, sisa_pembayaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                    $keterangan_transaksi = "Uang muka pemesanan " . $id_pesan . (!empty($keterangan) ? " (" . $keterangan . ")" : "");
+                    $keterangan_transaksi =  $id_pesan . (!empty($keterangan) ? " (" . $keterangan . ")" : "");
                     $metode_pembayaran_transaksi = "Cash"; // Default cash untuk uang muka
 
                     if ($stmt_transaksi = $conn->prepare($sql_transaksi)) {

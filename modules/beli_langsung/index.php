@@ -7,31 +7,29 @@ if (!has_permission('Admin') && !has_permission('Pegawai')) {
     redirect('../../modules/dashboard/index.php'); // Redirect ke dashboard
 }
 
-// PERBAIKAN: Sesuaikan query SQL untuk pembelian langsung dengan penanganan kolom yang tidak ada
+// MODIFIKASI: Query yang lebih akurat untuk mendeteksi pembelian langsung
+// Pembelian langsung memiliki karakteristik:
+// 1. status_pesanan = 'Lunas' 
+// 2. metode_pembayaran = 'Tunai'
+// 3. tgl_pesan = tgl_kirim = tgl_transaksi (pembelian pada hari yang sama)
+// 4. uang_muka = total_tagihan_keseluruhan (dibayar penuh)
+
 $sql = "SELECT tr.id_transaksi, tr.id_customer, tr.id_akun, tr.tgl_transaksi, tr.jumlah_dibayar, tr.metode_pembayaran, tr.keterangan, tr.total_tagihan, tr.sisa_pembayaran,
         c.nama_customer, a.nama_akun,
-        p.total_quantity,          -- Ambil total_quantity dari pemesanan
-        p.keterangan AS pemesanan_keterangan -- Ambil keterangan dari pemesanan
+        p.total_quantity,
+        p.keterangan AS pemesanan_keterangan,
+        p.tgl_pesan, p.tgl_kirim, p.uang_muka, p.total_tagihan_keseluruhan, p.status_pesanan
         FROM transaksi tr
         LEFT JOIN customer c ON tr.id_customer = c.id_customer
         LEFT JOIN akun a ON tr.id_akun = a.id_akun
-        LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan -- Join ke pemesanan untuk filter pembelian_langsung
-        WHERE ";
-
-// Cek apakah kolom pembelian_langsung ada di tabel pemesanan
-$check_column_sql = "SHOW COLUMNS FROM pemesanan LIKE 'pembelian_langsung'";
-$check_result = $conn->query($check_column_sql);
-
-if ($check_result && $check_result->num_rows > 0) {
-    // Kolom pembelian_langsung ada, gunakan filter berdasarkan kolom ini
-    $sql .= "p.pembelian_langsung = 1"; // Filter hanya untuk pembelian langsung
-} else {
-    // Kolom pembelian_langsung tidak ada, gunakan alternatif filter
-    // Misalnya berdasarkan pola tertentu atau status_pesanan = 'Lunas' dengan metode tunai
-    $sql .= "p.status_pesanan = 'Lunas' AND tr.metode_pembayaran = 'Tunai'";
-}
-
-$sql .= " ORDER BY tr.tgl_transaksi DESC";
+        LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan
+        WHERE p.status_pesanan = 'Lunas' 
+        AND tr.metode_pembayaran = 'Tunai'
+        AND p.tgl_pesan = p.tgl_kirim 
+        AND p.tgl_pesan = tr.tgl_transaksi
+        AND p.uang_muka = p.total_tagihan_keseluruhan
+        AND tr.sisa_pembayaran = 0
+        ORDER BY tr.tgl_transaksi DESC";
 
 $result = $conn->query($sql);
 
@@ -61,6 +59,7 @@ if ($result === false) {
         <?php if (empty($beli_langsung_transactions)) : ?>
             <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6">
                 <p class="font-medium">Belum ada data pembelian langsung yang tersedia.</p>
+                <p class="text-sm mt-1">Pembelian langsung adalah transaksi dengan status lunas, metode tunai, dan tanggal pesan = tanggal kirim = tanggal transaksi.</p>
             </div>
         <?php else : ?>
             <div class="overflow-x-auto">
