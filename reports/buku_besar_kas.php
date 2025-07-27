@@ -449,7 +449,7 @@ if (!empty($selected_akun)) {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200">
-                            <!-- Section DEBIT -->
+                            <!-- Section DEBIT (Menampilkan kas masuk sebagai Pendapatan) -->
                             <tr class="bg-gray-50">
                                 <td colspan="5" class="px-3 py-2 text-sm font-bold text-gray-900 kas-section-title">DEBIT</td>
                             </tr>
@@ -458,12 +458,12 @@ if (!empty($selected_akun)) {
                             $current_saldo = $saldo_awal;
                             $total_debet = 0;
 
-                            // Tampilkan entries yang bertipe Debit (kas keluar)
+                            // Tampilkan entries yang bertipe Kredit (kas masuk)
                             foreach ($account_ledger_entries as $entry) :
-                                if ($entry['tipe_saldo'] == 'Debit') :
+                                if ($entry['tipe_saldo'] == 'Kredit') :
                                     $debit = $entry['jumlah'] ?? 0;
                                     $total_debet += $debit;
-                                    $current_saldo -= $debit;
+                                    $current_saldo += $debit; // Kas masuk menambah saldo
                             ?>
                                     <tr class="hover:bg-gray-50">
                                         <td class="px-3 py-2 text-sm text-gray-900 text-center"><?php echo date('d-m-Y', strtotime($entry['tanggal'])); ?></td>
@@ -486,7 +486,7 @@ if (!empty($selected_akun)) {
                                 <td class="px-3 py-2 text-sm font-bold text-gray-900 text-right">Rp <?php echo number_format(abs($current_saldo), 0, ',', '.'); ?></td>
                             </tr>
 
-                            <!-- Section KREDIT -->
+                            <!-- Section KREDIT (Menampilkan kas keluar sebagai Pengeluaran) -->
                             <tr class="bg-gray-50">
                                 <td colspan="5" class="px-3 py-2 text-sm font-bold text-gray-900 kas-section-title">KREDIT</td>
                             </tr>
@@ -494,12 +494,12 @@ if (!empty($selected_akun)) {
                             <?php
                             $total_kredit = 0;
 
-                            // Tampilkan entries yang bertipe Kredit (kas masuk)
+                            // Tampilkan entries yang bertipe Debit (kas keluar)
                             foreach ($account_ledger_entries as $entry) :
-                                if ($entry['tipe_saldo'] == 'Kredit') :
+                                if ($entry['tipe_saldo'] == 'Debit') :
                                     $kredit = $entry['jumlah'] ?? 0;
                                     $total_kredit += $kredit;
-                                    $current_saldo += $kredit;
+                                    $current_saldo -= $kredit; // Kas keluar mengurangi saldo
                             ?>
                                     <tr class="hover:bg-gray-50">
                                         <td class="px-3 py-2 text-sm text-gray-900 text-center"><?php echo date('d-m-Y', strtotime($entry['tanggal'])); ?></td>
