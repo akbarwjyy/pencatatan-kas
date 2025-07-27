@@ -41,15 +41,37 @@ if (!empty($selected_akun)) {
         }
     }
 
-    // Hitung saldo awal untuk akun yang dipilih
+    // Tentukan grup akun terpilih (misal: '4' untuk Pendapatan, '6' untuk Kas)
+    $selected_akun_group = substr($selected_akun, 0, 1);
+    $is_pendapatan_akun = ($selected_akun_group == '4'); // Akun Pendapatan
+    $is_kas_akun = ($selected_akun_group == '6'); // Akun Kas (sesuai penomoran di add.php)
+
+    // Hitung saldo awal untuk akun yang dipilih (total kas masuk sebelum start_date - total kas keluar sebelum start_date)
+    // Query untuk Kas Masuk (Saldo Awal)
     $sql_saldo_awal_masuk = "SELECT SUM(km.jumlah) FROM kas_masuk km 
-                             LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
-                             WHERE km.tgl_kas_masuk < ? AND (tr.id_akun = ? OR km.id_transaksi IS NULL)";
+                             LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi";
+    $params_saldo_awal_masuk = [$start_date];
+    $types_saldo_awal_masuk = "s";
+    $where_saldo_awal_masuk = ["km.tgl_kas_masuk < ?"];
+
+    if ($is_kas_akun) {
+        // Jika akun Kas, semua kas masuk relevan
+    } else {
+        $where_saldo_awal_masuk[] = "tr.id_akun = ?";
+        $params_saldo_awal_masuk[] = $selected_akun;
+        $types_saldo_awal_masuk .= "s";
+    }
+    if ($is_pendapatan_akun) {
+        // Untuk pendapatan, hanya yang dari pesanan
+        $where_saldo_awal_masuk[] = "tr.id_pesan IS NOT NULL";
+    }
+    $sql_saldo_awal_masuk .= " WHERE " . implode(" AND ", $where_saldo_awal_masuk);
+
     $stmt_saldo_awal_masuk = $conn->prepare($sql_saldo_awal_masuk);
     if ($stmt_saldo_awal_masuk === false) {
         set_flash_message("Error menyiapkan query saldo awal masuk: " . $conn->error, "error");
     } else {
-        $stmt_saldo_awal_masuk->bind_param("ss", $start_date, $selected_akun);
+        $stmt_saldo_awal_masuk->bind_param($types_saldo_awal_masuk, ...$params_saldo_awal_masuk);
         $stmt_saldo_awal_masuk->execute();
         $stmt_saldo_awal_masuk->bind_result($saldo_masuk_awal);
         $stmt_saldo_awal_masuk->fetch();
@@ -57,12 +79,26 @@ if (!empty($selected_akun)) {
         $saldo_masuk_awal = $saldo_masuk_awal ?: 0;
     }
 
-    $sql_saldo_awal_keluar = "SELECT SUM(jumlah) FROM kas_keluar WHERE tgl_kas_keluar < ? AND id_akun = ?";
+    // Query untuk Kas Keluar (Saldo Awal)
+    $sql_saldo_awal_keluar = "SELECT SUM(jumlah) FROM kas_keluar WHERE tgl_kas_keluar < ?";
+    $params_saldo_awal_keluar = [$start_date];
+    $types_saldo_awal_keluar = "s";
+    $where_saldo_awal_keluar = ["tgl_kas_keluar < ?"];
+
+    if ($is_kas_akun) {
+        // Jika akun Kas, semua kas keluar relevan
+    } else {
+        $where_saldo_awal_keluar[] = "id_akun = ?";
+        $params_saldo_awal_keluar[] = $selected_akun;
+        $types_saldo_awal_keluar .= "s";
+    }
+    $sql_saldo_awal_keluar .= " AND " . implode(" AND ", $where_saldo_awal_keluar);
+
     $stmt_saldo_awal_keluar = $conn->prepare($sql_saldo_awal_keluar);
     if ($stmt_saldo_awal_keluar === false) {
         set_flash_message("Error menyiapkan query saldo awal keluar: " . $conn->error, "error");
     } else {
-        $stmt_saldo_awal_keluar->bind_param("ss", $start_date, $selected_akun);
+        $stmt_saldo_awal_keluar->bind_param($types_saldo_awal_keluar, ...$params_saldo_awal_keluar);
         $stmt_saldo_awal_keluar->execute();
         $stmt_saldo_awal_keluar->bind_result($saldo_keluar_awal);
         $stmt_saldo_awal_keluar->fetch();
@@ -70,10 +106,11 @@ if (!empty($selected_akun)) {
         $saldo_keluar_awal = $saldo_keluar_awal ?: 0;
     }
 
-    // Kas masuk adalah kredit, kas keluar adalah debit
-    $saldo_awal = ($saldo_keluar_awal ?? 0) - ($saldo_masuk_awal ?? 0);
+    $saldo_awal = ($saldo_masuk_awal ?? 0) - ($saldo_keluar_awal ?? 0); // Saldo awal adalah Kas Masuk - Kas Keluar
 
-    // Ambil entri kas masuk
+
+    // Ambil entri untuk akun yang dipilih dalam periode
+    // Kas Masuk (Kredit)
     $sql_km_akun = "SELECT 
                     km.tgl_kas_masuk AS tanggal, 
                     km.keterangan, 
@@ -81,16 +118,35 @@ if (!empty($selected_akun)) {
                     'Kredit' AS tipe_saldo, 
                     tr.id_transaksi,
                     km.harga,
-                    km.kuantitas
+                    km.kuantitas,
+                    p.id_pesan AS no_pesan, 
+                    c.nama_customer AS nama_customer 
                     FROM kas_masuk km 
                     LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
-                    WHERE km.tgl_kas_masuk BETWEEN ? AND ? 
-                    AND (tr.id_akun = ? OR km.id_transaksi IS NULL)";
+                    LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan 
+                    LEFT JOIN customer c ON p.id_customer = c.id_customer";
+    $params_km_akun = [$start_date, $end_date];
+    $types_km_akun = "ss";
+    $where_km_akun = ["km.tgl_kas_masuk BETWEEN ? AND ?"];
+
+    if ($is_kas_akun) {
+        // Jika akun Kas, semua kas masuk relevan
+    } else {
+        $where_km_akun[] = "tr.id_akun = ?";
+        $params_km_akun[] = $selected_akun;
+        $types_km_akun .= "s";
+    }
+    if ($is_pendapatan_akun) {
+        // Untuk pendapatan, hanya yang dari pesanan
+        $where_km_akun[] = "tr.id_pesan IS NOT NULL";
+    }
+    $sql_km_akun .= " WHERE " . implode(" AND ", $where_km_akun);
+
     $stmt_km_akun = $conn->prepare($sql_km_akun);
     if ($stmt_km_akun === false) {
         set_flash_message("Error menyiapkan query entri kas masuk: " . $conn->error, "error");
     } else {
-        $stmt_km_akun->bind_param("sss", $start_date, $end_date, $selected_akun);
+        $stmt_km_akun->bind_param($types_km_akun, ...$params_km_akun);
         $stmt_km_akun->execute();
         $result_km_akun = $stmt_km_akun->get_result();
         while ($row = $result_km_akun->fetch_assoc()) {
@@ -99,15 +155,30 @@ if (!empty($selected_akun)) {
         $stmt_km_akun->close();
     }
 
-    // Ambil entri kas keluar
-    $sql_kk_akun = "SELECT kk.tgl_kas_keluar AS tanggal, kk.keterangan, kk.jumlah, 'Debit' AS tipe_saldo, NULL AS id_transaksi, kk.harga, kk.kuantitas
+    // Kas Keluar (Debit)
+    $sql_kk_akun = "SELECT kk.tgl_kas_keluar AS tanggal, kk.keterangan, kk.jumlah, 'Debit' AS tipe_saldo, NULL AS id_transaksi, kk.harga, kk.kuantitas,
+                    NULL AS no_pesan, NULL AS nama_customer 
                     FROM kas_keluar kk 
-                    WHERE kk.tgl_kas_keluar BETWEEN ? AND ? AND kk.id_akun = ?";
+                    LEFT JOIN akun a ON kk.id_akun = a.id_akun -- Join akun untuk filter akun keluar
+                    WHERE kk.tgl_kas_keluar BETWEEN ? AND ?";
+    $params_kk_akun = [$start_date, $end_date];
+    $types_kk_akun = "ss";
+    $where_kk_akun = ["kk.tgl_kas_keluar BETWEEN ? AND ?"];
+
+    if ($is_kas_akun) {
+        // Jika akun Kas, semua kas keluar relevan
+    } else {
+        $where_kk_akun[] = "kk.id_akun = ?";
+        $params_kk_akun[] = $selected_akun;
+        $types_kk_akun .= "s";
+    }
+    $sql_kk_akun .= " AND " . implode(" AND ", $where_kk_akun);
+
     $stmt_kk_akun = $conn->prepare($sql_kk_akun);
     if ($stmt_kk_akun === false) {
         set_flash_message("Error menyiapkan query entri kas keluar: " . $conn->error, "error");
     } else {
-        $stmt_kk_akun->bind_param("sss", $start_date, $end_date, $selected_akun);
+        $stmt_kk_akun->bind_param($types_kk_akun, ...$params_kk_akun);
         $stmt_kk_akun->execute();
         $result_kk_akun = $stmt_kk_akun->get_result();
         while ($row = $result_kk_akun->fetch_assoc()) {
@@ -116,18 +187,19 @@ if (!empty($selected_akun)) {
         $stmt_kk_akun->close();
     }
 
-    // Urutkan entri berdasarkan tanggal
+    // Urutkan semua entri berdasarkan tanggal
     usort($account_ledger_entries, function ($a, $b) {
         return strtotime($a['tanggal']) - strtotime($b['tanggal']);
     });
 }
 ?>
 
-<div class="container mx-auto px-4 py-8" id="report-container">
+<div class="container mx-auto px-4 py-8">
     <div class="bg-white rounded-lg shadow-md p-6">
         <h1 class="text-2xl font-bold text-gray-800 mb-4">Laporan Buku Besar Kas Per Periode</h1>
+        <p class="text-gray-600 mb-6">Lihat pergerakan saldo untuk akun kas tertentu.</p>
 
-        <form action="" method="get" class="mb-6 p-4 bg-gray-50 rounded-lg shadow-sm flex flex-wrap items-end gap-4 print-hidden">
+        <form action="" method="get" class="mb-6 p-4 bg-gray-50 rounded-lg shadow-sm flex flex-wrap items-end gap-4">
             <div class="flex-1 min-w-[200px]">
                 <label for="id_akun" class="block text-gray-700 text-sm font-bold mb-2">Pilih Akun:</label>
                 <select id="id_akun" name="id_akun" required
@@ -161,7 +233,7 @@ if (!empty($selected_akun)) {
                     Reset Filter
                 </a>
                 <button type="button" onclick="window.print()"
-                    class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ml-2 print-hidden">
+                    class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ml-2 print:hidden">
                     Cetak Laporan
                 </button>
             </div>
@@ -169,48 +241,12 @@ if (!empty($selected_akun)) {
 
         <style>
             @media print {
-
-                /* Hide everything except the report container */
-                body * {
-                    visibility: hidden !important;
-                }
-
-                #report-container,
-                #report-container * {
-                    visibility: visible !important;
-                }
-
-                #report-container {
-                    position: absolute;
-                    left: 0;
-                    top: 0;
-                    width: 100%;
-                    margin: 0 !important;
-                    padding: 10px !important;
-                }
-
-                /* Explicitly hide header, nav, and common layout elements */
-                header,
-                nav,
-                .navbar,
-                .header,
-                .topbar,
-                .sidebar,
-                footer,
-                .print-hidden {
+                .print\:hidden {
                     display: none !important;
                 }
 
-                /* Remove unnecessary styling for print */
-                .bg-white {
+                .bg-gray-50 {
                     background: white !important;
-                }
-
-                .bg-gray-50,
-                .bg-gray-100,
-                .bg-yellow-100 {
-                    background: white !important;
-                    border: none !important;
                 }
 
                 .shadow-md,
@@ -222,27 +258,59 @@ if (!empty($selected_akun)) {
                     border-radius: 0 !important;
                 }
 
-                .border {
-                    border: 1px solid black !important;
+                .container {
+                    max-width: none !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
                 }
 
                 .px-4,
-                .py-8,
+                .py-8 {
+                    padding: 0 !important;
+                }
+
                 .p-6 {
-                    padding: 4px !important;
+                    padding: 8px !important;
                 }
 
                 .mb-6,
                 .mb-4 {
-                    margin-bottom: 4px !important;
+                    margin-bottom: 8px !important;
                 }
 
-                .text-gray-600,
-                .text-gray-800,
-                .text-gray-500,
-                .text-gray-900,
-                .text-yellow-700 {
+                .text-gray-600 {
                     color: black !important;
+                }
+
+                .text-gray-800 {
+                    color: black !important;
+                }
+
+                .text-gray-500 {
+                    color: black !important;
+                }
+
+                .text-gray-900 {
+                    color: black !important;
+                }
+
+                .bg-gray-100 {
+                    background: #f5f5f5 !important;
+                }
+
+                .hover\:bg-gray-50:hover {
+                    background: white !important;
+                }
+
+                .px-6 {
+                    padding-left: 4px !important;
+                    padding-right: 4px !important;
+                }
+
+                .py-3,
+                .py-4 {
+                    padding-top: 2px !important;
+                    padding-bottom: 2px !important;
                 }
 
                 .text-xs {
@@ -253,32 +321,22 @@ if (!empty($selected_akun)) {
                     font-size: 11px !important;
                 }
 
-                .text-xl,
-                .text-2xl {
-                    font-size: 14px !important;
-                }
-
                 .overflow-x-auto {
                     overflow: visible !important;
                 }
 
                 .min-w-full {
-                    width: 100% !important;
-                }
-
-                table {
-                    border-collapse: collapse !important;
-                }
-
-                th,
-                td {
-                    border: 1px solid black !important;
-                    padding: 4px !important;
+                    min-width: auto !important;
                 }
 
                 thead {
                     display: table-header-group !important;
-                    /* Ensure header is printed */
+                    /* Make thead visible for print */
+                }
+
+                tfoot {
+                    display: table-row-group !important;
+                    /* Make tfoot visible for print */
                 }
             }
         </style>
@@ -299,11 +357,13 @@ if (!empty($selected_akun)) {
                     <thead class="bg-gray-100">
                         <tr>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
-                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">ID Transaksi</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Akun</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Harga</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">No. Pesanan</th>
+                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Nama Customer</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Debit</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Kredit</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Saldo</th>
@@ -330,11 +390,11 @@ if (!empty($selected_akun)) {
                             if ($entry['tipe_saldo'] == 'Debit') {
                                 $debit = ($entry['jumlah'] ?? 0);
                                 $kredit = 0;
-                                $current_saldo += $debit;
-                            } else {
+                                $current_saldo -= $debit; /* Saldo berkurang jika debit */
+                            } else { // Kredit
                                 $kredit = ($entry['jumlah'] ?? 0);
                                 $debit = 0;
-                                $current_saldo -= $kredit;
+                                $current_saldo += $kredit; /* Saldo bertambah jika kredit */
                             }
                         ?>
                             <tr class="hover:bg-gray-50">
@@ -344,6 +404,8 @@ if (!empty($selected_akun)) {
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($entry['keterangan'] ?? '-'); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($entry['harga'] ?? 0); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo $entry['kuantitas'] ?? '-'; ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($entry['no_pesan'] ?? '-'); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($entry['nama_customer'] ?? '-'); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo ($debit > 0) ? format_rupiah($debit) : '-'; ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo ($kredit > 0) ? format_rupiah($kredit) : '-'; ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah(abs($current_saldo)); ?></td>
@@ -352,7 +414,7 @@ if (!empty($selected_akun)) {
                     </tbody>
                     <tfoot>
                         <tr class="bg-gray-100 font-bold">
-                            <td colspan="8" class="px-3 py-2 border-t text-right text-xs uppercase text-gray-700"><strong>Saldo Akhir:</strong></td>
+                            <td colspan="9" class="px-3 py-2 border-t text-right text-xs uppercase text-gray-700"><strong>Saldo Akhir:</strong></td>
                             <td class="px-3 py-2 border-t text-sm text-gray-900"><strong><?php echo format_rupiah(abs($current_saldo)); ?></strong></td>
                         </tr>
                     </tfoot>
