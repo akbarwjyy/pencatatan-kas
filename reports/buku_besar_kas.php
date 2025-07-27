@@ -46,71 +46,79 @@ if (!empty($selected_akun)) {
     $is_pendapatan_akun = ($selected_akun_group == '4'); // Akun Pendapatan
     $is_kas_akun = ($selected_akun_group == '6'); // Akun Kas (sesuai penomoran di add.php)
 
-    // Hitung saldo awal untuk akun yang dipilih (total kas masuk sebelum start_date - total kas keluar sebelum start_date)
-    // Query untuk Kas Masuk (Saldo Awal)
+    // --- START MODIFIKASI: Refaktor konstruksi query untuk saldo awal masuk ---
     $sql_saldo_awal_masuk = "SELECT SUM(km.jumlah) FROM kas_masuk km 
                              LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi";
-    $params_saldo_awal_masuk = [$start_date];
-    $types_saldo_awal_masuk = "s";
-    $where_saldo_awal_masuk = ["km.tgl_kas_masuk < ?"];
+    $where_saldo_awal_masuk = [];
+    $params_saldo_awal_masuk = [];
+    $types_saldo_awal_masuk = "";
 
-    if ($is_kas_akun) {
-        // Jika akun Kas, semua kas masuk relevan
-    } else {
+    $where_saldo_awal_masuk[] = "km.tgl_kas_masuk < ?";
+    $params_saldo_awal_masuk[] = $start_date;
+    $types_saldo_awal_masuk .= "s";
+
+    if (!$is_kas_akun) { // Jika bukan akun Kas, filter berdasarkan akun transaksi
         $where_saldo_awal_masuk[] = "tr.id_akun = ?";
         $params_saldo_awal_masuk[] = $selected_akun;
         $types_saldo_awal_masuk .= "s";
     }
-    if ($is_pendapatan_akun) {
-        // Untuk pendapatan, hanya yang dari pesanan
+    if ($is_pendapatan_akun) { // Jika akun pendapatan, hanya yang dari pesanan
         $where_saldo_awal_masuk[] = "tr.id_pesan IS NOT NULL";
     }
     $sql_saldo_awal_masuk .= " WHERE " . implode(" AND ", $where_saldo_awal_masuk);
 
     $stmt_saldo_awal_masuk = $conn->prepare($sql_saldo_awal_masuk);
     if ($stmt_saldo_awal_masuk === false) {
-        set_flash_message("Error menyiapkan query saldo awal masuk: " . $conn->error, "error");
+        set_flash_message("Error menyiapkan query saldo awal masuk: " . $conn->error . " (Query: " . htmlspecialchars($sql_saldo_awal_masuk) . ")", "error");
     } else {
-        $stmt_saldo_awal_masuk->bind_param($types_saldo_awal_masuk, ...$params_saldo_awal_masuk);
+        if (!empty($params_saldo_awal_masuk)) {
+            $stmt_saldo_awal_masuk->bind_param($types_saldo_awal_masuk, ...$params_saldo_awal_masuk); // Baris 101
+        }
         $stmt_saldo_awal_masuk->execute();
         $stmt_saldo_awal_masuk->bind_result($saldo_masuk_awal);
         $stmt_saldo_awal_masuk->fetch();
         $stmt_saldo_awal_masuk->close();
         $saldo_masuk_awal = $saldo_masuk_awal ?: 0;
     }
+    // --- END MODIFIKASI ---
 
-    // Query untuk Kas Keluar (Saldo Awal)
-    $sql_saldo_awal_keluar = "SELECT SUM(jumlah) FROM kas_keluar WHERE tgl_kas_keluar < ?";
-    $params_saldo_awal_keluar = [$start_date];
-    $types_saldo_awal_keluar = "s";
-    $where_saldo_awal_keluar = ["tgl_kas_keluar < ?"];
+    // --- START MODIFIKASI: Refaktor konstruksi query untuk saldo awal keluar ---
+    $sql_saldo_awal_keluar = "SELECT SUM(jumlah) FROM kas_keluar";
+    $where_saldo_awal_keluar = [];
+    $params_saldo_awal_keluar = [];
+    $types_saldo_awal_keluar = "";
 
-    if ($is_kas_akun) {
-        // Jika akun Kas, semua kas keluar relevan
-    } else {
+    $where_saldo_awal_keluar[] = "tgl_kas_keluar < ?";
+    $params_saldo_awal_keluar[] = $start_date;
+    $types_saldo_awal_keluar .= "s";
+
+    if (!$is_kas_akun) { // Jika bukan akun Kas, filter berdasarkan id_akun
         $where_saldo_awal_keluar[] = "id_akun = ?";
         $params_saldo_awal_keluar[] = $selected_akun;
         $types_saldo_awal_keluar .= "s";
     }
-    $sql_saldo_awal_keluar .= " AND " . implode(" AND ", $where_saldo_awal_keluar);
+    $sql_saldo_awal_keluar .= " WHERE " . implode(" AND ", $where_saldo_awal_keluar);
 
     $stmt_saldo_awal_keluar = $conn->prepare($sql_saldo_awal_keluar);
     if ($stmt_saldo_awal_keluar === false) {
-        set_flash_message("Error menyiapkan query saldo awal keluar: " . $conn->error, "error");
+        set_flash_message("Error menyiapkan query saldo awal keluar: " . $conn->error . " (Query: " . htmlspecialchars($sql_saldo_awal_keluar) . ")", "error");
     } else {
-        $stmt_saldo_awal_keluar->bind_param($types_saldo_awal_keluar, ...$params_saldo_awal_keluar);
+        if (!empty($params_saldo_awal_keluar)) {
+            $stmt_saldo_awal_keluar->bind_param($types_saldo_awal_keluar, ...$params_saldo_awal_keluar);
+        }
         $stmt_saldo_awal_keluar->execute();
         $stmt_saldo_awal_keluar->bind_result($saldo_keluar_awal);
         $stmt_saldo_awal_keluar->fetch();
         $stmt_saldo_awal_keluar->close();
         $saldo_keluar_awal = $saldo_keluar_awal ?: 0;
     }
+    // --- END MODIFIKASI ---
 
-    $saldo_awal = ($saldo_masuk_awal ?? 0) - ($saldo_keluar_awal ?? 0); // Saldo awal adalah Kas Masuk - Kas Keluar
+    // Kas masuk adalah kredit dan kas keluar adalah debit, maka saldo awal adalah kas masuk dikurangi kas keluar
+    $saldo_awal = ($saldo_masuk_awal ?? 0) - ($saldo_keluar_awal ?? 0);
 
 
-    // Ambil entri untuk akun yang dipilih dalam periode
-    // Kas Masuk (Kredit)
+    // --- START MODIFIKASI: Refaktor konstruksi query untuk entri kas masuk (Kredit) ---
     $sql_km_akun = "SELECT 
                     km.tgl_kas_masuk AS tanggal, 
                     km.keterangan, 
@@ -125,60 +133,72 @@ if (!empty($selected_akun)) {
                     LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
                     LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan 
                     LEFT JOIN customer c ON p.id_customer = c.id_customer";
-    $params_km_akun = [$start_date, $end_date];
-    $types_km_akun = "ss";
-    $where_km_akun = ["km.tgl_kas_masuk BETWEEN ? AND ?"];
+    $where_km_akun = [];
+    $params_km_akun = [];
+    $types_km_akun = "";
 
-    if ($is_kas_akun) {
-        // Jika akun Kas, semua kas masuk relevan
-    } else {
+    $where_km_akun[] = "km.tgl_kas_masuk BETWEEN ? AND ?";
+    $params_km_akun[] = $start_date;
+    $params_km_akun[] = $end_date;
+    $types_km_akun .= "ss";
+
+    if (!$is_kas_akun) { // Jika bukan akun Kas, filter berdasarkan akun transaksi
         $where_km_akun[] = "tr.id_akun = ?";
         $params_km_akun[] = $selected_akun;
         $types_km_akun .= "s";
     }
-    if ($is_pendapatan_akun) {
-        // Untuk pendapatan, hanya yang dari pesanan
+    if ($is_pendapatan_akun) { // Jika akun pendapatan, hanya yang dari pesanan
         $where_km_akun[] = "tr.id_pesan IS NOT NULL";
     }
     $sql_km_akun .= " WHERE " . implode(" AND ", $where_km_akun);
+    $sql_km_akun .= " ORDER BY km.tgl_kas_masuk ASC"; // Urutkan agar saldo berjalan benar
 
     $stmt_km_akun = $conn->prepare($sql_km_akun);
     if ($stmt_km_akun === false) {
-        set_flash_message("Error menyiapkan query entri kas masuk: " . $conn->error, "error");
+        set_flash_message("Error menyiapkan query entri kas masuk: " . $conn->error . " (Query: " . htmlspecialchars($sql_km_akun) . ")", "error");
     } else {
-        $stmt_km_akun->bind_param($types_km_akun, ...$params_km_akun);
+        if (!empty($params_km_akun)) {
+            $stmt_km_akun->bind_param($types_km_akun, ...$params_km_akun);
+        }
         $stmt_km_akun->execute();
-        $result_km_akun = $stmt_km_akun->get_result();
-        while ($row = $result_km_akun->fetch_assoc()) {
+        $result_km_akun = $stmt_km_akun->get_result(); // Baris 181
+        while ($row = $result_km_akun->fetch_assoc()) { // Baris 184
             $account_ledger_entries[] = $row;
         }
         $stmt_km_akun->close();
     }
+    // --- END MODIFIKASI ---
 
-    // Kas Keluar (Debit)
+
+    // --- START MODIFIKASI: Refaktor konstruksi query untuk entri kas keluar (Debit) ---
     $sql_kk_akun = "SELECT kk.tgl_kas_keluar AS tanggal, kk.keterangan, kk.jumlah, 'Debit' AS tipe_saldo, NULL AS id_transaksi, kk.harga, kk.kuantitas,
                     NULL AS no_pesan, NULL AS nama_customer 
                     FROM kas_keluar kk 
-                    LEFT JOIN akun a ON kk.id_akun = a.id_akun -- Join akun untuk filter akun keluar
-                    WHERE kk.tgl_kas_keluar BETWEEN ? AND ?";
-    $params_kk_akun = [$start_date, $end_date];
-    $types_kk_akun = "ss";
-    $where_kk_akun = ["kk.tgl_kas_keluar BETWEEN ? AND ?"];
+                    LEFT JOIN akun a ON kk.id_akun = a.id_akun"; // Join akun untuk filter akun keluar (opsional, tergantung kebutuhan)
+    $where_kk_akun = [];
+    $params_kk_akun = [];
+    $types_kk_akun = "";
 
-    if ($is_kas_akun) {
-        // Jika akun Kas, semua kas keluar relevan
-    } else {
+    $where_kk_akun[] = "kk.tgl_kas_keluar BETWEEN ? AND ?";
+    $params_kk_akun[] = $start_date;
+    $params_kk_akun[] = $end_date;
+    $types_kk_akun .= "ss";
+
+    if (!$is_kas_akun) { // Jika bukan akun Kas, filter berdasarkan id_akun
         $where_kk_akun[] = "kk.id_akun = ?";
         $params_kk_akun[] = $selected_akun;
         $types_kk_akun .= "s";
     }
-    $sql_kk_akun .= " AND " . implode(" AND ", $where_kk_akun);
+    $sql_kk_akun .= " WHERE " . implode(" AND ", $where_kk_akun);
+    $sql_kk_akun .= " ORDER BY kk.tgl_kas_keluar ASC"; // Urutkan agar saldo berjalan benar
 
     $stmt_kk_akun = $conn->prepare($sql_kk_akun);
     if ($stmt_kk_akun === false) {
-        set_flash_message("Error menyiapkan query entri kas keluar: " . $conn->error, "error");
+        set_flash_message("Error menyiapkan query entri kas keluar: " . $conn->error . " (Query: " . htmlspecialchars($sql_kk_akun) . ")", "error");
     } else {
-        $stmt_kk_akun->bind_param($types_kk_akun, ...$params_kk_akun);
+        if (!empty($params_kk_akun)) {
+            $stmt_kk_akun->bind_param($types_kk_akun, ...$params_kk_akun);
+        }
         $stmt_kk_akun->execute();
         $result_kk_akun = $stmt_kk_akun->get_result();
         while ($row = $result_kk_akun->fetch_assoc()) {
@@ -186,9 +206,16 @@ if (!empty($selected_akun)) {
         }
         $stmt_kk_akun->close();
     }
+    // --- END MODIFIKASI ---
 
     // Urutkan semua entri berdasarkan tanggal
     usort($account_ledger_entries, function ($a, $b) {
+        // Jika tanggal sama, prioritaskan Kredit (masuk) sebelum Debit (keluar)
+        if ($a['tanggal'] == $b['tanggal']) {
+            if ($a['tipe_saldo'] == 'Kredit' && $b['tipe_saldo'] == 'Debit') return -1;
+            if ($a['tipe_saldo'] == 'Debit' && $b['tipe_saldo'] == 'Kredit') return 1;
+            return 0;
+        }
         return strtotime($a['tanggal']) - strtotime($b['tanggal']);
     });
 }
