@@ -273,6 +273,17 @@ if (!empty($selected_akun)) {
                     print-color-adjust: exact !important;
                 }
 
+                /* Sembunyikan header web (dari header.php) saat mencetak */
+                header,
+                nav,
+                .header,
+                .navbar,
+                .topbar,
+                .site-header,
+                .user-info {
+                    display: none !important;
+                }
+
                 .print\:hidden {
                     display: none !important;
                 }
