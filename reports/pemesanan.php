@@ -118,7 +118,7 @@ if ($stmt === false) {
                 /* Reset styling untuk tampilan cetak */
                 * {
                     -webkit-print-color-adjust: exact !important;
-                    color-adjust: exact !important;
+                    print-color-adjust: exact !important;
                 }
 
                 body {
