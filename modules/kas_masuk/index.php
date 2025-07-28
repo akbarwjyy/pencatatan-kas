@@ -36,20 +36,13 @@ try {
 
     // Jika kolom baru ditambahkan, update harga dan kuantitas untuk data lama
     if ($columns_added) {
-        // Update data lama: set harga = 12000 untuk semua record yang harga = 0 (jika ada kebutuhan default)
-        // Ini mungkin tidak relevan jika harga diisi total transaksi
-        // $conn->query("UPDATE kas_masuk SET harga = 12000 WHERE harga = 0 OR harga IS NULL");
-        // Update kuantitas berdasarkan jumlah dan harga (jika harga mewakili harga satuan)
-        // $conn->query("UPDATE kas_masuk SET kuantitas = CEIL(jumlah / harga) WHERE harga > 0");
+        // Logika update otomatis untuk data lama (jika perlu)
     }
-
-    // Tidak perlu update kuantitas secara otomatis agar nilai yang dimasukkan user tetap terjaga
 } catch (Exception $e) {
     // Jika gagal menambahkan kolom, lanjutkan saja
 }
 
 // Update kuantitas untuk data yang sudah ada jika belum diisi
-// Ini bisa dipertahankan jika total_quantity di pemesanan adalah sumber utama qty
 try {
     $update_sql = "UPDATE kas_masuk km
         LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
@@ -66,8 +59,6 @@ try {
 }
 
 // Ambil semua data kas masuk dari database, join dengan transaksi dan akun
-// Perhatikan: kas_masuk selalu punya id_transaksi berdasarkan struktur database
-// --- START MODIFIKASI: Tambahkan subquery untuk harga satuan item dan nama barang ---
 $sql = "SELECT km.*, tr.id_pesan, tr.jumlah_dibayar AS jumlah_transaksi, tr.total_tagihan,
         (SELECT nama_akun FROM akun WHERE id_akun = tr.id_akun) AS nama_akun,
         p.total_quantity AS pemesanan_quantity,
@@ -85,7 +76,6 @@ $sql = "SELECT km.*, tr.id_pesan, tr.jumlah_dibayar AS jumlah_transaksi, tr.tota
         LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
         LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan
         ORDER BY km.tgl_kas_masuk DESC"; // Urutkan berdasarkan tanggal terbaru
-// --- END MODIFIKASI ---
 
 $cash_incomes = [];
 $total_jumlah = 0; // Inisialisasi variabel total_jumlah
@@ -140,8 +130,54 @@ try {
                                 <td class="px-3 py-2 text-sm text-gray-500"><?php echo htmlspecialchars($income['id_kas_masuk']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['tgl_kas_masuk']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['nama_akun'] ?? 'N/A'); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['keterangan'] ?? '-'); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($income['first_item_unit_price'] > 0 ? $income['first_item_unit_price'] : ($income['harga'] > 0 ? $income['harga'] : 0)); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php
+                                                                            $raw_keterangan = $income['keterangan'] ?? ''; // Ambil string keterangan mentah
+                                                                            $parsed_keterangan = '';
+
+                                                                            // Logika parsing untuk keterangan dari pemesanan (e.g., "Uang muka pemesanan ORD00012 (hai)")
+                                                                            if (strpos($raw_keterangan, "Uang muka pemesanan ORD") === 0) {
+                                                                                // Gunakan regex untuk menangkap isi dalam kurung terakhir
+                                                                                if (preg_match('/\(([^\)]+)\)$/', $raw_keterangan, $matches)) {
+                                                                                    $parsed_keterangan = trim($matches[1]); // Ambil isi dalam kurung
+                                                                                } else {
+                                                                                    $parsed_keterangan = ''; // Jika tidak ada kurung, keterangan dianggap kosong
+                                                                                }
+                                                                            }
+                                                                            // Logika parsing untuk keterangan dari pembelian langsung (e.g., "Pembelian langsung: cekk")
+                                                                            elseif (strpos($raw_keterangan, "Pembelian langsung: ") === 0) {
+                                                                                $parsed_keterangan = str_replace("Pembelian langsung: ", "", $raw_keterangan);
+                                                                            }
+                                                                            // Jika keterangan tidak cocok dengan format di atas, gunakan keterangan mentah
+                                                                            else {
+                                                                                $parsed_keterangan = $raw_keterangan;
+                                                                            }
+
+                                                                            // Fallback jika parsing menghasilkan string kosong
+                                                                            $final_keterangan = htmlspecialchars(trim($parsed_keterangan));
+                                                                            if (empty($final_keterangan)) {
+                                                                                $final_keterangan = htmlspecialchars($income['first_item_name'] ?? '-');
+                                                                            }
+
+                                                                            echo $final_keterangan;
+                                                                            ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900">
+                                    <?php
+                                    $display_price_label = "";
+                                    $display_price_value = 0;
+
+                                    if (!empty($income['first_item_unit_price']) && $income['first_item_unit_price'] > 0) {
+                                        $display_price_label = "Satuan";
+                                        $display_price_value = $income['first_item_unit_price'];
+                                    } elseif (!empty($income['harga']) && $income['harga'] > 0) {
+                                        $display_price_label = "Total";
+                                        $display_price_value = $income['harga'];
+                                    } else {
+                                        $display_price_label = "Default"; // Jika tidak ada harga yang relevan
+                                        $display_price_value = 0; // Default ke 0 jika tidak ada harga
+                                    }
+                                    echo htmlspecialchars($display_price_label . ": ") . format_rupiah($display_price_value);
+                                    ?>
+                                </td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php
                                                                             if ($income['kuantitas'] > 0) {
                                                                                 echo $income['kuantitas'];
@@ -149,7 +185,8 @@ try {
                                                                                 echo $income['pemesanan_quantity'];
                                                                             } else {
                                                                                 // Fallback jika tidak ada kuantitas spesifik atau dari pesanan
-                                                                                echo ceil(($income['jumlah'] ?? 0) / (($income['first_item_unit_price'] > 0 ? $income['first_item_unit_price'] : ($income['harga'] > 0 ? $income['harga'] : 1)) ?? 1));
+                                                                                $calc_qty_denom = ($display_price_value > 0) ? $display_price_value : (($income['jumlah'] > 0) ? $income['jumlah'] : 1);
+                                                                                echo ceil(($income['jumlah'] ?? 0) / $calc_qty_denom);
                                                                             }
                                                                             ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($income['jumlah'] ?? 0); ?></td>
