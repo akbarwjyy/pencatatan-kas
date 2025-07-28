@@ -281,13 +281,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         onchange="updateSisaSetelahPembayaran()">
                     <span class="text-red-500 text-xs italic mt-1 block"><?php echo $jumlah_dibayar_error; ?></span>
                 </div>
-
+                <!-- 
                 <div class="mb-6">
                     <label for="metode_pembayaran" class="block text-gray-700 text-sm font-bold mb-2">Metode Pembayaran:</label>
                     <input type="hidden" id="metode_pembayaran" name="metode_pembayaran" value="Tunai">
                     <input type="text" value="Tunai" disabled
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
-                </div>
+                </div> -->
 
                 <div class="mb-6">
                     <label for="keterangan" class="block text-gray-700 text-sm font-bold mb-2">Keterangan:</label>
@@ -297,9 +297,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
 
                 </div>
-            </div>
 
-            <div>
                 <div class="mb-6">
                     <label for="tgl_transaksi" class="block text-gray-700 text-sm font-bold mb-2">Tanggal Transaksi:</label>
                     <input type="date" id="tgl_transaksi" name="tgl_transaksi"
@@ -307,6 +305,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
                     <span class="text-red-500 text-xs italic mt-1 block"><?php echo $tgl_transaksi_error; ?></span>
                 </div>
+            </div>
+
+            <div>
 
                 <div class="mb-6">
                     <label class="block text-gray-700 text-sm font-bold mb-2">Total Tagihan:</label>

@@ -454,12 +454,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <input type="text" id="jumlah_dibayar_display" value="<?php echo format_rupiah($jumlah_dibayar); ?>" disabled
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
                 </div>
-                <div class="mb-4">
+                <!-- <div class="mb-4">
                     <label for="metode_pembayaran" class="block text-gray-700 text-sm font-bold mb-2">Metode Pembayaran:</label>
                     <input type="hidden" id="metode_pembayaran" name="metode_pembayaran" value="Tunai">
                     <input type="text" value="Tunai" disabled
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
-                </div>
+                </div> -->
                 <div class="mb-6">
                     <label for="keterangan" class="block text-gray-700 text-sm font-bold mb-2">Keterangan :</label>
                     <input type="text" id="keterangan" name="keterangan" value="<?php echo htmlspecialchars($keterangan); ?>" required maxlength="30"
