@@ -9,13 +9,16 @@ if (!has_permission('Admin') && !has_permission('Pegawai')) {
 }
 
 // Ambil semua data pemesanan dan transaksi
-// --- START MODIFIKASI: Sesuaikan query SQL dengan struktur tabel pemesanan yang baru dan tambahkan join ke akun ---
+// --- START MODIFIKASI: Sesuaikan query SQL untuk mendeteksi pembelian langsung dan menampilkan "-" pada No Pesan ---
 $sql = "SELECT
             COALESCE(tr.id_transaksi, CONCAT('PENDING-', p.id_pesan)) as id_transaksi,
             tr.tgl_transaksi,
             tr.jumlah_dibayar,
             tr.metode_pembayaran,
-            p.id_pesan AS no_pesan,
+            CASE 
+                WHEN p.tgl_pesan = p.tgl_kirim AND tr.metode_pembayaran = 'Tunai' THEN '-'
+                ELSE p.id_pesan
+            END AS no_pesan,
             p.total_tagihan_keseluruhan AS total_tagihan_pemesanan,
             p.sisa AS sisa_pemesanan,
             p.status_pesanan,
@@ -45,7 +48,7 @@ $sql = "SELECT
             tr.tgl_transaksi,
             tr.jumlah_dibayar,
             tr.metode_pembayaran,
-            NULL as no_pesan,
+            '-' as no_pesan,
             tr.jumlah_dibayar as total_tagihan_pemesanan,
             0 as sisa_pemesanan,
             'Lunas' as status_pesanan,
