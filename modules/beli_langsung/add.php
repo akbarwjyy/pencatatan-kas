@@ -311,7 +311,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $km_harga = (float)$calculated_total_tagihan; // Cast ke float
                 $km_kuantitas = (int)$calculated_total_quantity; // Cast ke int
 
-                $bind_keterangan_kas_masuk_text = "Pembelian langsung: " . $keterangan; // Variabel untuk string literal
+                $bind_keterangan_kas_masuk_text = $keterangan; // Variabel untuk string literal
                 $bind_jumlah_kas_masuk = (float)$calculated_total_tagihan; // Cast ke float
 
                 $stmt_kas_masuk->bind_param(
