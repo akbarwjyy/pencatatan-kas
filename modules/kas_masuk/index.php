@@ -62,7 +62,7 @@ try {
         WHERE km.kuantitas = 0";
     $conn->query($update_sql);
 } catch (Exception $e) {
-    // Jika ada error pada update, lanjutkan saja
+    // Jika ada error pada update, lanjutkan saja
 }
 
 // Ambil semua data kas masuk dari database, join dengan transaksi dan akun
@@ -140,10 +140,7 @@ try {
                                 <td class="px-3 py-2 text-sm text-gray-500"><?php echo htmlspecialchars($income['id_kas_masuk']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['tgl_kas_masuk']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['nama_akun'] ?? 'N/A'); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php
-                                                                            // Tampilkan nama barang dari detail pesanan jika ada, fallback ke keterangan umum
-                                                                            echo htmlspecialchars($income['first_item_name'] ?? $income['keterangan'] ?? '-');
-                                                                            ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['keterangan'] ?? '-'); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($income['first_item_unit_price'] > 0 ? $income['first_item_unit_price'] : ($income['harga'] > 0 ? $income['harga'] : 0)); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php
                                                                             if ($income['kuantitas'] > 0) {
