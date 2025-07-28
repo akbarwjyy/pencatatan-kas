@@ -1,6 +1,6 @@
 <?php
 // Sertakan header (ini akan melakukan session_start(), cek login, dan include koneksi/fungsi)
-require_once '../../layout/header.php'; // Pastikan jalur ini adalah ../../
+require_once '../../layout/header.php';
 
 // Pastikan hanya Admin atau Pegawai yang bisa mengakses halaman ini
 if (!has_permission('Admin') && !has_permission('Pegawai')) {
@@ -21,7 +21,7 @@ try {
     $column_result = $conn->query($check_column_sql);
     if ($column_result->num_rows == 0) {
         // Kolom harga belum ada, tambahkan
-        $conn->query("ALTER TABLE kas_masuk ADD COLUMN harga INT DEFAULT 0");
+        $conn->query("ALTER TABLE kas_masuk ADD COLUMN harga DECIMAL(15,2) DEFAULT 0"); // Pastikan DECIMAL
         $columns_added = true;
     }
 
@@ -36,10 +36,11 @@ try {
 
     // Jika kolom baru ditambahkan, update harga dan kuantitas untuk data lama
     if ($columns_added) {
-        // Update data lama: set harga = 12000 untuk semua record yang harga = 0
-        $conn->query("UPDATE kas_masuk SET harga = 12000 WHERE harga = 0 OR harga IS NULL");
-        // Update kuantitas berdasarkan jumlah dan harga, menggunakan CEIL untuk membulatkan ke atas
-        $conn->query("UPDATE kas_masuk SET kuantitas = CEIL(jumlah / harga) WHERE harga > 0");
+        // Update data lama: set harga = 12000 untuk semua record yang harga = 0 (jika ada kebutuhan default)
+        // Ini mungkin tidak relevan jika harga diisi total transaksi
+        // $conn->query("UPDATE kas_masuk SET harga = 12000 WHERE harga = 0 OR harga IS NULL");
+        // Update kuantitas berdasarkan jumlah dan harga (jika harga mewakili harga satuan)
+        // $conn->query("UPDATE kas_masuk SET kuantitas = CEIL(jumlah / harga) WHERE harga > 0");
     }
 
     // Tidak perlu update kuantitas secara otomatis agar nilai yang dimasukkan user tetap terjaga
@@ -48,8 +49,8 @@ try {
 }
 
 // Update kuantitas untuk data yang sudah ada jika belum diisi
+// Ini bisa dipertahankan jika total_quantity di pemesanan adalah sumber utama qty
 try {
-    // --- START MODIFIKASI: Gunakan p.total_quantity di sini ---
     $update_sql = "UPDATE kas_masuk km
         LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
         LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan
@@ -59,7 +60,6 @@ try {
             ELSE 1
         END
         WHERE km.kuantitas = 0";
-    // --- END MODIFIKASI ---
     $conn->query($update_sql);
 } catch (Exception $e) {
     // Jika ada error pada update, lanjutkan saja
@@ -67,10 +67,20 @@ try {
 
 // Ambil semua data kas masuk dari database, join dengan transaksi dan akun
 // Perhatikan: kas_masuk selalu punya id_transaksi berdasarkan struktur database
-// --- START MODIFIKASI: Ganti p.quantity dengan p.total_quantity ---
+// --- START MODIFIKASI: Tambahkan subquery untuk harga satuan item dan nama barang ---
 $sql = "SELECT km.*, tr.id_pesan, tr.jumlah_dibayar AS jumlah_transaksi, tr.total_tagihan,
         (SELECT nama_akun FROM akun WHERE id_akun = tr.id_akun) AS nama_akun,
-        p.total_quantity AS pemesanan_quantity
+        p.total_quantity AS pemesanan_quantity,
+        -- Subquery untuk mendapatkan harga satuan dan nama barang dari item pertama di pesanan
+        (SELECT dp_sub.harga_satuan_item
+         FROM detail_pemesanan dp_sub
+         WHERE dp_sub.id_pesan = p.id_pesan
+         ORDER BY dp_sub.id_detail_pesan ASC LIMIT 1) AS first_item_unit_price,
+        (SELECT b_sub.nama_barang
+         FROM detail_pemesanan dp_sub
+         JOIN barang b_sub ON dp_sub.id_barang = b_sub.id_barang
+         WHERE dp_sub.id_pesan = p.id_pesan
+         ORDER BY dp_sub.id_detail_pesan ASC LIMIT 1) AS first_item_name
         FROM kas_masuk km
         LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
         LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan
@@ -130,15 +140,19 @@ try {
                                 <td class="px-3 py-2 text-sm text-gray-500"><?php echo htmlspecialchars($income['id_kas_masuk']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['tgl_kas_masuk']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['nama_akun'] ?? 'N/A'); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['keterangan']); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($income['harga'] > 0 ? $income['harga'] : 12000); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php
+                                                                            // Tampilkan nama barang dari detail pesanan jika ada, fallback ke keterangan umum
+                                                                            echo htmlspecialchars($income['first_item_name'] ?? $income['keterangan'] ?? '-');
+                                                                            ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($income['first_item_unit_price'] > 0 ? $income['first_item_unit_price'] : ($income['harga'] > 0 ? $income['harga'] : 0)); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php
                                                                             if ($income['kuantitas'] > 0) {
                                                                                 echo $income['kuantitas'];
                                                                             } elseif ($income['pemesanan_quantity'] > 0) {
                                                                                 echo $income['pemesanan_quantity'];
                                                                             } else {
-                                                                                echo ceil($income['jumlah'] / ($income['harga'] > 0 ? $income['harga'] : 12000));
+                                                                                // Fallback jika tidak ada kuantitas spesifik atau dari pesanan
+                                                                                echo ceil(($income['jumlah'] ?? 0) / (($income['first_item_unit_price'] > 0 ? $income['first_item_unit_price'] : ($income['harga'] > 0 ? $income['harga'] : 1)) ?? 1));
                                                                             }
                                                                             ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($income['jumlah'] ?? 0); ?></td>
