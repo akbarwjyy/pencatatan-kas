@@ -44,7 +44,7 @@ if (!empty($selected_akun)) {
     // Tentukan grup akun terpilih (misal: '4' untuk Pendapatan, '6' untuk Kas)
     $selected_akun_group = substr($selected_akun, 0, 1);
     $is_pendapatan_akun = ($selected_akun_group == '4'); // Akun Pendapatan
-    $is_kas_akun = ($selected_akun_group == '6'); // Akun Kas (sesuai penomoran di add.php)
+    $is_kas_akun = ($selected_akun_group == '1'); // Akun Kas (sesuai penomoran di add.php)
 
     // --- START MODIFIKASI: Refaktor konstruksi query untuk saldo awal masuk ---
     $sql_saldo_awal_masuk = "SELECT SUM(km.jumlah) FROM kas_masuk km 
