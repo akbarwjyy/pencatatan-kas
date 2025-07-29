@@ -117,54 +117,107 @@ if (!empty($selected_akun)) {
     // Kas masuk adalah kredit dan kas keluar adalah debit, maka saldo awal adalah kas masuk dikurangi kas keluar
     $saldo_awal = ($saldo_masuk_awal ?? 0) - ($saldo_keluar_awal ?? 0);
 
-    // --- START MODIFIKASI: Refaktor konstruksi query untuk entri kas masuk (Kredit) ---
-    $sql_km_akun = "SELECT 
-                    km.tgl_kas_masuk AS tanggal, 
-                    km.keterangan, 
-                    km.jumlah, 
-                    'Kredit' AS tipe_saldo, 
-                    tr.id_transaksi,
-                    km.harga,
-                    km.kuantitas,
-                    p.id_pesan AS no_pesan, 
-                    c.nama_customer AS nama_customer 
-                    FROM kas_masuk km 
-                    LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
-                    LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan 
-                    LEFT JOIN customer c ON p.id_customer = c.id_customer";
-    $where_km_akun = [];
-    $params_km_akun = [];
-    $types_km_akun = "";
+    // --- START MODIFIKASI: Query untuk entri kas masuk dengan grouping untuk pemesanan ---
 
-    $where_km_akun[] = "km.tgl_kas_masuk BETWEEN ? AND ?";
-    $params_km_akun[] = $start_date;
-    $params_km_akun[] = $end_date;
-    $types_km_akun .= "ss";
+    // Query untuk pemesanan (digrup per pesanan)
+    $sql_km_pemesanan = "SELECT 
+                        MIN(km.tgl_kas_masuk) AS tanggal, 
+                        CONCAT('Pemesanan - ', p.id_pesan, ' - ', c.nama_customer) AS keterangan, 
+                        SUM(km.jumlah) AS jumlah, 
+                        'Kredit' AS tipe_saldo, 
+                        MIN(tr.id_transaksi) AS id_transaksi,
+                        AVG(km.harga) AS harga,
+                        SUM(km.kuantitas) AS kuantitas,
+                        p.id_pesan AS no_pesan, 
+                        c.nama_customer AS nama_customer 
+                        FROM kas_masuk km 
+                        LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
+                        LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan 
+                        LEFT JOIN customer c ON p.id_customer = c.id_customer";
+
+    $where_km_pemesanan = [];
+    $params_km_pemesanan = [];
+    $types_km_pemesanan = "";
+
+    $where_km_pemesanan[] = "km.tgl_kas_masuk BETWEEN ? AND ?";
+    $params_km_pemesanan[] = $start_date;
+    $params_km_pemesanan[] = $end_date;
+    $types_km_pemesanan .= "ss";
+
+    $where_km_pemesanan[] = "tr.id_pesan IS NOT NULL"; // Hanya pemesanan
 
     if (!$is_kas_akun) { // Jika bukan akun Kas, filter berdasarkan akun transaksi
-        $where_km_akun[] = "tr.id_akun = ?";
-        $params_km_akun[] = $selected_akun;
-        $types_km_akun .= "s";
+        $where_km_pemesanan[] = "tr.id_akun = ?";
+        $params_km_pemesanan[] = $selected_akun;
+        $types_km_pemesanan .= "s";
     }
-    if ($is_pendapatan_akun) { // Jika akun pendapatan, hanya yang dari pesanan
-        $where_km_akun[] = "tr.id_pesan IS NOT NULL";
-    }
-    $sql_km_akun .= " WHERE " . implode(" AND ", $where_km_akun);
-    $sql_km_akun .= " ORDER BY km.tgl_kas_masuk ASC"; // Urutkan agar saldo berjalan benar
 
-    $stmt_km_akun = $conn->prepare($sql_km_akun);
-    if ($stmt_km_akun === false) {
-        set_flash_message("Error menyiapkan query entri kas masuk: " . $conn->error . " (Query: " . htmlspecialchars($sql_km_akun) . ")", "error");
+    $sql_km_pemesanan .= " WHERE " . implode(" AND ", $where_km_pemesanan);
+    $sql_km_pemesanan .= " GROUP BY p.id_pesan, c.nama_customer";
+    $sql_km_pemesanan .= " ORDER BY MIN(km.tgl_kas_masuk) ASC";
+
+    $stmt_km_pemesanan = $conn->prepare($sql_km_pemesanan);
+    if ($stmt_km_pemesanan === false) {
+        set_flash_message("Error menyiapkan query entri kas masuk pemesanan: " . $conn->error . " (Query: " . htmlspecialchars($sql_km_pemesanan) . ")", "error");
     } else {
-        if (!empty($params_km_akun)) {
-            $stmt_km_akun->bind_param($types_km_akun, ...$params_km_akun);
+        if (!empty($params_km_pemesanan)) {
+            $stmt_km_pemesanan->bind_param($types_km_pemesanan, ...$params_km_pemesanan);
         }
-        $stmt_km_akun->execute();
-        $result_km_akun = $stmt_km_akun->get_result();
-        while ($row = $result_km_akun->fetch_assoc()) {
+        $stmt_km_pemesanan->execute();
+        $result_km_pemesanan = $stmt_km_pemesanan->get_result();
+        while ($row = $result_km_pemesanan->fetch_assoc()) {
             $account_ledger_entries[] = $row;
         }
-        $stmt_km_akun->close();
+        $stmt_km_pemesanan->close();
+    }
+
+    // Query untuk pembelian langsung (tidak digrup)
+    $sql_km_langsung = "SELECT 
+                        km.tgl_kas_masuk AS tanggal, 
+                        km.keterangan, 
+                        km.jumlah, 
+                        'Kredit' AS tipe_saldo, 
+                        tr.id_transaksi,
+                        km.harga,
+                        km.kuantitas,
+                        NULL AS no_pesan, 
+                        NULL AS nama_customer 
+                        FROM kas_masuk km 
+                        LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi";
+
+    $where_km_langsung = [];
+    $params_km_langsung = [];
+    $types_km_langsung = "";
+
+    $where_km_langsung[] = "km.tgl_kas_masuk BETWEEN ? AND ?";
+    $params_km_langsung[] = $start_date;
+    $params_km_langsung[] = $end_date;
+    $types_km_langsung .= "ss";
+
+    $where_km_langsung[] = "tr.id_pesan IS NULL"; // Hanya pembelian langsung
+
+    if (!$is_kas_akun) { // Jika bukan akun Kas, filter berdasarkan akun transaksi
+        $where_km_langsung[] = "tr.id_akun = ?";
+        $params_km_langsung[] = $selected_akun;
+        $types_km_langsung .= "s";
+    }
+
+    $sql_km_langsung .= " WHERE " . implode(" AND ", $where_km_langsung);
+    $sql_km_langsung .= " ORDER BY km.tgl_kas_masuk ASC";
+
+    $stmt_km_langsung = $conn->prepare($sql_km_langsung);
+    if ($stmt_km_langsung === false) {
+        set_flash_message("Error menyiapkan query entri kas masuk langsung: " . $conn->error . " (Query: " . htmlspecialchars($sql_km_langsung) . ")", "error");
+    } else {
+        if (!empty($params_km_langsung)) {
+            $stmt_km_langsung->bind_param($types_km_langsung, ...$params_km_langsung);
+        }
+        $stmt_km_langsung->execute();
+        $result_km_langsung = $stmt_km_langsung->get_result();
+        while ($row = $result_km_langsung->fetch_assoc()) {
+            $account_ledger_entries[] = $row;
+        }
+        $stmt_km_langsung->close();
     }
     // --- END MODIFIKASI ---
 
