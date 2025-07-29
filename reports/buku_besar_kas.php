@@ -653,7 +653,7 @@ if (!empty($selected_akun)) {
                                     <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($entry['keterangan'] ?? '-'); ?></td>
                                     <td class="px-3 py-2 text-sm text-gray-900 text-right"><?php echo ($entry['harga'] > 0) ? 'Rp ' . number_format($entry['harga'], 0, ',', '.') : '-'; ?></td>
                                     <td class="px-3 py-2 text-sm text-gray-900 text-center"><?php echo ($entry['kuantitas'] > 0) ? $entry['kuantitas'] : '-'; ?></td>
-                                    <td class="px-3 py-2 text-sm text-gray-900 text-center"><?php echo ($debit > 0) ? '-' : '-'; ?></td>
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-right"><?php echo ($debit > 0) ? 'Rp ' . number_format($debit, 0, ',', '.') : '-'; ?></td>
                                     <td class="px-3 py-2 text-sm text-gray-900 text-right"><?php echo ($kredit > 0) ? 'Rp ' . number_format($kredit, 0, ',', '.') : '-'; ?></td>
                                     <td class="px-3 py-2 text-sm text-gray-900 text-right">Rp <?php echo number_format(abs($current_saldo), 0, ',', '.'); ?></td>
                                 </tr>
