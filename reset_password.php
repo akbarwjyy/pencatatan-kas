@@ -7,9 +7,10 @@ if (session_status() == PHP_SESSION_NONE) {
 // Pastikan file ini dapat diakses langsung
 define('DIRECT_ACCESS', true);
 
-require_once __DIR__ . '/config/db.php';
-require_once __DIR__ . '/includes/functions.php';
-require_once __DIR__ . '/includes/helpers.php';
+// Sertakan file konfigurasi dan fungsi-fungsi penting
+require_once __DIR__ . '/config/db.php'; // Pastikan koneksi database tersedia
+require_once __DIR__ . '/includes/functions.php'; // Sertakan fungsi-fungsi umum seperti sanitize_input, is_valid_password, dll.
+require_once __DIR__ . '/includes/helpers.php'; // Sertakan helper seperti set_flash_message, display_flash_message, dll.
 
 // Redirect jika sudah login
 if (is_logged_in()) {
@@ -21,12 +22,12 @@ $username_input = $email_input = $new_password_input = "";
 $username_error = $email_error = $new_password_error = "";
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Sanitasi input (tetapi ingat, tanpa DB change, ini tidak aman untuk reset password)
+    // Sanitasi input
     $username_input = sanitize_input($_POST['username'] ?? '');
     $email_input = sanitize_input($_POST['email'] ?? '');
     $new_password_input = $_POST['new_password'] ?? ''; // Tidak disanitasi HTML karena akan di-hash
 
-    // Validasi dasar (tidak menjamin keamanan tanpa verifikasi token/email)
+    // Validasi dasar
     if (empty($username_input)) {
         $username_error = "Username tidak boleh kosong.";
     }
@@ -43,42 +44,50 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $new_password_error = "Password maksimal 8 karakter.";
     }
 
-    // Jika tidak ada error validasi form, jelaskan keterbatasan
+    // Jika tidak ada error validasi form
     if (empty($username_error) && empty($email_error) && empty($new_password_error)) {
-        // --- PENTING: Penjelasan Keterbatasan Tanpa Perubahan Database ---
-        set_flash_message(
-            "Fitur 'Lupa Kata Sandi' yang aman (seperti mengirim tautan ke email) memerlukan penambahan kolom di database untuk menyimpan token reset. " .
-                "Tanpa perubahan database, implementasi yang aman dan terverifikasi tidak dapat dilakukan. " .
-                "Saat ini, untuk mereset kata sandi, Anda perlu menghubungi Administrator.",
-            "warning"
-        );
-        // Logika di bawah ini (yang sebenarnya akan mereset password) TIDAK akan dieksekusi secara fungsional
-        // jika Anda tidak ingin mengubah database atau logic yang sudah ada.
-        // Ini hanyalah placeholder untuk menjelaskan.
+        // Cari pengguna berdasarkan username dan email
+        $sql_find_user = "SELECT id_pengguna FROM pengguna WHERE username = ? AND email = ?";
+        if ($stmt_find = $conn->prepare($sql_find_user)) {
+            $stmt_find->bind_param("ss", $username_input, $email_input);
+            $stmt_find->execute();
+            $stmt_find->store_result();
 
-        // Simulasikan pengecekan pengguna (ini tidak aman untuk reset tanpa token)
-        $sql_check_user = "SELECT id_pengguna FROM pengguna WHERE username = ? AND email = ?";
-        if ($stmt_check = $conn->prepare($sql_check_user)) {
-            $stmt_check->bind_param("ss", $username_input, $email_input);
-            $stmt_check->execute();
-            $stmt_check->store_result();
+            if ($stmt_find->num_rows == 1) {
+                $stmt_find->bind_result($user_id_to_reset);
+                $stmt_find->fetch();
+                $stmt_find->close();
 
-            if ($stmt_check->num_rows == 1) {
-                // Di sini Anda akan mengupdate password jika ini adalah sistem yang tidak aman
-                // ATAU mengirim email dengan token jika Anda bisa mengubah DB.
-                // Karena batasan, kita hanya menampilkan pesan peringatan.
+                // Hash password baru
+                $hashed_new_password = hash_password($new_password_input);
+
+                // Update password pengguna
+                $sql_update_password = "UPDATE pengguna SET password = ? WHERE id_pengguna = ?";
+                if ($stmt_update = $conn->prepare($sql_update_password)) {
+                    $stmt_update->bind_param("ss", $hashed_new_password, $user_id_to_reset);
+                    if ($stmt_update->execute()) {
+                        set_flash_message("Kata sandi berhasil diganti! Silakan login.", "success");
+                        redirect('login.php'); // Arahkan ke halaman login
+                    } else {
+                        set_flash_message("Gagal mengganti kata sandi: " . $stmt_update->error, "error");
+                    }
+                    $stmt_update->close();
+                } else {
+                    set_flash_message("Error menyiapkan update kata sandi: " . $conn->error, "error");
+                }
             } else {
                 set_flash_message("Username atau Email tidak ditemukan.", "error");
+                $stmt_find->close();
             }
-            $stmt_check->close();
         } else {
-            set_flash_message("Error database: " . $conn->error, "error");
+            set_flash_message("Error menyiapkan pencarian pengguna: " . $conn->error, "error");
         }
     } else {
         set_flash_message("Silakan perbaiki kesalahan pada formulir.", "error");
     }
 }
 
+// Sertakan header dan footer untuk tampilan halaman
 require_once __DIR__ . '/layout/header.php';
 ?>
 
