@@ -41,7 +41,7 @@ if (!empty($selected_akun)) {
         }
     }
 
-    // Tentukan grup akun terpilih (misal: '4' untuk Pendapatan, '1' untuk Kas)
+    // Tentukan grup akun terpilih (misal: '4' untuk Pendapatan, '6' untuk Kas)
     $selected_akun_group = substr($selected_akun, 0, 1);
     $is_pendapatan_akun = ($selected_akun_group == '4'); // Akun Pendapatan
     $is_kas_akun = ($selected_akun_group == '1'); // Akun Kas (sesuai penomoran di add.php)
@@ -121,16 +121,16 @@ if (!empty($selected_akun)) {
 
     // Query untuk pemesanan (digrup per pesanan)
     $sql_km_pemesanan = "SELECT 
-                    km.tgl_kas_masuk AS tanggal, 
-                    CONCAT('Pemesanan - ', p.id_pesan, ' - ', c.nama_customer) AS keterangan, 
-                    km.jumlah, 
-                    'Kredit' AS tipe_saldo, 
-                    tr.id_transaksi,
-                    km.harga AS harga,         -- ✅ SOLUSI: Langsung ambil harga asli
-                    km.kuantitas AS kuantitas, -- ✅ SOLUSI: Langsung ambil kuantitas asli
-                    p.id_pesan AS no_pesan, 
-                    c.nama_customer AS nama_customer 
-                    FROM kas_masuk km 
+                        MIN(km.tgl_kas_masuk) AS tanggal, 
+                        CONCAT('Pemesanan - ', p.id_pesan, ' - ', c.nama_customer) AS keterangan, 
+                        SUM(km.jumlah) AS jumlah, 
+                        'Kredit' AS tipe_saldo, 
+                        MIN(tr.id_transaksi) AS id_transaksi,
+                        AVG(km.harga) AS harga,
+                        SUM(km.kuantitas) AS kuantitas,
+                        p.id_pesan AS no_pesan, 
+                        c.nama_customer AS nama_customer 
+                        FROM kas_masuk km 
                         LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
                         LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan 
                         LEFT JOIN customer c ON p.id_customer = c.id_customer";
@@ -474,6 +474,7 @@ if (!empty($selected_akun)) {
             }
         </style>
 
+        <!-- Header untuk print -->
         <div class="print-only print-header">
             <div class="print-company-name">Ampyang Cap Garuda</div>
             <div class="print-report-title">Buku Besar Akun: <?php echo htmlspecialchars($account_name); ?></div>
@@ -491,13 +492,16 @@ if (!empty($selected_akun)) {
                 <p class="font-medium">Tidak ada pergerakan kas ditemukan untuk akun "<?php echo htmlspecialchars($account_name); ?>" pada periode ini.</p>
             </div>
         <?php else : ?>
+            <!-- Screen display -->
             <div class="screen-only">
                 <h2 class="text-xl font-bold text-gray-800 mt-4 mb-2">Buku Besar Akun: <?php echo htmlspecialchars($account_name); ?></h2>
                 <p class="text-gray-600 mb-6">Periode: <?php echo htmlspecialchars(date('d F Y', strtotime($start_date))); ?> s/d <?php echo htmlspecialchars(date('d F Y', strtotime($end_date))); ?></p>
             </div>
 
+            <!-- Print dan Screen display -->
             <div class="overflow-x-auto">
                 <?php if ($is_kas_akun) : ?>
+                    <!-- Format untuk akun kas (tetap seperti sebelumnya) -->
                     <table class="min-w-full bg-white border border-gray-200 print-table">
                         <thead class="bg-gray-100">
                             <tr>
@@ -509,6 +513,7 @@ if (!empty($selected_akun)) {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200">
+                            <!-- Section DEBIT (Menampilkan kas masuk sebagai Pendapatan) -->
                             <tr class="bg-gray-50">
                                 <td colspan="5" class="px-3 py-2 text-sm font-bold text-gray-900 kas-section-title">DEBIT</td>
                             </tr>
@@ -536,6 +541,7 @@ if (!empty($selected_akun)) {
                             endforeach;
                             ?>
 
+                            <!-- Total Pendapatan -->
                             <tr class="bg-gray-100">
                                 <td class="px-3 py-2 text-sm font-bold text-gray-900"></td>
                                 <td class="px-3 py-2 text-sm font-bold text-gray-900">Total Pendapatan</td>
@@ -544,6 +550,7 @@ if (!empty($selected_akun)) {
                                 <td class="px-3 py-2 text-sm font-bold text-gray-900 text-right">Rp <?php echo number_format(abs($current_saldo), 0, ',', '.'); ?></td>
                             </tr>
 
+                            <!-- Section KREDIT (Menampilkan kas keluar sebagai Pengeluaran) -->
                             <tr class="bg-gray-50">
                                 <td colspan="5" class="px-3 py-2 text-sm font-bold text-gray-900 kas-section-title">KREDIT</td>
                             </tr>
@@ -570,6 +577,7 @@ if (!empty($selected_akun)) {
                             endforeach;
                             ?>
 
+                            <!-- Total Pengeluaran -->
                             <tr class="bg-gray-100">
                                 <td class="px-3 py-2 text-sm font-bold text-gray-900"></td>
                                 <td class="px-3 py-2 text-sm font-bold text-gray-900">Total Pengeluaran</td>
@@ -578,6 +586,7 @@ if (!empty($selected_akun)) {
                                 <td class="px-3 py-2 text-sm font-bold text-gray-900 text-right">Rp <?php echo number_format(abs($current_saldo), 0, ',', '.'); ?></td>
                             </tr>
 
+                            <!-- Saldo Akhir Kas -->
                             <tr class="bg-blue-100 saldo-akhir">
                                 <td class="px-3 py-2 text-sm font-bold text-gray-900"></td>
                                 <td class="px-3 py-2 text-sm font-bold text-gray-900">SALDO AKHIR KAS</td>
@@ -588,6 +597,7 @@ if (!empty($selected_akun)) {
                         </tbody>
                     </table>
                 <?php else : ?>
+                    <!-- Format untuk akun non-kas (sesuai gambar: TANGGAL, ID, AKUN, KETERANGAN, HARGA, QTY, DEBIT, KREDIT, SALDO) -->
                     <table class="min-w-full bg-white border border-gray-200 print-table">
                         <thead class="bg-gray-100">
                             <tr>
@@ -603,6 +613,7 @@ if (!empty($selected_akun)) {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200">
+                            <!-- Baris Saldo Awal -->
                             <?php if ($saldo_awal != 0) : ?>
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-3 py-2 text-sm text-gray-900 text-center"><?php echo date('d/m/Y', strtotime($start_date)); ?></td>
@@ -640,41 +651,15 @@ if (!empty($selected_akun)) {
                                     <td class="px-3 py-2 text-sm text-gray-900 text-center"><?php echo htmlspecialchars($entry['id_transaksi'] ?? '-'); ?></td>
                                     <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($account_name); ?></td>
                                     <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($entry['keterangan'] ?? '-'); ?></td>
-                                    <td class="px-3 py-2 text-sm text-gray-900 text-right">
-                                        <?php
-                                        $effective_price_to_display = 0;
-                                        $item_quantity_for_display = ($entry['kuantitas'] ?? 0);
-
-                                        if ($entry['tipe_saldo'] == 'Kredit') { // Kas Masuk
-                                            // For Kas Masuk, the 'jumlah' is the total amount received.
-                                            // If 'kuantitas' is present and greater than 0, calculate effective unit price.
-                                            if ($item_quantity_for_display > 0) {
-                                                $effective_price_to_display = ($entry['jumlah'] ?? 0) / $item_quantity_for_display;
-                                            } else {
-                                                // If no quantity or quantity is 0, display the 'jumlah' as the effective price.
-                                                // This covers manual cash-in entries or down payments where quantity isn't item count.
-                                                $effective_price_to_display = ($entry['jumlah'] ?? 0);
-                                            }
-                                        } else { // Kas Keluar (Debit)
-                                            // For Kas Keluar, 'harga' is the recorded unit price (as inputted).
-                                            $effective_price_to_display = ($entry['harga'] ?? 0);
-                                        }
-
-                                        echo ($effective_price_to_display > 0) ? 'Rp ' . number_format($effective_price_to_display, 0, ',', '.') : '-';
-                                        ?>
-                                    </td>
-                                    <td class="px-3 py-2 text-sm text-gray-900 text-center">
-                                        <?php
-                                        // The quantity display should simply be the quantity from the entry
-                                        echo ($item_quantity_for_display > 0) ? $item_quantity_for_display : '-';
-                                        ?>
-                                    </td>
-                                    <td class="px-3 py-2 text-sm text-gray-900 text-center"><?php echo ($debit > 0) ? 'Rp ' . number_format($debit, 0, ',', '.') : '-'; ?></td>
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-right"><?php echo ($entry['harga'] > 0) ? 'Rp ' . number_format($entry['harga'], 0, ',', '.') : '-'; ?></td>
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-center"><?php echo ($entry['kuantitas'] > 0) ? $entry['kuantitas'] : '-'; ?></td>
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-center"><?php echo ($debit > 0) ? '-' : '-'; ?></td>
                                     <td class="px-3 py-2 text-sm text-gray-900 text-right"><?php echo ($kredit > 0) ? 'Rp ' . number_format($kredit, 0, ',', '.') : '-'; ?></td>
                                     <td class="px-3 py-2 text-sm text-gray-900 text-right">Rp <?php echo number_format(abs($current_saldo), 0, ',', '.'); ?></td>
                                 </tr>
                             <?php endforeach; ?>
 
+                            <!-- Saldo Akhir -->
                             <tr class="bg-blue-100 saldo-akhir">
                                 <td class="px-3 py-2 text-sm font-bold text-gray-900"></td>
                                 <td class="px-3 py-2 text-sm font-bold text-gray-900"></td>
