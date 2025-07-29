@@ -130,36 +130,7 @@ try {
                                 <td class="px-3 py-2 text-sm text-gray-500"><?php echo htmlspecialchars($income['id_kas_masuk']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['tgl_kas_masuk']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['nama_akun'] ?? 'N/A'); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php
-                                                                            $raw_keterangan = $income['keterangan'] ?? ''; // Ambil string keterangan mentah
-                                                                            $parsed_keterangan = '';
-
-                                                                            // Logika parsing untuk keterangan dari pemesanan (e.g., "Uang muka pemesanan ORD00012 (hai)")
-                                                                            if (strpos($raw_keterangan, "Uang muka pemesanan ORD") === 0) {
-                                                                                // Gunakan regex untuk menangkap isi dalam kurung terakhir
-                                                                                if (preg_match('/\(([^\)]+)\)$/', $raw_keterangan, $matches)) {
-                                                                                    $parsed_keterangan = trim($matches[1]); // Ambil isi dalam kurung
-                                                                                } else {
-                                                                                    $parsed_keterangan = ''; // Jika tidak ada kurung, keterangan dianggap kosong
-                                                                                }
-                                                                            }
-                                                                            // Logika parsing untuk keterangan dari pembelian langsung (e.g., "Pembelian langsung: cekk")
-                                                                            elseif (strpos($raw_keterangan, "Pembelian langsung: ") === 0) {
-                                                                                $parsed_keterangan = str_replace("Pembelian langsung: ", "", $raw_keterangan);
-                                                                            }
-                                                                            // Jika keterangan tidak cocok dengan format di atas, gunakan keterangan mentah
-                                                                            else {
-                                                                                $parsed_keterangan = $raw_keterangan;
-                                                                            }
-
-                                                                            // Fallback jika parsing menghasilkan string kosong
-                                                                            $final_keterangan = htmlspecialchars(trim($parsed_keterangan));
-                                                                            if (empty($final_keterangan)) {
-                                                                                $final_keterangan = htmlspecialchars($income['first_item_name'] ?? '-');
-                                                                            }
-
-                                                                            echo $final_keterangan;
-                                                                            ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['keterangan']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900">
                                     <?php
                                     $display_price_label = "";
