@@ -98,7 +98,7 @@ require_once __DIR__ . '/layout/header.php'; //
             </div>
         </form>
         <div class="mt-4 text-center">
-            <a href="<?php echo htmlspecialchars('./register.php'); ?>" class="text-sm text-green-600 hover:text-green-800">Belum punya akun? Daftar disini</a>
+            <a href="<?php echo htmlspecialchars('./reset_password.php'); ?>" class="text-sm text-green-600 hover:text-green-800">Lupa password? Ganti disini</a>
         </div>
     </div>
 </div>
