@@ -120,7 +120,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $stmt_pemesanan->close();
 
             $total_tagihan_display = $total_tagihan_pemesanan;
-            $keterangan = $keterangan_pemesanan_db; // Update keterangan dari pemesanan
+            // Hanya gunakan keterangan dari pemesanan jika user belum mengisi keterangan
+            if (empty($keterangan)) {
+                $keterangan = $keterangan_pemesanan_db; // Update keterangan dari pemesanan hanya jika form kosong
+            }
 
             if ($current_sisa_pemesanan == 0) {
                 $sisa_pembayaran_display = 0;
@@ -572,7 +575,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         document.getElementById('akun_display').value = accountInfo;
 
         document.getElementById('total_tagihan_display').value = formatRupiah(subTotal);
-        document.getElementById('keterangan').value = keteranganPemesanan; // Set keterangan form dengan keterangan pesanan
+
+        // Hanya set keterangan dari pesanan jika field keterangan masih kosong
+        const keteranganField = document.getElementById('keterangan');
+        if (!keteranganField.value.trim()) {
+            keteranganField.value = keteranganPemesanan; // Set keterangan form dengan keterangan pesanan hanya jika kosong
+        }
 
         if (sisaAwal > 0) {
             document.getElementById('jumlah_dibayar').max = sisaAwal;

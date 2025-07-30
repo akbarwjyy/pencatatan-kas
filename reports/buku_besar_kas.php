@@ -117,23 +117,43 @@ if (!empty($selected_akun)) {
     // Kas masuk adalah kredit dan kas keluar adalah debit, maka saldo awal adalah kas masuk dikurangi kas keluar
     $saldo_awal = ($saldo_masuk_awal ?? 0) - ($saldo_keluar_awal ?? 0);
 
-    // --- START MODIFIKASI: Query untuk entri kas masuk dengan grouping untuk pemesanan ---
+    // --- START MODIFIKASI: Query untuk entri kas masuk dengan detail per transaksi ---
 
-    // Query untuk pemesanan (digrup per pesanan)
+    // Query untuk pemesanan (tidak digrup, tampilkan per transaksi)
     $sql_km_pemesanan = "SELECT 
-                        MIN(km.tgl_kas_masuk) AS tanggal, 
-                        CONCAT('Pemesanan - ', p.id_pesan, ' - ', c.nama_customer) AS keterangan, 
-                        SUM(km.jumlah) AS jumlah, 
+                        km.tgl_kas_masuk AS tanggal, 
+                        km.keterangan AS keterangan_user,
+                        CASE 
+                            WHEN km.keterangan IS NOT NULL AND km.keterangan != '' THEN km.keterangan
+                            ELSE CONCAT(
+                                CASE 
+                                    WHEN p.sisa > 0 AND p.uang_muka > 0 AND km.jumlah <= p.uang_muka THEN 'Uang Muka'
+                                    WHEN p.sisa = 0 THEN 'Pelunasan'
+                                    ELSE 'Pembayaran'
+                                END,
+                                ' - ', p.id_pesan, ' - ', c.nama_customer
+                            )
+                        END AS keterangan, 
+                        km.jumlah, 
                         'Kredit' AS tipe_saldo, 
-                        MIN(tr.id_transaksi) AS id_transaksi,
-                        AVG(km.harga) AS harga,
-                        SUM(km.kuantitas) AS kuantitas,
+                        tr.id_transaksi,
+                        COALESCE(dp.harga_satuan_item, km.harga, 12000) AS harga_input_user,
+                        km.harga AS harga_kas_masuk,
+                        km.kuantitas,
                         p.id_pesan AS no_pesan, 
-                        c.nama_customer AS nama_customer 
+                        c.nama_customer AS nama_customer,
+                        dp.harga_satuan_item AS harga_satuan_pemesanan,
+                        p.total_quantity AS total_quantity_pemesanan,
+                        CASE 
+                            WHEN p.sisa > 0 AND p.uang_muka > 0 AND km.jumlah <= p.uang_muka THEN 'uang_muka'
+                            WHEN p.sisa = 0 THEN 'pelunasan'
+                            ELSE 'pembayaran'
+                        END AS tipe_pembayaran
                         FROM kas_masuk km 
                         LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
                         LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan 
-                        LEFT JOIN customer c ON p.id_customer = c.id_customer";
+                        LEFT JOIN customer c ON p.id_customer = c.id_customer
+                        LEFT JOIN detail_pemesanan dp ON p.id_pesan = dp.id_pesan";
 
     $where_km_pemesanan = [];
     $params_km_pemesanan = [];
@@ -153,8 +173,8 @@ if (!empty($selected_akun)) {
     }
 
     $sql_km_pemesanan .= " WHERE " . implode(" AND ", $where_km_pemesanan);
-    $sql_km_pemesanan .= " GROUP BY p.id_pesan, c.nama_customer";
-    $sql_km_pemesanan .= " ORDER BY MIN(km.tgl_kas_masuk) ASC";
+    // HAPUS GROUP BY agar setiap transaksi ditampilkan terpisah
+    $sql_km_pemesanan .= " ORDER BY km.tgl_kas_masuk ASC, tr.id_transaksi ASC";
 
     $stmt_km_pemesanan = $conn->prepare($sql_km_pemesanan);
     if ($stmt_km_pemesanan === false) {
@@ -174,11 +194,12 @@ if (!empty($selected_akun)) {
     // Query untuk pembelian langsung (tidak digrup)
     $sql_km_langsung = "SELECT 
                         km.tgl_kas_masuk AS tanggal, 
+                        km.keterangan AS keterangan_user,
                         km.keterangan, 
                         km.jumlah, 
                         'Kredit' AS tipe_saldo, 
                         tr.id_transaksi,
-                        km.harga,
+                        km.harga AS harga_input_user,
                         km.kuantitas,
                         NULL AS no_pesan, 
                         NULL AS nama_customer 
@@ -222,7 +243,7 @@ if (!empty($selected_akun)) {
     // --- END MODIFIKASI ---
 
     // --- START MODIFIKASI: Refaktor konstruksi query untuk entri kas keluar (Debit) ---
-    $sql_kk_akun = "SELECT kk.tgl_kas_keluar AS tanggal, kk.keterangan, kk.jumlah, 'Debit' AS tipe_saldo, NULL AS id_transaksi, kk.harga, kk.kuantitas,
+    $sql_kk_akun = "SELECT kk.tgl_kas_keluar AS tanggal, kk.keterangan, kk.jumlah, 'Debit' AS tipe_saldo, kk.id_kas_keluar AS id_transaksi, kk.harga, kk.kuantitas,
                     NULL AS no_pesan, NULL AS nama_customer 
                     FROM kas_keluar kk 
                     LEFT JOIN akun a ON kk.id_akun = a.id_akun";
@@ -449,6 +470,27 @@ if (!empty($selected_akun)) {
                     background-color: #f5f5f5 !important;
                 }
 
+                /* Styling untuk jenis pembayaran */
+                .bg-blue-50 {
+                    background-color: #eff6ff !important;
+                }
+
+                .bg-green-50 {
+                    background-color: #f0fdf4 !important;
+                }
+
+                .bg-blue-100 {
+                    background-color: #dbeafe !important;
+                }
+
+                .bg-green-100 {
+                    background-color: #dcfce7 !important;
+                }
+
+                .bg-gray-200 {
+                    background-color: #e5e7eb !important;
+                }
+
                 /* Fix untuk warna text di print */
                 .text-gray-900,
                 .text-gray-500,
@@ -521,6 +563,9 @@ if (!empty($selected_akun)) {
                             <?php
                             $current_saldo = $saldo_awal;
                             $total_debet = 0;
+                            $total_uang_muka = 0;
+                            $total_pelunasan = 0;
+                            $total_lainnya = 0;
 
                             // Tampilkan entries yang bertipe Kredit (kas masuk)
                             foreach ($account_ledger_entries as $entry) :
@@ -528,8 +573,28 @@ if (!empty($selected_akun)) {
                                     $debit = $entry['jumlah'] ?? 0;
                                     $total_debet += $debit;
                                     $current_saldo += $debit; // Kas masuk menambah saldo
+
+                                    // Hitung subtotal berdasarkan jenis pembayaran
+                                    if (isset($entry['tipe_pembayaran'])) {
+                                        switch ($entry['tipe_pembayaran']) {
+                                            case 'uang_muka':
+                                                $total_uang_muka += $debit;
+                                                $row_class = 'bg-blue-50'; // Warna biru muda untuk uang muka
+                                                break;
+                                            case 'pelunasan':
+                                                $total_pelunasan += $debit;
+                                                $row_class = 'bg-green-50'; // Warna hijau muda untuk pelunasan
+                                                break;
+                                            default:
+                                                $total_lainnya += $debit;
+                                                $row_class = 'hover:bg-gray-50'; // Default
+                                        }
+                                    } else {
+                                        $total_lainnya += $debit;
+                                        $row_class = 'hover:bg-gray-50'; // Default
+                                    }
                             ?>
-                                    <tr class="hover:bg-gray-50">
+                                    <tr class="<?php echo $row_class; ?>">
                                         <td class="px-3 py-2 text-sm text-gray-900 text-center"><?php echo date('d/m/Y', strtotime($entry['tanggal'])); ?></td>
                                         <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($entry['keterangan'] ?? 'Pendapatan TP001'); ?></td>
                                         <td class="px-3 py-2 text-sm text-gray-900 text-right">Rp <?php echo number_format($debit, 0, ',', '.'); ?></td>
@@ -541,10 +606,43 @@ if (!empty($selected_akun)) {
                             endforeach;
                             ?>
 
+                            <!-- Subtotal Uang Muka -->
+                            <?php if ($total_uang_muka > 0) : ?>
+                                <tr class="bg-blue-100">
+                                    <td class="px-3 py-2 text-sm font-medium text-gray-900"></td>
+                                    <td class="px-3 py-2 text-sm font-medium text-gray-900">Subtotal Uang Muka</td>
+                                    <td class="px-3 py-2 text-sm font-medium text-gray-900 text-right">Rp <?php echo number_format($total_uang_muka, 0, ',', '.'); ?></td>
+                                    <td class="px-3 py-2 text-sm font-medium text-gray-900 text-center">-</td>
+                                    <td class="px-3 py-2 text-sm font-medium text-gray-900 text-center">-</td>
+                                </tr>
+                            <?php endif; ?>
+
+                            <!-- Subtotal Pelunasan -->
+                            <?php if ($total_pelunasan > 0) : ?>
+                                <tr class="bg-green-100">
+                                    <td class="px-3 py-2 text-sm font-medium text-gray-900"></td>
+                                    <td class="px-3 py-2 text-sm font-medium text-gray-900">Subtotal Pelunasan</td>
+                                    <td class="px-3 py-2 text-sm font-medium text-gray-900 text-right">Rp <?php echo number_format($total_pelunasan, 0, ',', '.'); ?></td>
+                                    <td class="px-3 py-2 text-sm font-medium text-gray-900 text-center">-</td>
+                                    <td class="px-3 py-2 text-sm font-medium text-gray-900 text-center">-</td>
+                                </tr>
+                            <?php endif; ?>
+
+                            <!-- Subtotal Lainnya -->
+                            <?php if ($total_lainnya > 0) : ?>
+                                <tr class="bg-gray-100">
+                                    <td class="px-3 py-2 text-sm font-medium text-gray-900"></td>
+                                    <td class="px-3 py-2 text-sm font-medium text-gray-900">Subtotal Penjualan Langsung</td>
+                                    <td class="px-3 py-2 text-sm font-medium text-gray-900 text-right">Rp <?php echo number_format($total_lainnya, 0, ',', '.'); ?></td>
+                                    <td class="px-3 py-2 text-sm font-medium text-gray-900 text-center">-</td>
+                                    <td class="px-3 py-2 text-sm font-medium text-gray-900 text-center">-</td>
+                                </tr>
+                            <?php endif; ?>
+
                             <!-- Total Pendapatan -->
-                            <tr class="bg-gray-100">
+                            <tr class="bg-gray-200">
                                 <td class="px-3 py-2 text-sm font-bold text-gray-900"></td>
-                                <td class="px-3 py-2 text-sm font-bold text-gray-900">Total Pendapatan</td>
+                                <td class="px-3 py-2 text-sm font-bold text-gray-900">TOTAL PENDAPATAN</td>
                                 <td class="px-3 py-2 text-sm font-bold text-gray-900 text-right">Rp <?php echo number_format($total_debet, 0, ',', '.'); ?></td>
                                 <td class="px-3 py-2 text-sm font-bold text-gray-900 text-center">-</td>
                                 <td class="px-3 py-2 text-sm font-bold text-gray-900 text-right">Rp <?php echo number_format(abs($current_saldo), 0, ',', '.'); ?></td>
@@ -592,6 +690,199 @@ if (!empty($selected_akun)) {
                                 <td class="px-3 py-2 text-sm font-bold text-gray-900">SALDO AKHIR KAS</td>
                                 <td class="px-3 py-2 text-sm font-bold text-gray-900 text-right">Rp <?php echo number_format(abs($current_saldo), 0, ',', '.'); ?></td>
                                 <td class="px-3 py-2 text-sm font-bold text-gray-900 text-center">-</td>
+                                <td class="px-3 py-2 text-sm font-bold text-gray-900 text-right">Rp <?php echo number_format(abs($current_saldo), 0, ',', '.'); ?></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                <?php elseif ($is_pendapatan_akun) : ?>
+                    <!-- Format khusus untuk akun pendapatan: Total per pemesanan dan per pembelian langsung -->
+                    <table class="min-w-full bg-white border border-gray-200 print-table">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="px-3 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+                                <th class="px-3 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">ID</th>
+                                <th class="px-3 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">Akun</th>
+                                <th class="px-3 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">Keterangan</th>
+                                <th class="px-3 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">Harga</th>
+                                <th class="px-3 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">QTY</th>
+                                <th class="px-3 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">Debit</th>
+                                <th class="px-3 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">Kredit</th>
+                                <th class="px-3 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">Saldo</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <!-- Baris Saldo Awal -->
+                            <?php if ($saldo_awal != 0) : ?>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-center"><?php echo date('d/m/Y', strtotime($start_date)); ?></td>
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-center">-</td>
+                                    <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($account_name); ?></td>
+                                    <td class="px-3 py-2 text-sm text-gray-900">Saldo Awal</td>
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-center">-</td>
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-center">-</td>
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-center">-</td>
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-center">-</td>
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-right">Rp <?php echo number_format(abs($saldo_awal), 0, ',', '.'); ?></td>
+                                </tr>
+                            <?php endif; ?>
+
+                            <?php
+                            $current_saldo = $saldo_awal;
+
+                            // Pisahkan dan grup data berdasarkan jenis transaksi
+                            $data_pemesanan = [];
+                            $data_langsung = [];
+                            $data_keluar = [];
+
+                            foreach ($account_ledger_entries as $entry) :
+                                if ($entry['tipe_saldo'] == 'Kredit') {
+                                    if (isset($entry['no_pesan']) && !empty($entry['no_pesan'])) {
+                                        // Transaksi pemesanan - grup per nomor pesanan
+                                        $no_pesan = $entry['no_pesan'];
+                                        if (!isset($data_pemesanan[$no_pesan])) {
+                                            $data_pemesanan[$no_pesan] = [
+                                                'tanggal' => $entry['tanggal'],
+                                                'id_transaksi' => $entry['id_transaksi'] ?? '',
+                                                'no_pesan' => $no_pesan,
+                                                'nama_customer' => $entry['nama_customer'] ?? '',
+                                                'keterangan_user' => $entry['keterangan_user'] ?? '',
+                                                'harga_satuan' => $entry['harga_satuan_pemesanan'] ?? $entry['harga_input_user'] ?? 0,
+                                                'total_qty' => $entry['total_quantity_pemesanan'] ?? 0, // Gunakan total_quantity dari pemesanan
+                                                'total_jumlah' => 0
+                                            ];
+                                        }
+                                        $data_pemesanan[$no_pesan]['total_jumlah'] += $entry['jumlah'] ?? 0;
+                                        // Untuk pemesanan, gunakan harga satuan dari pemesanan, bukan harga kas_masuk
+                                        if (empty($data_pemesanan[$no_pesan]['harga_satuan']) && !empty($entry['harga_satuan_pemesanan'])) {
+                                            $data_pemesanan[$no_pesan]['harga_satuan'] = $entry['harga_satuan_pemesanan'];
+                                        }
+                                        // QTY untuk pemesanan tidak diakumulasi, sudah di-set saat inisialisasi dari total_quantity_pemesanan
+                                        // Gunakan tanggal paling awal untuk grup ini dan ambil keterangan user yang tidak kosong
+                                        if (strtotime($entry['tanggal']) < strtotime($data_pemesanan[$no_pesan]['tanggal'])) {
+                                            $data_pemesanan[$no_pesan]['tanggal'] = $entry['tanggal'];
+                                            $data_pemesanan[$no_pesan]['id_transaksi'] = $entry['id_transaksi'] ?? '';
+                                        }
+                                        // Ambil keterangan user yang tidak kosong
+                                        if (!empty($entry['keterangan_user']) && empty($data_pemesanan[$no_pesan]['keterangan_user'])) {
+                                            $data_pemesanan[$no_pesan]['keterangan_user'] = $entry['keterangan_user'];
+                                        }
+                                    } else {
+                                        // Pembelian langsung - grup per tanggal dan keterangan user
+                                        $keterangan_user = $entry['keterangan_user'] ?? $entry['keterangan'] ?? 'Penjualan Langsung';
+                                        $key = $entry['tanggal'] . '_' . $keterangan_user;
+                                        if (!isset($data_langsung[$key])) {
+                                            $data_langsung[$key] = [
+                                                'tanggal' => $entry['tanggal'],
+                                                'id_transaksi' => $entry['id_transaksi'] ?? '',
+                                                'keterangan' => $keterangan_user,
+                                                'harga_satuan' => $entry['harga_input_user'] ?? 0,
+                                                'total_qty' => 0,
+                                                'total_jumlah' => 0
+                                            ];
+                                        }
+                                        $data_langsung[$key]['total_jumlah'] += $entry['jumlah'] ?? 0;
+                                        // Untuk pembelian langsung, gunakan harga dari input user (km.harga)
+                                        if (empty($data_langsung[$key]['harga_satuan']) && !empty($entry['harga_input_user'])) {
+                                            $data_langsung[$key]['harga_satuan'] = $entry['harga_input_user'];
+                                        }
+                                        $data_langsung[$key]['total_qty'] += $entry['kuantitas'] ?? 0;
+                                    }
+                                } else {
+                                    // Kas keluar (debit) - tetap detail
+                                    $data_keluar[] = $entry;
+                                }
+                            endforeach;
+
+                            // Gabungkan semua data dan urutkan berdasarkan tanggal
+                            $all_entries = [];
+
+                            // Tambahkan data pemesanan
+                            foreach ($data_pemesanan as $pesan) {
+                                // Gunakan keterangan user jika ada, jika tidak gunakan format default
+                                $keterangan_display = !empty($pesan['keterangan_user'])
+                                    ? $pesan['keterangan_user']
+                                    : 'Total Pemesanan ' . $pesan['no_pesan'] . ' - ' . $pesan['nama_customer'];
+
+                                $all_entries[] = [
+                                    'tanggal' => $pesan['tanggal'],
+                                    'id_transaksi' => $pesan['id_transaksi'],
+                                    'keterangan' => $keterangan_display,
+                                    'harga' => $pesan['harga_satuan'], // Gunakan harga satuan dari pemesanan
+                                    'qty' => $pesan['total_qty'],
+                                    'tipe' => 'kredit',
+                                    'jumlah' => $pesan['total_jumlah'],
+                                    'class' => 'bg-green-50'
+                                ];
+                            }
+
+                            // Tambahkan data pembelian langsung
+                            foreach ($data_langsung as $langsung) {
+                                $all_entries[] = [
+                                    'tanggal' => $langsung['tanggal'],
+                                    'id_transaksi' => $langsung['id_transaksi'],
+                                    'keterangan' => $langsung['keterangan'], // Sudah menggunakan keterangan user
+                                    'harga' => $langsung['harga_satuan'], // Gunakan harga dari input user
+                                    'qty' => $langsung['total_qty'],
+                                    'tipe' => 'kredit',
+                                    'jumlah' => $langsung['total_jumlah'],
+                                    'class' => 'bg-blue-50'
+                                ];
+                            }
+
+                            // Tambahkan data kas keluar (tetap detail)
+                            foreach ($data_keluar as $keluar) {
+                                $all_entries[] = [
+                                    'tanggal' => $keluar['tanggal'],
+                                    'id_transaksi' => $keluar['id_transaksi'] ?? '',
+                                    'keterangan' => $keluar['keterangan'] ?? 'Pengeluaran',
+                                    'harga' => $keluar['harga'] ?? 0,
+                                    'qty' => $keluar['kuantitas'] ?? 0,
+                                    'tipe' => 'debit',
+                                    'jumlah' => $keluar['jumlah'] ?? 0,
+                                    'class' => 'hover:bg-gray-50'
+                                ];
+                            }
+
+                            // Urutkan berdasarkan tanggal
+                            usort($all_entries, function ($a, $b) {
+                                return strtotime($a['tanggal']) - strtotime($b['tanggal']);
+                            });
+
+                            // Tampilkan semua entries
+                            foreach ($all_entries as $entry) :
+                                if ($entry['tipe'] == 'kredit') {
+                                    $current_saldo += $entry['jumlah'];
+                                    $kredit = $entry['jumlah'];
+                                    $debit = 0;
+                                } else {
+                                    $current_saldo -= $entry['jumlah'];
+                                    $debit = $entry['jumlah'];
+                                    $kredit = 0;
+                                }
+                            ?>
+                                <tr class="<?php echo $entry['class']; ?>">
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-center"><?php echo date('d/m/Y', strtotime($entry['tanggal'])); ?></td>
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-center"><?php echo htmlspecialchars($entry['id_transaksi']); ?></td>
+                                    <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($account_name); ?></td>
+                                    <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($entry['keterangan']); ?></td>
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-right"><?php echo ($entry['harga'] > 0) ? 'Rp ' . number_format($entry['harga'], 0, ',', '.') : '-'; ?></td>
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-center"><?php echo ($entry['qty'] > 0) ? $entry['qty'] : '-'; ?></td>
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-right"><?php echo ($debit > 0) ? 'Rp ' . number_format($debit, 0, ',', '.') : '-'; ?></td>
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-right"><?php echo ($kredit > 0) ? 'Rp ' . number_format($kredit, 0, ',', '.') : '-'; ?></td>
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-right">Rp <?php echo number_format(abs($current_saldo), 0, ',', '.'); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+
+                            <!-- Saldo Akhir -->
+                            <tr class="bg-blue-100 saldo-akhir">
+                                <td class="px-3 py-2 text-sm font-bold text-gray-900"></td>
+                                <td class="px-3 py-2 text-sm font-bold text-gray-900"></td>
+                                <td class="px-3 py-2 text-sm font-bold text-gray-900"></td>
+                                <td class="px-3 py-2 text-sm font-bold text-gray-900">SALDO AKHIR</td>
+                                <td class="px-3 py-2 text-sm font-bold text-gray-900"></td>
+                                <td class="px-3 py-2 text-sm font-bold text-gray-900"></td>
+                                <td class="px-3 py-2 text-sm font-bold text-gray-900"></td>
+                                <td class="px-3 py-2 text-sm font-bold text-gray-900"></td>
                                 <td class="px-3 py-2 text-sm font-bold text-gray-900 text-right">Rp <?php echo number_format(abs($current_saldo), 0, ',', '.'); ?></td>
                             </tr>
                         </tbody>
