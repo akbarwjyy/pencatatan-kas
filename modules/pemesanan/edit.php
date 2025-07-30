@@ -8,8 +8,9 @@ if (!has_permission('Admin') && !has_permission('Pegawai')) {
     redirect('../../modules/dashboard/index.php');
 }
 
+// Inisialisasi variabel untuk error dan input
 $id_pesan_error = $id_customer_error = $tgl_pesan_error = $tgl_kirim_error = $quantity_error = $uang_muka_error = $sub_total_error = $sisa_error = $harga_satuan_error = "";
-$id_pesan = $id_customer = $tgl_pesan = $tgl_kirim = $quantity = $uang_muka = $sub_total = $sisa = "";
+$id_pesan = $id_customer = $tgl_pesan = $tgl_kirim = $quantity = $uang_muka = $sub_total = $sisa = $id_akun = "";
 $harga_satuan_input = 0; // Ini akan dihitung balik dari sub_total dan quantity
 
 // Ambil daftar customer untuk dropdown
@@ -36,8 +37,8 @@ if ($account_result->num_rows > 0) {
 if (isset($_GET['id']) && !empty(trim($_GET['id']))) {
     $id_pesan_dari_url = sanitize_input(trim($_GET['id']));
 
-    // Ambil data pemesanan berdasarkan ID (tanpa id_akun)
-    $sql = "SELECT id_pesan, id_customer, tgl_pesan, tgl_kirim, quantity, uang_muka, sub_total, sisa FROM pemesanan WHERE id_pesan = ?";
+    // Ambil data pemesanan berdasarkan ID
+    $sql = "SELECT id_pesan, id_customer, tgl_pesan, tgl_kirim, total_quantity, uang_muka, total_tagihan_keseluruhan, sisa FROM pemesanan WHERE id_pesan = ?";
     if ($stmt = $conn->prepare($sql)) {
         $stmt->bind_param("s", $id_pesan_dari_url);
         if ($stmt->execute()) {
@@ -78,7 +79,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $harga_satuan_input_baru = sanitize_input($_POST['harga_satuan']); // Input sementara
     $uang_muka_baru = sanitize_input($_POST['uang_muka']);
 
-    // Validasi input (mirip dengan add.php)
+    // Validasi input
     if (empty($id_customer_baru)) {
         $id_customer_error = "Customer tidak boleh kosong.";
     }
@@ -122,15 +123,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         empty($id_customer_error) && empty($tgl_pesan_error) &&
         empty($tgl_kirim_error) && empty($quantity_error) && empty($uang_muka_error) && empty($harga_satuan_error) && empty($sub_total_error)
     ) {
-        // Query untuk update data pemesanan (tanpa id_akun)
-        $sql = "UPDATE pemesanan SET id_customer = ?, tgl_pesan = ?, tgl_kirim = ?, quantity = ?, uang_muka = ?, sub_total = ?, sisa = ? WHERE id_pesan = ?";
+        $sql = "UPDATE pemesanan SET id_customer = ?, tgl_pesan = ?, tgl_kirim = ?, total_quantity = ?, uang_muka = ?, total_tagihan_keseluruhan = ?, sisa = ? WHERE id_pesan = ?";
 
         if ($stmt = $conn->prepare($sql)) {
-            $stmt->bind_param("sssiiisi", $id_customer_baru, $tgl_pesan_baru, $tgl_kirim_baru, $quantity_baru, $uang_muka_baru, $sub_total_baru, $sisa_baru, $id_pesan_edit);
+            $bind_uang_muka = (float)$uang_muka_baru;
+            $bind_sub_total = (float)$sub_total_baru;
+            $bind_sisa = (float)$sisa_baru;
+
+            $stmt->bind_param("sssiidds", $id_customer_baru, $tgl_pesan_baru, $tgl_kirim_baru, $quantity_baru, $bind_uang_muka, $bind_sub_total, $bind_sisa, $id_pesan_edit);
 
             if ($stmt->execute()) {
                 set_flash_message("Pemesanan berhasil diperbarui!", "success");
-                redirect('index.php'); // Redirect ke halaman daftar pemesanan
+                redirect('index.php');
             } else {
                 set_flash_message("Gagal memperbarui pemesanan: " . $stmt->error, "error");
             }
@@ -157,7 +161,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <p>Ubah detail pemesanan di bawah ini.</p>
 
 <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]) . "?id=" . htmlspecialchars($id_pesan); ?>" method="post">
-    <!-- ID Pemesanan ditampilkan sebagai non-editable, tapi tetap dikirimkan sebagai hidden input -->
     <div class="form-group">
         <label for="id_pesan_display">ID Pesan:</label>
         <input type="text" id="id_pesan_display" value="<?php echo htmlspecialchars($id_pesan); ?>" disabled>
@@ -187,7 +190,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </option>
             <?php endforeach; ?>
         </select>
-        <!-- Tidak ada validasi error untuk id_akun karena tidak disimpan ke database -->
     </div>
     <div class="form-group">
         <label for="tgl_pesan">Tanggal Pesan:</label>
