@@ -8,8 +8,9 @@ if (!has_permission('Admin') && !has_permission('Pegawai')) {
     redirect('../../modules/dashboard/index.php');
 }
 
-$id_transaksi_error = $id_pesan_error = $id_akun_error = $tgl_transaksi_error = $jumlah_dibayar_error = $metode_pembayaran_error = $keterangan_error = "";
-$id_transaksi = $id_pesan = $id_akun = $tgl_transaksi = $jumlah_dibayar = $metode_pembayaran = $keterangan = "";
+// Inisialisasi variabel untuk error dan input
+$id_transaksi_error = $id_pesan_error = $id_akun_error = $tgl_transaksi_error = $jumlah_dibayar_error = $keterangan_error = "";
+$id_transaksi = $id_pesan = $id_akun = $tgl_transaksi = $jumlah_dibayar = $keterangan = "";
 $total_tagihan_display = 0;
 $sisa_pembayaran_display = 0;
 $old_id_pesan = ''; // Untuk menyimpan id_pesan lama jika berubah
@@ -17,9 +18,8 @@ $old_jumlah_dibayar = 0; // Untuk menghitung kembali sisa pemesanan jika diubah
 
 // Ambil daftar pemesanan yang belum lunas atau partially paid untuk dropdown
 $pemesanan_options = [];
-// Termasuk pemesanan yang mungkin sudah lunas karena transaksi ini, agar bisa diedit
-$pemesanan_sql = "SELECT p.id_pesan, p.sub_total, p.sisa, c.nama_customer 
-                  FROM pemesanan p 
+$pemesanan_sql = "SELECT p.id_pesan, p.total_tagihan_keseluruhan AS sub_total, p.sisa, c.nama_customer
+                  FROM pemesanan p
                   JOIN customer c ON p.id_customer = c.id_customer
                   ORDER BY p.tgl_pesan DESC";
 $pemesanan_result = $conn->query($pemesanan_sql);
@@ -74,20 +74,16 @@ if (isset($_GET['id']) && !empty(trim($_GET['id']))) {
     redirect('index.php');
 }
 
-
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Sanitasi input
-    $id_transaksi_edit = sanitize_input($_POST['id_transaksi_asal']); // ID yang diedit (hidden input)
+    $id_transaksi_edit = sanitize_input($_POST['id_transaksi_asal']);
     $id_pesan_baru = sanitize_input($_POST['id_pesan']);
     $id_akun_baru = sanitize_input($_POST['id_akun']);
     $tgl_transaksi_baru = sanitize_input($_POST['tgl_transaksi']);
     $jumlah_dibayar_baru = sanitize_input($_POST['jumlah_dibayar']);
-    $metode_pembayaran_baru = sanitize_input($_POST['metode_pembayaran']);
     $keterangan_baru = sanitize_input($_POST['keterangan']);
-
     $old_id_pesan_post = sanitize_input($_POST['old_id_pesan']);
     $old_jumlah_dibayar_post = sanitize_input($_POST['old_jumlah_dibayar']);
-
 
     // Validasi input
     if (empty($id_pesan_baru)) {
@@ -99,19 +95,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (empty($tgl_transaksi_baru)) {
         $tgl_transaksi_error = "Tanggal Transaksi tidak boleh kosong.";
     }
-
     if (empty($jumlah_dibayar_baru) || !is_numeric($jumlah_dibayar_baru) || $jumlah_dibayar_baru <= 0) {
         $jumlah_dibayar_error = "Jumlah Dibayar harus angka positif.";
     } else {
         $jumlah_dibayar_baru = (int)$jumlah_dibayar_baru;
     }
-
-    if (empty($metode_pembayaran_baru)) {
-        $metode_pembayaran_error = "Metode Pembayaran tidak boleh kosong.";
-    } elseif (strlen($metode_pembayaran_baru) > 20) {
-        $metode_pembayaran_error = "Metode Pembayaran maksimal 20 karakter.";
-    }
-
     if (strlen($keterangan_baru) > 30) {
         $keterangan_error = "Keterangan maksimal 30 karakter.";
     }
@@ -123,7 +111,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $tgl_kirim_related_baru = '';
 
     if (!empty($id_pesan_baru)) {
-        $pemesanan_detail_sql_baru = "SELECT sisa, sub_total, id_customer, tgl_kirim FROM pemesanan WHERE id_pesan = ?";
+        $pemesanan_detail_sql_baru = "SELECT sisa, total_tagihan_keseluruhan, id_customer, tgl_kirim FROM pemesanan WHERE id_pesan = ?";
         if ($stmt_pemesanan_baru = $conn->prepare($pemesanan_detail_sql_baru)) {
             $stmt_pemesanan_baru->bind_param("s", $id_pesan_baru);
             $stmt_pemesanan_baru->execute();
@@ -132,10 +120,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $stmt_pemesanan_baru->close();
 
             // Hitung sisa baru setelah transaksi ini
-            // Jika pemesanan sama, sisa yang berlaku adalah sisa saat ini + jumlah dibayar lama - jumlah dibayar baru
             $sisa_untuk_validasi = $current_sisa_pemesanan_baru;
             if ($id_pesan_baru === $old_id_pesan_post) {
-                $sisa_untuk_validasi += $old_jumlah_dibayar_post; // Tambahkan kembali jumlah lama
+                $sisa_untuk_validasi += $old_jumlah_dibayar_post;
             }
 
             if ($jumlah_dibayar_baru > $sisa_untuk_validasi) {
@@ -149,22 +136,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
     }
 
-
     // Jika tidak ada error validasi, coba update ke database
     if (
         empty($id_transaksi_error) && empty($id_pesan_error) && empty($id_akun_error) && empty($tgl_transaksi_error) &&
-        empty($jumlah_dibayar_error) && empty($metode_pembayaran_error) && empty($keterangan_error)
+        empty($jumlah_dibayar_error) && empty($keterangan_error)
     ) {
-
         // Mulai transaksi database
         $conn->begin_transaction();
         try {
             // 1. Rollback perubahan pada pemesanan lama (jika ada dan jika id_pesan berubah atau jumlah dibayar berubah)
             if (!empty($old_id_pesan_post) && ($old_id_pesan_post != $id_pesan_baru || $old_jumlah_dibayar_post != $jumlah_dibayar_baru)) {
-                // Tambahkan kembali jumlah yang dibayar sebelumnya ke sisa pemesanan lama
                 $sql_rollback_old_pemesanan = "UPDATE pemesanan SET sisa = sisa + ?, status_pesanan = 'Belum Lunas' WHERE id_pesan = ?";
                 if ($stmt_rollback = $conn->prepare($sql_rollback_old_pemesanan)) {
-                    $stmt_rollback->bind_param("is", $old_jumlah_dibayar_post, $old_id_pesan_post);
+                    $old_jumlah_dibayar_float = (float)$old_jumlah_dibayar_post;
+                    $stmt_rollback->bind_param("ds", $old_jumlah_dibayar_float, $old_id_pesan_post);
                     if (!$stmt_rollback->execute()) {
                         throw new Exception("Gagal rollback pemesanan lama: " . $stmt_rollback->error);
                     }
@@ -177,20 +162,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // Tentukan status pelunasan baru
             $status_pelunasan_baru = ($sisa_pembayaran_display == 0) ? 'Lunas' : 'Belum Lunas';
 
-            // 2. Update data transaksi
-            $sql_transaksi_update = "UPDATE transaksi SET id_pesan = ?, id_akun = ?, id_customer = ?, tgl_transaksi = ?, jumlah_dibayar = ?, metode_pembayaran = ?, keterangan = ?, total_tagihan = ?, sisa_pembayaran = ? WHERE id_transaksi = ?";
+            // 2. Update data transaksi dengan metode_pembayaran default 'Tunai'
+            $sql_transaksi_update = "UPDATE transaksi SET id_pesan = ?, id_akun = ?, id_customer = ?, tgl_transaksi = ?, jumlah_dibayar = ?, metode_pembayaran = 'Tunai', keterangan = ?, total_tagihan = ?, sisa_pembayaran = ? WHERE id_transaksi = ?";
             if ($stmt_transaksi_update = $conn->prepare($sql_transaksi_update)) {
+                $jumlah_dibayar_float = (float)$jumlah_dibayar_baru;
+                $total_tagihan_pemesanan_float = (float)$total_tagihan_pemesanan_baru;
+                $sisa_pembayaran_display_float = (float)$sisa_pembayaran_display;
+
                 $stmt_transaksi_update->bind_param(
-                    "sssssissis",
+                    "ssssdsdss",
                     $id_pesan_baru,
                     $id_akun_baru,
                     $id_customer_related_baru,
                     $tgl_transaksi_baru,
-                    $jumlah_dibayar_baru,
-                    $metode_pembayaran_baru,
+                    $jumlah_dibayar_float,
                     $keterangan_baru,
-                    $total_tagihan_pemesanan_baru,
-                    $sisa_pembayaran_display,
+                    $total_tagihan_pemesanan_float,
+                    $sisa_pembayaran_display_float,
                     $id_transaksi_edit
                 );
 
@@ -202,11 +190,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 throw new Exception("Error prepared statement (update transaksi): " . $conn->error);
             }
 
-            // 3. Update sisa pembayaran di tabel pemesanan baru (jika ada)
+            // 3. Update sisa pembayaran di tabel pemesanan baru
             if (!empty($id_pesan_baru)) {
                 $sql_update_pemesanan_baru = "UPDATE pemesanan SET sisa = ?, status_pesanan = ? WHERE id_pesan = ?";
                 if ($stmt_update_pemesanan_baru = $conn->prepare($sql_update_pemesanan_baru)) {
-                    $stmt_update_pemesanan_baru->bind_param("iss", $sisa_pembayaran_display, $status_pelunasan_baru, $id_pesan_baru);
+                    $sisa_pembayaran_display_pemesanan_float = (float)$sisa_pembayaran_display;
+                    $stmt_update_pemesanan_baru->bind_param("dss", $sisa_pembayaran_display_pemesanan_float, $status_pelunasan_baru, $id_pesan_baru);
                     if (!$stmt_update_pemesanan_baru->execute()) {
                         throw new Exception("Gagal memperbarui pemesanan baru: " . $stmt_update_pemesanan_baru->error);
                     }
@@ -218,10 +207,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             // 4. Update entri kas_masuk terkait transaksi ini
             $sql_kas_masuk_update = "UPDATE kas_masuk SET tgl_kas_masuk = ?, jumlah = ?, keterangan = ? WHERE id_transaksi = ?";
-            $keterangan_kas_masuk_update = "Pembayaran " . $keterangan_baru . " untuk Pesanan " . $id_pesan_baru;
+            $keterangan_kas_masuk_update = $keterangan_baru;
 
             if ($stmt_kas_masuk_update = $conn->prepare($sql_kas_masuk_update)) {
-                $stmt_kas_masuk_update->bind_param("siss", $tgl_transaksi_baru, $jumlah_dibayar_baru, $keterangan_kas_masuk_update, $id_transaksi_edit);
+                $jumlah_dibayar_kas_masuk_float = (float)$jumlah_dibayar_baru;
+                $stmt_kas_masuk_update->bind_param("sdss", $tgl_transaksi_baru, $jumlah_dibayar_kas_masuk_float, $keterangan_kas_masuk_update, $id_transaksi_edit);
                 if (!$stmt_kas_masuk_update->execute()) {
                     throw new Exception("Gagal memperbarui entri kas masuk: " . $stmt_kas_masuk_update->error);
                 }
@@ -230,13 +220,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 throw new Exception("Error prepared statement (kas_masuk update): " . $conn->error);
             }
 
-
             // Commit transaksi jika semua berhasil
             $conn->commit();
             set_flash_message("Transaksi dan Kas Masuk berhasil diperbarui! Status Pelunasan: " . $status_pelunasan_baru, "success");
             redirect('index.php');
         } catch (Exception $e) {
-            // Rollback transaksi jika ada error
             $conn->rollback();
             set_flash_message("Error saat memperbarui transaksi: " . $e->getMessage(), "error");
         }
@@ -247,7 +235,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $id_akun = $id_akun_baru;
         $tgl_transaksi = $tgl_transaksi_baru;
         $jumlah_dibayar = $jumlah_dibayar_baru;
-        $metode_pembayaran = $metode_pembayaran_baru;
         $keterangan = $keterangan_baru;
     }
 }
@@ -303,11 +290,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <span class="error" style="color: red; font-size: 0.9em;"><?php echo $jumlah_dibayar_error; ?></span>
     </div>
     <div class="form-group">
-        <label for="metode_pembayaran">Metode Pembayaran:</label>
-        <input type="text" id="metode_pembayaran" name="metode_pembayaran" value="<?php echo htmlspecialchars($metode_pembayaran); ?>" required maxlength="20">
-        <span class="error" style="color: red; font-size: 0.9em;"><?php echo $metode_pembayaran_error; ?></span>
-    </div>
-    <div class="form-group">
         <label for="keterangan">Keterangan:</label>
         <input type="text" id="keterangan" name="keterangan" value="<?php echo htmlspecialchars($keterangan); ?>" maxlength="30">
         <span class="error" style="color: red; font-size: 0.9em;"><?php echo $keterangan_error; ?></span>
@@ -332,8 +314,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         const subTotal = parseFloat(selectedOption.dataset.subtotal || 0);
         let sisaAwal = parseFloat(selectedOption.dataset.sisa || 0);
 
-        // Jika ID pemesanan yang dipilih sama dengan ID pemesanan lama (saat pertama load halaman)
-        // maka sisa awal harus ditambahkan kembali dengan jumlah_dibayar lama untuk perhitungan yang benar
+        // Jika ID pemesanan yang dipilih sama dengan ID pemesanan lama
         const oldIdPesan = document.querySelector('input[name="old_id_pesan"]').value;
         const oldJumlahDibayar = parseFloat(document.querySelector('input[name="old_jumlah_dibayar"]').value || 0);
 
@@ -342,9 +323,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         document.getElementById('total_tagihan_display').value = formatRupiah(subTotal);
-        document.getElementById('jumlah_dibayar').max = sisaAwal; // Set max input jumlah_dibayar
-        // Tidak otomatis mengisi jumlah_dibayar di edit, biarkan user yang mengisi
-
+        document.getElementById('jumlah_dibayar').max = sisaAwal;
         updateSisaSetelahPembayaran();
     }
 
@@ -368,7 +347,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         document.getElementById('sisa_pembayaran_display').value = formatRupiah(sisaSetelahIni);
     }
 
-    // Format Rupiah di sisi klien (JavaScript)
+    // Format Rupiah di sisi klien
     function formatRupiah(angka) {
         var reverse = angka.toString().split('').reverse().join(''),
             ribuan = reverse.match(/\d{1,3}/g);
@@ -376,7 +355,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         return 'Rp ' + ribuan;
     }
 
-    // Panggil saat halaman pertama kali dimuat untuk mengisi nilai awal jika ada selected option
+    // Panggil saat halaman pertama kali dimuat
     document.addEventListener('DOMContentLoaded', updatePemesananInfo);
 </script>
 
