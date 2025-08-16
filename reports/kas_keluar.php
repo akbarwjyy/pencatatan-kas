@@ -10,6 +10,11 @@ if (!has_permission('Admin') && !has_permission('Pemilik')) {
 
 $start_date = isset($_GET['start_date']) ? sanitize_input($_GET['start_date']) : '';
 $end_date = isset($_GET['end_date']) ? sanitize_input($_GET['end_date']) : '';
+// Jika tanggal belum diset, gunakan bulan ini sebagai default
+if (empty($start_date) && empty($end_date)) {
+    $start_date = date('Y-m-01');
+    $end_date = date('Y-m-t');
+}
 
 $sql = "SELECT kk.*, a.nama_akun
         FROM kas_keluar kk
@@ -90,123 +95,137 @@ if ($stmt === false) {
         </form>
 
         <style>
+            .print-only {
+                display: none;
+                /* Sembunyikan saat tampilan normal */
+            }
+
             @media print {
 
-                /* Hide everything except the report container */
-                body * {
-                    visibility: hidden !important;
+                /* Sembunyikan elemen yang tidak diperlukan */
+                .print\:hidden,
+                header,
+                nav,
+                .navbar,
+                .sidebar,
+                .breadcrumb,
+                form,
+                .form-container {
+                    display: none !important;
                 }
 
-                #report-container,
-                #report-container * {
-                    visibility: visible !important;
+                /* Sembunyikan judul pertama bawaan halaman */
+                h1:first-of-type {
+                    display: none !important;
                 }
 
-                #report-container {
-                    position: absolute;
-                    left: 0;
-                    top: 0;
-                    width: 100%;
+                /* Tampilkan hanya saat print */
+                .print-only {
+                    display: block !important;
+                }
+
+                * {
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+
+                body {
+                    font-family: Arial, sans-serif !important;
+                    font-size: 12px !important;
+                    line-height: 1.4 !important;
+                    color: black !important;
+                    background: white !important;
                     margin: 0 !important;
                     padding: 10px !important;
                 }
 
-                /* Explicitly hide header, nav, and common layout elements */
-                header,
-                nav,
-                .navbar,
-                .header,
-                .topbar,
-                .sidebar,
-                footer,
-                .print-hidden {
-                    display: none !important;
+                .container {
+                    max-width: none !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
                 }
 
-                /* Remove unnecessary styling for print */
-                .bg-white {
-                    background: white !important;
-                }
-
-                .bg-gray-50,
-                .bg-gray-100,
-                .bg-yellow-100 {
-                    background: white !important;
-                    border: none !important;
-                }
-
-                .shadow-md,
-                .shadow-sm {
-                    box-shadow: none !important;
-                }
-
-                .rounded-lg {
-                    border-radius: 0 !important;
-                }
-
-                .border {
-                    border: 1px solid black !important;
-                }
-
-                .px-4,
-                .py-8,
-                .p-6,
-                .px-6,
-                .py-3,
-                .py-4 {
-                    padding: 4px !important;
-                }
-
-                .mb-6,
-                .mb-4 {
-                    margin-bottom: 4px !important;
-                }
-
-                .text-gray-600,
-                .text-gray-800,
-                .text-gray-500,
-                .text-gray-900,
-                .text-yellow-700 {
+                h2 {
+                    font-size: 18px !important;
+                    font-weight: bold !important;
+                    text-align: center !important;
+                    margin-bottom: 3px !important;
                     color: black !important;
                 }
 
-                .text-xs {
-                    font-size: 10px !important;
-                }
-
-                .text-sm {
-                    font-size: 11px !important;
-                }
-
-                .text-xl,
-                .text-2xl {
-                    font-size: 14px !important;
-                }
-
-                .overflow-x-auto {
-                    overflow: visible !important;
-                }
-
-                .min-w-full {
-                    width: 100% !important;
+                .periode {
+                    font-size: 12px !important;
+                    text-align: center !important;
+                    margin-bottom: 15px !important;
+                    color: black !important;
                 }
 
                 table {
+                    width: 100% !important;
                     border-collapse: collapse !important;
+                    margin-top: 10px !important;
+                    font-size: 10px !important;
+                    page-break-inside: avoid !important;
                 }
 
                 th,
                 td {
                     border: 1px solid black !important;
-                    padding: 4px !important;
+                    padding: 4px 2px !important;
+                    text-align: left !important;
+                    vertical-align: top !important;
+                    color: black !important;
                 }
 
-                thead {
-                    display: table-header-group !important;
-                    /* Ensure table header is printed */
+                th {
+                    background-color: #f5f5f5 !important;
+                    font-weight: bold !important;
+                    text-align: center !important;
+                    font-size: 9px !important;
+                }
+
+                /* Kolom angka rata kanan */
+                td:nth-child(5),
+                td:nth-child(6) {
+                    text-align: right !important;
+                    white-space: nowrap !important;
+                    font-variant-numeric: tabular-nums;
+                }
+
+                tfoot tr {
+                    background-color: #f0f0f0 !important;
+                    font-weight: bold !important;
+                }
+
+                tfoot td {
+                    border-top: 2px solid black !important;
+                    font-weight: bold !important;
+                }
+
+                tr {
+                    page-break-inside: avoid !important;
+                    page-break-after: auto !important;
+                }
+
+                @page {
+                    margin: 1cm !important;
                 }
             }
         </style>
+
+        <!-- Judul Laporan -->
+        <h2 class="print-only" style="text-align:center; font-size:20px; font-weight:bold; margin-bottom:5px;">
+            Laporan Pengeluaran Kas
+        </h2>
+
+        <!-- Periode -->
+        <div class="print-only" style="text-align:center; margin-bottom:15px; font-size:14px;">
+            Periode
+            <?= !empty($start_date) ? date('d-m-Y', strtotime($start_date)) : '-' ?>
+            s/d
+            <?= !empty($end_date) ? date('d-m-Y', strtotime($end_date)) : '-' ?>
+        </div>
+
 
         <?php if (empty($cash_expenses)) : ?>
             <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6">
@@ -232,7 +251,7 @@ if ($stmt === false) {
                             $total_jumlah += ($expense['jumlah'] ?? 0);
                         ?>
                             <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($expense['tgl_kas_keluar']); ?></td>
+                                <td class="px-6 py-4 text-sm text-gray-900"><?php echo !empty($expense['tgl_kas_keluar']) ? date('d/m/Y', strtotime($expense['tgl_kas_keluar'])) : '-'; ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-500"><?php echo htmlspecialchars($expense['id_kas_keluar']); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($expense['id_akun']); ?></td>
                                 <td class="px-6 py-4 text-sm text-gray-900"><?php echo htmlspecialchars($expense['nama_akun']); ?></td>

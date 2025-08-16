@@ -22,7 +22,7 @@ $id_akun = '';
 $tgl_transaksi = '';
 $jumlah_dibayar = 0; // Akan diisi dari total item
 $metode_pembayaran = '';
-$keterangan = '';
+$keterangan = 'Pembelian Langsung';
 $total_tagihan = 0; // Akan diisi dari total item
 $total_quantity = 0; // Akan diisi dari total item quantity
 
@@ -121,6 +121,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $item_id_barang = sanitize_input($item['id_barang'] ?? '');
             $item_quantity = sanitize_input($item['quantity_item'] ?? 0);
             $item_harga_satuan = sanitize_input($item['harga_satuan_item'] ?? 0);
+            $keterangan = $_POST['keterangan'] ?? 'Pembelian Langsung';
 
             // Validasi setiap item
             if (empty($item_id_barang)) {
@@ -245,7 +246,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             // 5. Masukkan data ke tabel `transaksi` (Pembelian Langsung)
             // --- PERBAIKAN UTAMA: Pastikan parameter binding dan tipe data benar ---
-            $sql_transaksi = "INSERT INTO transaksi (id_transaksi, id_pesan, id_akun, id_customer, tgl_transaksi, jumlah_dibayar, metode_pembayaran, keterangan, total_tagihan, sisa_pembayaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            $sql_transaksi = "INSERT INTO transaksi (
+    id_transaksi, id_pesan, id_akun, id_customer, tgl_transaksi,
+    jumlah_dibayar, keterangan, total_tagihan, sisa_pembayaran
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
             if ($stmt_transaksi = $conn->prepare($sql_transaksi)) {
                 // Debug: Log nilai sebelum binding
                 error_log("Before binding - tgl_transaksi: " . $tgl_transaksi);
@@ -259,21 +263,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $bind_id_customer = $id_customer;
                 $bind_tgl_transaksi = $tgl_transaksi; // Pastikan ini format DATE yang benar
                 $bind_jumlah_dibayar = (float)$jumlah_dibayar; // Cast ke float
-                $bind_metode_pembayaran = $metode_pembayaran;
                 $bind_keterangan = $keterangan;
                 $bind_calculated_total_tagihan = (float)$calculated_total_tagihan; // Cast ke float
                 $bind_sisa_pembayaran_var = 0.0; // Float 0
 
                 // Perbaikan tipe data binding: s=string, d=double/float
                 $stmt_transaksi->bind_param(
-                    "sssssdssdd", // Perbaikan: tgl_transaksi tetap string (s), jumlah decimal menggunakan d
+                    "sssssssdd", // 5 string, 1 double, 1 string, 2 double
                     $bind_id_transaksi,
                     $bind_id_pesan_dummy,
                     $bind_id_akun,
                     $bind_id_customer,
                     $bind_tgl_transaksi,
                     $bind_jumlah_dibayar,
-                    $bind_metode_pembayaran,
                     $bind_keterangan,
                     $bind_calculated_total_tagihan,
                     $bind_sisa_pembayaran_var
@@ -462,9 +464,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div> -->
                 <div class="mb-6">
                     <label for="keterangan" class="block text-gray-700 text-sm font-bold mb-2">Keterangan :</label>
-                    <input type="text" id="keterangan" name="keterangan" value="<?php echo htmlspecialchars($keterangan); ?>" required maxlength="30"
+                    <input type="text" id="keterangan" name="keterangan"
+                        value="<?php echo htmlspecialchars($keterangan ?? 'Pembelian Langsung'); ?>"
+                        required maxlength="30"
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-                    <span class="text-red-500 text-xs italic mt-1 block"><?php echo $keterangan_error; ?></span>
+                    <span class="text-red-500 text-xs italic mt-1 block"><?php echo $keterangan_error ?? ''; ?></span>
                 </div>
             </div>
         </div>
@@ -552,17 +556,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </tr>
     </table>
     <hr class="nota-hr">
-    <table style="width:100%;">
-        <tr>
-            <td style="width:40%;">Nama Customer</td>
-            <td style="width:2%;">:</td>
-            <td style="width:28%;" id="nota-nama-customer"></td>
-            <td style="width:20%;">Metode Pembayaran</td>
-            <td style="width:2%;">:</td>
-            <td id="nota-metode-pembayaran"></td>
-        </tr>
-    </table>
-    <hr class="nota-hr2">
 
     <table style="width:100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 10px;">
         <thead>
@@ -595,6 +588,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         Ampyang Cap Garuda - Manisnya Tradisi Nusantara
     </div>
 </div>
+
 
 <?php if ($print_nota): ?>
     <script>
@@ -728,8 +722,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Isi data umum nota
         document.getElementById('nota-tanggal').textContent = tanggalFormatted;
         document.getElementById('nota-no-transaksi').textContent = data.id_transaksi;
-        document.getElementById('nota-nama-customer').textContent = data.customer_name;
-        document.getElementById('nota-metode-pembayaran').textContent = data.metode_pembayaran;
         document.getElementById('nota-total-pembelian').textContent = formatRupiah(data.total_tagihan);
         document.getElementById('nota-keterangan').textContent = data.keterangan;
 

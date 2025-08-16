@@ -14,9 +14,8 @@ $sql = "SELECT
             COALESCE(tr.id_transaksi, CONCAT('PENDING-', p.id_pesan)) as id_transaksi,
             tr.tgl_transaksi,
             tr.jumlah_dibayar,
-            tr.metode_pembayaran,
             CASE 
-                WHEN p.tgl_pesan = p.tgl_kirim AND tr.metode_pembayaran = 'Tunai' THEN '-'
+                WHEN p.tgl_pesan = p.tgl_kirim THEN '-'
                 ELSE p.id_pesan
             END AS no_pesan,
             p.total_tagihan_keseluruhan AS total_tagihan_pemesanan,
@@ -47,7 +46,6 @@ $sql = "SELECT
             tr.id_transaksi,
             tr.tgl_transaksi,
             tr.jumlah_dibayar,
-            tr.metode_pembayaran,
             '-' as no_pesan,
             tr.jumlah_dibayar as total_tagihan_pemesanan,
             0 as sisa_pemesanan,
@@ -90,7 +88,7 @@ try {
 
 <div class="container mx-auto px-4 py-8">
     <div class="bg-white rounded-lg shadow-md p-6">
-        <h1 class="text-2xl font-bold text-gray-800 mb-4">Manajemen Transaksi</h1>
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">Daftar Transaksi</h1>
         <p class="text-gray-600 mb-6">Kelola daftar transaksi pembayaran dari pemesanan.</p>
 
         <a href="add.php" class="inline-block bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition mb-6">
@@ -118,7 +116,7 @@ try {
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Sisa</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Nama Akun</th>
-                            <th class="px-3 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
+
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
@@ -129,7 +127,7 @@ try {
                                 <td class="px-3 py-2 text-sm text-gray-500"><?php echo htmlspecialchars($transaction['id_transaksi']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['no_pesan'] ?? '-'); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['nama_customer']); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['tgl_transaksi']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo date('d/m/y', strtotime($transaction['tgl_transaksi'])); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($transaction['total_tagihan']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($transaction['jumlah_dibayar']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($transaction['sisa_pemesanan'] ?? 0); ?></td>
@@ -152,26 +150,16 @@ try {
                                     </span>
                                 </td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['nama_akun'] ?? '-'); ?></td>
-                                <td class="px-3 py-2 text-sm text-center">
-                                    <div class="flex justify-center space-x-1">
-                                        <a href="edit.php?id=<?php echo htmlspecialchars($transaction['id_transaksi']); ?>"
-                                            class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 transition">
-                                            Edit
-                                        </a>
-                                        <a href="delete.php?id=<?php echo htmlspecialchars($transaction['id_transaksi']); ?>"
-                                            class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 transition"
-                                            onclick="return confirm('Apakah Anda yakin ingin menghapus transaksi ini?');">
-                                            Hapus
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+
             </div>
-        <?php endif; ?>
+            </td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+        </table>
     </div>
+<?php endif; ?>
+</div>
 </div>
 <?php
 ?>

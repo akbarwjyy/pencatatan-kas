@@ -102,7 +102,7 @@ try {
 
 <div class="container mx-auto px-4 py-8">
     <div class="bg-white rounded-lg shadow-md p-6">
-        <h1 class="text-2xl font-bold text-gray-800 mb-4">Laporan Kas Masuk</h1>
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">Daftar Kas Masuk</h1>
         <p class="text-gray-600 mb-6">Daftar pemasukan kas dari pemesanan dan transaksi.</p>
 
         <?php if (empty($cash_incomes)) : ?>
@@ -119,16 +119,14 @@ try {
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Nama Akun</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Harga</th>
-                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Kuantitas</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
-                            <th class="px-3 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
                         <?php foreach ($cash_incomes as $income) : ?>
                             <tr class="hover:bg-gray-50">
                                 <td class="px-3 py-2 text-sm text-gray-500"><?php echo htmlspecialchars($income['id_kas_masuk']); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['tgl_kas_masuk']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo date('d/m/Y', strtotime($income['tgl_kas_masuk'])); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['nama_akun'] ?? 'N/A'); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['keterangan']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900">
@@ -149,29 +147,15 @@ try {
                                     echo htmlspecialchars($display_price_label . ": ") . format_rupiah($display_price_value);
                                     ?>
                                 </td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php
-                                                                            if ($income['kuantitas'] > 0) {
-                                                                                echo $income['kuantitas'];
-                                                                            } elseif ($income['pemesanan_quantity'] > 0) {
-                                                                                echo $income['pemesanan_quantity'];
-                                                                            } else {
-                                                                                // Fallback jika tidak ada kuantitas spesifik atau dari pesanan
-                                                                                $calc_qty_denom = ($display_price_value > 0) ? $display_price_value : (($income['jumlah'] > 0) ? $income['jumlah'] : 1);
-                                                                                echo ceil(($income['jumlah'] ?? 0) / $calc_qty_denom);
-                                                                            }
-                                                                            ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($income['jumlah'] ?? 0); ?></td>
-                                <td class="px-3 py-2 text-sm text-center">
-                                    <span class="text-gray-500 text-xs">Otomatis</span>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                     <tfoot>
                         <tr class="bg-gray-100 font-bold">
-                            <td colspan="6" class="px-3 py-2 border-t text-right text-xs uppercase text-gray-700">Total:</td>
+                            <td colspan="5" class="px-3 py-2 border-t text-right text-xs uppercase text-gray-700">Total:</td>
                             <td class="px-3 py-2 border-t text-sm text-gray-900"><?php echo format_rupiah($total_jumlah); ?></td>
-                            <td class="px-3 py-2 border-t"></td>
                         </tr>
                     </tfoot>
                 </table>

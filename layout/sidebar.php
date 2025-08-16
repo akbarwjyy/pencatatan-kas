@@ -23,7 +23,7 @@ require_once __DIR__ . '/../includes/path_helper.php';
         <?php if (!($_SESSION['user_role'] === 'Pemilik')) : ?>
             <div class="mb-4">
                 <div class="mb-2">
-                    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide px-4 py-2">Manajemen</h3>
+                    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wide px-4 py-2">Data Utama</h3>
                 </div>
                 <div class="space-y-1">
                     <?php if (has_permission('Admin')) : ?>

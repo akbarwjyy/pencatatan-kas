@@ -84,77 +84,116 @@ usort($entries, function ($a, $b) {
 });
 ?>
 
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8" id="report-container">
     <div class="bg-white rounded-lg shadow-md p-6">
-        <div class="print-only" style="display: none;">
-            <h1 class="text-center text-2xl font-bold mb-2">Laporan Jurnal Umum Kas</h1>
-            <h2 class="text-center font-semibold">Periode: <?php echo date('d/m/Y', strtotime($start_date)); ?> - <?php echo date('d/m/Y', strtotime($end_date)); ?></h2>
-        </div>
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">Jurnal Umum</h1>
+        <p class="text-gray-600 mb-6">Lihat jurnal umum berdasarkan periode tanggal.</p>
 
         <style>
+            .print-only {
+                display: none;
+                /* Sembunyikan saat tampilan normal */
+            }
+
             @media print {
 
-                /* Hide non-essential elements */
+                /* Sembunyikan elemen yang tidak diperlukan */
+                .print\:hidden,
                 .print-hide,
                 header,
                 nav,
+                .navbar,
+                .sidebar,
+                .breadcrumb,
+                form,
+                .form-container,
                 .bg-gray-50,
-                button,
-                form {
+                button {
                     display: none !important;
                 }
 
-                /* Show print-only content */
+                /* Sembunyikan judul pertama bawaan halaman */
+                h1:first-of-type {
+                    display: none !important;
+                }
+
+                /* Tampilkan elemen khusus print */
                 .print-only {
                     display: block !important;
-                    margin-bottom: 20px;
                 }
 
-                /* Page layout */
-                @page {
-                    margin: 1cm;
+                * {
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
                 }
 
-                /* Container adjustments */
-                .container {
-                    width: 100% !important;
-                    max-width: none !important;
-                    padding: 0 !important;
+                body {
+                    font-family: Arial, sans-serif !important;
+                    font-size: 12px !important;
+                    line-height: 1.4 !important;
+                    color: black !important;
+                    background: white !important;
                     margin: 0 !important;
+                    padding: 10px !important;
                 }
 
-                /* Remove shadows and borders from main container */
-                .bg-white {
-                    box-shadow: none !important;
-                    border: none !important;
+                .container {
+                    max-width: none !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
                 }
 
-                /* Table styling */
+                /* Judul utama */
+                h2 {
+                    font-size: 18px !important;
+                    font-weight: bold !important;
+                    text-align: center !important;
+                    margin-bottom: 3px !important;
+                    color: black !important;
+                }
+
+                /* Periode */
+                .periode {
+                    font-size: 12px !important;
+                    text-align: center !important;
+                    margin-bottom: 15px !important;
+                    color: black !important;
+                }
+
                 table {
                     width: 100% !important;
                     border-collapse: collapse !important;
-                    font-size: 10pt !important;
+                    margin-top: 10px !important;
+                    font-size: 10px !important;
+                    page-break-inside: avoid !important;
                 }
 
                 th,
                 td {
-                    padding: 8px !important;
-                    border: 1px solid #000 !important;
-                    vertical-align: top;
+                    border: 1px solid black !important;
+                    padding: 4px 2px !important;
+                    text-align: left !important;
+                    vertical-align: top !important;
+                    color: black !important;
                 }
 
                 th {
-                    background-color: #e6e6e6 !important;
+                    background-color: #f5f5f5 !important;
                     font-weight: bold !important;
-                    text-transform: uppercase;
+                    text-align: center !important;
+                    font-size: 9px !important;
                 }
 
-                /* Text alignment */
-                .text-right {
+                /* Kolom angka rata kanan */
+                .text-right,
+                td:nth-child(5),
+                td:nth-child(6) {
                     text-align: right !important;
+                    white-space: nowrap !important;
+                    font-variant-numeric: tabular-nums;
                 }
 
-                /* Indentation for account names */
+                /* Indentasi nama akun */
                 .pl-8 {
                     padding-left: 20px !important;
                 }
@@ -163,32 +202,42 @@ usort($entries, function ($a, $b) {
                     padding-left: 40px !important;
                 }
 
-                /* Header styling */
-                h1 {
-                    text-align: center !important;
-                    font-size: 18pt !important;
-                    margin-bottom: 10px !important;
-                    font-weight: bold !important;
-                }
-
-                h2 {
-                    text-align: center !important;
-                    font-size: 14pt !important;
-                    margin-bottom: 20px !important;
-                }
-
-                /* Italic text for descriptions */
-                .font-italic {
-                    font-style: italic !important;
-                }
-
-                /* Footer totals */
+                /* Footer total */
                 tfoot tr {
-                    background-color: #e6e6e6 !important;
+                    background-color: #f0f0f0 !important;
                     font-weight: bold !important;
+                }
+
+                tfoot td {
+                    border-top: 2px solid black !important;
+                    font-weight: bold !important;
+                }
+
+                tr {
+                    page-break-inside: avoid !important;
+                    page-break-after: auto !important;
+                }
+
+                @page {
+                    margin: 1cm !important;
                 }
             }
         </style>
+
+        <!-- Judul Laporan -->
+        <h2 class="print-only" style="text-align:center; font-size:20px; font-weight:bold; margin-bottom:5px;">
+            Jurnal Umum
+        </h2>
+
+        <!-- Periode -->
+        <div class="print-only" style="text-align:center; margin-bottom:15px; font-size:14px;">
+            Periode
+            <?= !empty($start_date) ? date('d-m-Y', strtotime($start_date)) : '-' ?>
+            s/d
+            <?= !empty($end_date) ? date('d-m-Y', strtotime($end_date)) : '-' ?>
+        </div>
+
+
 
         <form action="" method="get" class="mb-6 p-4 bg-gray-50 rounded-lg shadow-sm flex flex-wrap items-end gap-4 print-hide">
             <div class="flex-1 min-w-[200px]">
@@ -267,7 +316,7 @@ usort($entries, function ($a, $b) {
                         ?>
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-2 text-sm text-gray-500 align-top" rowspan="3"><?php echo htmlspecialchars($entry['id_transaksi'] ?? '-'); ?></td>
-                                <td class="px-6 py-2 text-sm text-gray-500 align-top" rowspan="3"><?php echo htmlspecialchars($entry['tanggal']); ?></td>
+                                <td class="px-6 py-2 text-sm text-gray-500 align-top" rowspan="3"><?php echo !empty($entry['tanggal']) ? date('d/m/Y', strtotime($entry['tanggal'])) : '-'; ?></td>
                                 <td class="px-6 py-1 text-sm text-gray-700 pl-8"><?php echo htmlspecialchars($debit_account); ?></td>
                                 <td class="px-6 py-1 text-sm text-gray-900 text-right"><?php echo ($debit_amount > 0) ? format_rupiah($debit_amount) : '-'; ?></td>
                                 <td class="px-6 py-1 text-sm text-gray-900 text-right">-</td>

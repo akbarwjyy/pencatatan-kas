@@ -8,55 +8,50 @@ if (!has_permission('Admin') && !has_permission('Pemilik') && !has_permission('P
     redirect('../../modules/dashboard/index.php');
 }
 
+// Ambil filter tanggal dari GET
 $start_date = isset($_GET['start_date']) ? sanitize_input($_GET['start_date']) : '';
-$end_date = isset($_GET['end_date']) ? sanitize_input($_GET['end_date']) : '';
+$end_date   = isset($_GET['end_date']) ? sanitize_input($_GET['end_date']) : '';
+// Jika tanggal belum diset, gunakan bulan ini sebagai default
+if (empty($start_date) && empty($end_date)) {
+    $start_date = date('Y-m-01');
+    $end_date = date('Y-m-t');
+}
 
-// --- START MODIFIKASI: Ambil total_tagihan_keseluruhan dan total_quantity ---
+// Query awal (sudah ada kondisi keterangan)
 $sql = "SELECT p.*, c.nama_customer
         FROM pemesanan p
         JOIN customer c ON p.id_customer = c.id_customer
-        ";
-// --- END MODIFIKASI ---
+        WHERE (p.keterangan IS NULL OR p.keterangan != 'Pembelian Langsung')";
 
-$where_clause = [];
+// Simpan parameter filter tambahan
 $params = [];
 $param_types = "";
 
+// Tambah filter tanggal ke query
 if (!empty($start_date)) {
-    $where_clause[] = "p.tgl_pesan >= ?";
+    $sql .= " AND p.tgl_pesan >= ?";
     $params[] = $start_date;
     $param_types .= "s";
 }
 if (!empty($end_date)) {
-    $where_clause[] = "p.tgl_pesan <= ?";
+    $sql .= " AND p.tgl_pesan <= ?";
     $params[] = $end_date;
     $param_types .= "s";
 }
 
-if (!empty($where_clause)) {
-    $sql .= " WHERE " . implode(" AND ", $where_clause);
-}
-
 $sql .= " ORDER BY p.tgl_pesan DESC";
 
-// Inisialisasi $orders agar selalu ada, bahkan jika query gagal
+// Eksekusi query
 $orders = [];
-
-// Perbaikan: Tambahkan pengecekan apakah prepare() berhasil
 $stmt = $conn->prepare($sql);
 if ($stmt === false) {
-    // prepare() gagal, tampilkan error MySQLi
-    set_flash_message("Error menyiapkan statement SQL: " . $conn->error . " (Query: " . htmlspecialchars($sql) . ")", "error");
-    // Tidak perlu memproses lebih lanjut jika statement tidak bisa disiapkan
+    set_flash_message("Error SQL: " . $conn->error, "error");
 } else {
     if (!empty($params)) {
-        // Perbaikan: Gunakan call_user_func_array untuk bind_param jika PHP versi lama atau jika parameter dinamis
-        // Tapi dengan ...$params, itu sudah cukup modern dan efektif.
         $stmt->bind_param($param_types, ...$params);
     }
-    $stmt->execute(); // Baris ini akan error jika $stmt adalah false
+    $stmt->execute();
     $result = $stmt->get_result();
-
     if ($result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
             $orders[] = $row;
@@ -101,9 +96,14 @@ if ($stmt === false) {
 
         <!-- CSS untuk tampilan cetak yang diperbaiki -->
         <style>
+            .print-only {
+                display: none;
+                /* Sembunyikan saat tampilan normal */
+            }
+
             @media print {
 
-                /* Sembunyikan semua elemen yang tidak perlu dicetak */
+                /* Sembunyikan elemen yang tidak diperlukan */
                 .print\:hidden,
                 header,
                 nav,
@@ -115,7 +115,16 @@ if ($stmt === false) {
                     display: none !important;
                 }
 
-                /* Reset styling untuk tampilan cetak */
+                /* Sembunyikan judul pertama bawaan halaman */
+                h1:first-of-type {
+                    display: none !important;
+                }
+
+                /* Tampilkan hanya saat print */
+                .print-only {
+                    display: block !important;
+                }
+
                 * {
                     -webkit-print-color-adjust: exact !important;
                     print-color-adjust: exact !important;
@@ -137,54 +146,27 @@ if ($stmt === false) {
                     padding: 0 !important;
                 }
 
-                .bg-white,
-                .bg-gray-50,
-                .bg-gray-100 {
-                    background: white !important;
-                }
-
-                .shadow-md,
-                .shadow-sm {
-                    box-shadow: none !important;
-                }
-
-                .rounded-lg {
-                    border-radius: 0 !important;
-                }
-
-                .px-4,
-                .py-8,
-                .p-6 {
-                    padding: 0 !important;
-                }
-
-                .mb-6,
-                .mb-4 {
-                    margin-bottom: 10px !important;
-                }
-
-                /* Styling untuk judul laporan */
-                h1 {
+                h2 {
                     font-size: 18px !important;
                     font-weight: bold !important;
                     text-align: center !important;
-                    margin-bottom: 5px !important;
+                    margin-bottom: 3px !important;
                     color: black !important;
                 }
 
-                .text-gray-600 {
+                .periode {
                     font-size: 12px !important;
                     text-align: center !important;
                     margin-bottom: 15px !important;
                     color: black !important;
                 }
 
-                /* Styling untuk tabel */
                 table {
                     width: 100% !important;
                     border-collapse: collapse !important;
                     margin-top: 10px !important;
                     font-size: 10px !important;
+                    page-break-inside: avoid !important;
                 }
 
                 th,
@@ -203,15 +185,15 @@ if ($stmt === false) {
                     font-size: 9px !important;
                 }
 
-                /* Sembunyikan kolom aksi dan status pembayaran */
-                th:last-child,
-                td:last-child,
-                th:nth-last-child(2),
-                td:nth-last-child(2) {
-                    display: none !important;
+                /* Kolom angka rata kanan */
+                td:nth-child(6),
+                td:nth-child(7),
+                td:nth-child(8) {
+                    text-align: right !important;
+                    white-space: nowrap !important;
+                    font-variant-numeric: tabular-nums;
                 }
 
-                /* Styling untuk footer tabel (total) */
                 tfoot tr {
                     background-color: #f0f0f0 !important;
                     font-weight: bold !important;
@@ -222,7 +204,7 @@ if ($stmt === false) {
                     font-weight: bold !important;
                 }
 
-                /* Styling untuk status pembayaran */
+                /* Status badge */
                 .bg-green-100,
                 .bg-yellow-100 {
                     background: white !important;
@@ -240,49 +222,36 @@ if ($stmt === false) {
                     border-radius: 0 !important;
                 }
 
-                /* Formatting untuk mata uang */
-                .currency {
-                    text-align: right !important;
-                }
-
-                /* Menghindari page break di tengah tabel */
-                table {
-                    page-break-inside: avoid !important;
-                }
-
                 tr {
                     page-break-inside: avoid !important;
                     page-break-after: auto !important;
                 }
 
-                /* Header untuk setiap halaman */
                 @page {
                     margin: 1cm !important;
-
-                    @top-center {
-                        content: "Laporan Pemesanan" !important;
-                    }
-                }
-
-                /* Pesan tidak ada data */
-                .bg-yellow-100.border-l-4 {
-                    background: white !important;
-                    border: 1px solid black !important;
-                    border-left: 4px solid black !important;
-                    padding: 10px !important;
-                    margin: 10px 0 !important;
-                }
-
-                .text-yellow-700 {
-                    color: black !important;
                 }
             }
         </style>
+
+        <!-- Judul Laporan -->
+        <h2 class="print-only">
+            Laporan Pemesanan
+        </h2>
+
+        <!-- Periode -->
+        <div class="print-only periode">
+            Periode
+            <?= !empty($start_date) ? date('d-m-Y', strtotime($start_date)) : '-' ?>
+            s/d
+            <?= !empty($end_date) ? date('d-m-Y', strtotime($end_date)) : '-' ?>
+        </div>
+
 
         <?php if (empty($orders)) : ?>
             <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6">
                 <p class="font-medium">Tidak ada data pemesanan yang ditemukan untuk periode ini.</p>
             </div>
+
         <?php else : ?>
             <div class="overflow-x-auto">
                 <table class="min-w-full bg-white border border-gray-200">
@@ -297,7 +266,7 @@ if ($stmt === false) {
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Uang Muka</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Sisa Pembayaran</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Status Pembayaran</th>
-                            <th class="px-3 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase print:hidden">Aksi</th>
+
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
@@ -314,8 +283,8 @@ if ($stmt === false) {
                         ?>
                             <tr class="hover:bg-gray-50">
                                 <td class="px-3 py-2 text-sm text-gray-500"><?php echo htmlspecialchars($order['id_pesan']); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($order['tgl_pesan']); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($order['tgl_kirim']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo date('d/m/Y', strtotime($order['tgl_pesan'])); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo date('d/m/Y', strtotime($order['tgl_kirim'])); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($order['nama_customer']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($order['total_quantity'] ?? 0); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900 currency"><?php echo format_rupiah($order['total_tagihan_keseluruhan'] ?? 0); ?></td>
@@ -326,37 +295,18 @@ if ($stmt === false) {
                                         <?php echo ($order['sisa'] == 0) ? 'Lunas' : 'Belum Lunas'; ?>
                                     </span>
                                 </td>
-                                <td class="px-3 py-2 text-sm text-center print:hidden">
-                                    <div class="flex justify-center space-x-1">
-                                        <a href="../modules/pemesanan/edit.php?id=<?php echo htmlspecialchars($order['id_pesan']); ?>"
-                                            class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 transition">
-                                            Edit
-                                        </a>
-                                        <a href="../modules/pemesanan/delete.php?id=<?php echo htmlspecialchars($order['id_pesan']); ?>"
-                                            class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 transition"
-                                            onclick="return confirm('Apakah Anda yakin ingin menghapus pemesanan ini?');">
-                                            Hapus
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                    <tfoot>
-                        <tr class="bg-gray-100 font-bold">
-                            <td colspan="3" class="px-3 py-2 border-t text-right text-xs uppercase text-gray-700">Total:</td>
-                            <td class="px-3 py-2 border-t text-sm text-gray-900"><?php echo htmlspecialchars($total_quantity); ?></td>
-                            <td class="px-3 py-2 border-t text-sm text-gray-900 currency"><?php echo format_rupiah($total_tagihan_keseluruhan); ?></td>
-                            <td class="px-3 py-2 border-t text-sm text-gray-900 currency"><?php echo format_rupiah($total_uang_muka); ?></td>
-                            <td class="px-3 py-2 border-t text-sm text-gray-900 currency"><?php echo format_rupiah($total_sisa); ?></td>
-                            <td class="px-3 py-2 border-t"></td>
-                            <td class="px-3 py-2 border-t print:hidden"></td>
-                        </tr>
-                    </tfoot>
-                </table>
             </div>
-        <?php endif; ?>
+            </td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+        <tfoot>
+
+        </tfoot>
+        </table>
     </div>
+<?php endif; ?>
+</div>
 </div>
 
 <?php

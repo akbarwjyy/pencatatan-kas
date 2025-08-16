@@ -74,7 +74,7 @@ $saldo_kas_saat_ini = $saldo_awal_bulan + ($total_kas_masuk_bulan_ini ?: 0) - ($
 
 ?>
 
-<div class="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-8 rounded-lg shadow-xl mb-8">
+<div class="bg-gradient-to-r from-blue-500 to-emerald-600 text-white p-8 rounded-lg shadow-xl mb-8">
     <h1 class="text-3xl md:text-4xl lg:text-5xl font-extrabold leading-tight mb-2">
         Selamat Datang di Dashboard!
     </h1>

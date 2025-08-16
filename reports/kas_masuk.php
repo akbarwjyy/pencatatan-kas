@@ -12,6 +12,14 @@ if (!has_permission('Admin') && !has_permission('Pemilik') && !has_permission('P
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Pragma: no-cache");
 
+// Ambil tanggal dari GET, kalau kosong pakai default awal & akhir bulan ini
+$start_date = isset($_GET['start_date']) && !empty($_GET['start_date'])
+    ? sanitize_input($_GET['start_date'])
+    : date('Y-m-01'); // awal bulan ini
+$end_date = isset($_GET['end_date']) && !empty($_GET['end_date'])
+    ? sanitize_input($_GET['end_date'])
+    : date('Y-m-t'); // akhir bulan ini
+
 // Pastikan kolom harga dan kuantitas ada di tabel kas_masuk
 try {
     $columns_added = false;
@@ -20,8 +28,7 @@ try {
     $check_column_sql = "SHOW COLUMNS FROM kas_masuk LIKE 'harga'";
     $column_result = $conn->query($check_column_sql);
     if ($column_result->num_rows == 0) {
-        // Kolom harga belum ada, tambahkan
-        $conn->query("ALTER TABLE kas_masuk ADD COLUMN harga DECIMAL(15,2) DEFAULT 0"); // Pastikan DECIMAL
+        $conn->query("ALTER TABLE kas_masuk ADD COLUMN harga DECIMAL(15,2) DEFAULT 0");
         $columns_added = true;
     }
 
@@ -29,14 +36,12 @@ try {
     $check_column_sql = "SHOW COLUMNS FROM kas_masuk LIKE 'kuantitas'";
     $column_result = $conn->query($check_column_sql);
     if ($column_result->num_rows == 0) {
-        // Kolom kuantitas belum ada, tambahkan
         $conn->query("ALTER TABLE kas_masuk ADD COLUMN kuantitas INT DEFAULT 0");
         $columns_added = true;
     }
 
-    // Jika kolom baru ditambahkan, update harga dan kuantitas untuk data lama
     if ($columns_added) {
-        // Logika update otomatis untuk data lama (jika perlu)
+        // Jika perlu, isi kolom baru untuk data lama
     }
 } catch (Exception $e) {
     // Jika gagal menambahkan kolom, lanjutkan saja
@@ -58,11 +63,10 @@ try {
     // Jika ada error pada update, lanjutkan saja
 }
 
-// Ambil semua data kas masuk dari database, join dengan transaksi dan akun
+// Ambil semua data kas masuk sesuai filter tanggal
 $sql = "SELECT km.*, tr.id_pesan, tr.jumlah_dibayar AS jumlah_transaksi, tr.total_tagihan,
         (SELECT nama_akun FROM akun WHERE id_akun = tr.id_akun) AS nama_akun,
         p.total_quantity AS pemesanan_quantity,
-        -- Subquery untuk mendapatkan harga satuan dan nama barang dari item pertama di pesanan
         (SELECT dp_sub.harga_satuan_item
          FROM detail_pemesanan dp_sub
          WHERE dp_sub.id_pesan = p.id_pesan
@@ -75,12 +79,12 @@ $sql = "SELECT km.*, tr.id_pesan, tr.jumlah_dibayar AS jumlah_transaksi, tr.tota
         FROM kas_masuk km
         LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
         LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan
-        ORDER BY km.tgl_kas_masuk DESC"; // Urutkan berdasarkan tanggal terbaru
+        WHERE km.tgl_kas_masuk BETWEEN '$start_date' AND '$end_date'
+        ORDER BY km.tgl_kas_masuk DESC";
 
 $cash_incomes = [];
-$total_jumlah = 0; // Inisialisasi variabel total_jumlah
+$total_jumlah = 0;
 
-// Eksekusi query dengan pengecekan error
 try {
     $result = $conn->query($sql);
 
@@ -91,11 +95,10 @@ try {
     if ($result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
             $cash_incomes[] = $row;
-            $total_jumlah += (float)$row['jumlah']; // Menambahkan jumlah kas masuk (uang muka) ke total
+            $total_jumlah += (float)$row['jumlah'];
         }
     }
 } catch (Exception $e) {
-    // Tampilkan pesan error dan tetap lanjutkan dengan array kosong
     set_flash_message("Error: " . $e->getMessage(), "error");
 }
 ?>
@@ -133,125 +136,142 @@ try {
         </form>
 
         <style>
+            .print-only {
+                display: none;
+                /* Sembunyikan saat tampilan normal */
+            }
+
             @media print {
 
-                /* Hide everything except the report container */
-                body * {
-                    visibility: hidden !important;
+                /* Sembunyikan elemen yang tidak diperlukan */
+                .print\:hidden,
+                header,
+                nav,
+                .navbar,
+                .sidebar,
+                .breadcrumb,
+                form,
+                .form-container {
+                    display: none !important;
                 }
 
-                #report-container,
-                #report-container * {
-                    visibility: visible !important;
+                /* Sembunyikan judul pertama bawaan halaman */
+                h1:first-of-type {
+                    display: none !important;
                 }
 
-                #report-container {
-                    position: absolute;
-                    left: 0;
-                    top: 0;
-                    width: 100%;
+                /* Tampilkan hanya saat print */
+                .print-only {
+                    display: block !important;
+                }
+
+                * {
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+
+                body {
+                    font-family: Arial, sans-serif !important;
+                    font-size: 12px !important;
+                    line-height: 1.4 !important;
+                    color: black !important;
+                    background: white !important;
                     margin: 0 !important;
                     padding: 10px !important;
                 }
 
-                /* Explicitly hide header, nav, and common layout elements */
-                header,
-                nav,
-                .navbar,
-                .header,
-                .topbar,
-                .sidebar,
-                footer,
-                .print-hidden {
-                    display: none !important;
+                .container {
+                    max-width: none !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
                 }
 
-                /* Remove unnecessary styling for print */
-                .bg-white {
-                    background: white !important;
-                }
-
-                .bg-gray-50,
-                .bg-gray-100,
-                .bg-yellow-100 {
-                    background: white !important;
-                    border: none !important;
-                }
-
-                .shadow-md,
-                .shadow-sm {
-                    box-shadow: none !important;
-                }
-
-                .rounded-lg {
-                    border-radius: 0 !important;
-                }
-
-                .border {
-                    border: 1px solid black !important;
-                }
-
-                .px-4,
-                .py-8,
-                .p-6 {
-                    padding: 4px !important;
-                }
-
-                .mb-6,
-                .mb-4 {
-                    margin-bottom: 4px !important;
-                }
-
-                .text-gray-600,
-                .text-gray-800,
-                .text-gray-500,
-                .text-gray-900,
-                .text-yellow-700 {
+                h2 {
+                    font-size: 18px !important;
+                    font-weight: bold !important;
+                    text-align: center !important;
+                    margin-bottom: 3px !important;
                     color: black !important;
                 }
 
-                .text-xs {
-                    font-size: 10px !important;
-                }
-
-                .text-sm {
-                    font-size: 11px !important;
-                }
-
-                .text-xl,
-                .text-2xl {
-                    font-size: 14px !important;
-                }
-
-                .overflow-x-auto {
-                    overflow: visible !important;
-                }
-
-                .min-w-full {
-                    width: 100% !important;
+                .periode {
+                    font-size: 12px !important;
+                    text-align: center !important;
+                    margin-bottom: 15px !important;
+                    color: black !important;
                 }
 
                 table {
+                    width: 100% !important;
                     border-collapse: collapse !important;
+                    margin-top: 10px !important;
+                    font-size: 10px !important;
+                    page-break-inside: avoid !important;
                 }
 
                 th,
                 td {
                     border: 1px solid black !important;
-                    padding: 4px !important;
+                    padding: 4px 2px !important;
+                    text-align: left !important;
+                    vertical-align: top !important;
+                    color: black !important;
                 }
 
-                thead {
-                    display: table-header-group !important;
-                    /* Ensure table header is printed */
+                th {
+                    background-color: #f5f5f5 !important;
+                    font-weight: bold !important;
+                    text-align: center !important;
+                    font-size: 9px !important;
+                }
+
+                /* Kolom angka rata kanan */
+                td:nth-child(5),
+                td:nth-child(6) {
+                    text-align: right !important;
+                    white-space: nowrap !important;
+                    font-variant-numeric: tabular-nums;
+                }
+
+                tfoot tr {
+                    background-color: #f0f0f0 !important;
+                    font-weight: bold !important;
+                }
+
+                tfoot td {
+                    border-top: 2px solid black !important;
+                    font-weight: bold !important;
+                }
+
+                tr {
+                    page-break-inside: avoid !important;
+                    page-break-after: auto !important;
+                }
+
+                @page {
+                    margin: 1cm !important;
                 }
             }
         </style>
+
+        <!-- Judul Laporan -->
+        <h2 class="print-only" style="text-align:center; font-size:20px; font-weight:bold; margin-bottom:5px;">
+            Laporan Pemasukan Kas
+        </h2>
+
+        <!-- Periode -->
+        <div class="print-only" style="text-align:center; margin-bottom:15px; font-size:14px;">
+            Periode
+            <?= !empty($start_date) ? date('d-m-Y', strtotime($start_date)) : '-' ?>
+            s/d
+            <?= !empty($end_date) ? date('d-m-Y', strtotime($end_date)) : '-' ?>
+        </div>
 
         <?php if (empty($cash_incomes)) : ?>
             <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6">
                 <p class="font-medium">Tidak ada data kas masuk yang ditemukan untuk periode ini.</p>
             </div>
+
         <?php else : ?>
             <div class="overflow-x-auto">
                 <table class="min-w-full bg-white border border-gray-200">
@@ -262,81 +282,50 @@ try {
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Nama Akun</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Harga</th>
-                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Kuantitas</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
-                            <th class="px-3 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
                         <?php foreach ($cash_incomes as $income) : ?>
                             <tr class="hover:bg-gray-50">
                                 <td class="px-3 py-2 text-sm text-gray-500"><?php echo htmlspecialchars($income['id_kas_masuk']); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['tgl_kas_masuk']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo date('d/m/Y', strtotime($income['tgl_kas_masuk'])); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['nama_akun'] ?? 'N/A'); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($income['keterangan']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900">
                                     <?php
                                     $display_price_value = 0;
 
-                                    // Prioritas 1: Jika ada harga satuan dari detail_pemesanan (untuk transaksi pemesanan)
                                     if (isset($income['first_item_unit_price']) && $income['first_item_unit_price'] > 0) {
                                         $display_price_value = $income['first_item_unit_price'];
-                                    }
-                                    // Prioritas 2: Jika id_pesan kosong (transaksi beli langsung atau kas masuk manual)
-                                    elseif (empty($income['id_pesan'])) {
+                                    } elseif (empty($income['id_pesan'])) {
                                         if (isset($income['kuantitas']) && $income['kuantitas'] > 0 && isset($income['harga']) && $income['harga'] > 0) {
-                                            // Heuristik: Jika 'harga' yang tercatat sama dengan 'jumlah' total pembayaran,
-                                            // dan kuantitas lebih dari 0, ini kemungkinan adalah transaksi pembelian langsung
-                                            // di mana 'harga' menyimpan total, dan kita perlu menghitung harga per unit.
                                             if (abs($income['harga'] - $income['jumlah']) < 0.01 && $income['kuantitas'] > 0) {
                                                 $display_price_value = $income['jumlah'] / $income['kuantitas'];
                                             } else {
-                                                // Jika tidak, asumsikan 'harga' sudah merupakan harga satuan (untuk kas masuk manual)
                                                 $display_price_value = $income['harga'];
                                             }
                                         } else {
-                                            // Fallback jika kuantitas atau harga tidak valid, tampilkan harga saja jika ada
                                             $display_price_value = $income['harga'] ?? 0;
                                         }
-                                    }
-                                    // Prioritas 3: Fallback jika tidak ada kondisi spesifik yang cocok, gunakan harga dari kas_masuk langsung
-                                    else {
+                                    } else {
                                         $display_price_value = $income['harga'] ?? 0;
                                     }
 
                                     echo format_rupiah($display_price_value);
                                     ?>
                                 </td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php
-                                                                            if ($income['kuantitas'] > 0) {
-                                                                                echo $income['kuantitas'];
-                                                                            } elseif ($income['pemesanan_quantity'] > 0) {
-                                                                                echo $income['pemesanan_quantity'];
-                                                                            } else {
-                                                                                // Fallback jika tidak ada kuantitas spesifik atau dari pesanan
-                                                                                $calc_qty_denom = ($display_price_value > 0) ? $display_price_value : (($income['jumlah'] > 0) ? $income['jumlah'] : 1);
-                                                                                echo ceil(($income['jumlah'] ?? 0) / $calc_qty_denom);
-                                                                            }
-                                                                            ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($income['jumlah'] ?? 0); ?></td>
-                                <td class="px-3 py-2 text-sm text-center">
-                                    <span class="text-gray-500 text-xs">Otomatis</span>
-                                </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                     <tfoot>
                         <tr class="bg-gray-100 font-bold">
-                            <td colspan="6" class="px-3 py-2 border-t text-right text-xs uppercase text-gray-700">Total:</td>
+                            <td colspan="5" class="px-3 py-2 border-t text-right text-xs uppercase text-gray-700">Total:</td>
                             <td class="px-3 py-2 border-t text-sm text-gray-900"><?php echo format_rupiah($total_jumlah); ?></td>
-                            <td class="px-3 py-2 border-t"></td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
         <?php endif; ?>
     </div>
-</div>
-
-<?php
-?>

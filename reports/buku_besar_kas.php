@@ -124,6 +124,7 @@ if (!empty($selected_akun)) {
                         km.tgl_kas_masuk AS tanggal, 
                         km.keterangan AS keterangan_user,
                         CASE 
+                            WHEN " . ($is_pendapatan_akun ? 'TRUE' : 'FALSE') . " THEN 'Pemesanan'
                             WHEN km.keterangan IS NOT NULL AND km.keterangan != '' THEN km.keterangan
                             ELSE CONCAT(
                                 CASE 
@@ -165,6 +166,7 @@ if (!empty($selected_akun)) {
     $types_km_pemesanan .= "ss";
 
     $where_km_pemesanan[] = "tr.id_pesan IS NOT NULL"; // Hanya pemesanan
+    $where_km_pemesanan[] = "NOT (p.uang_muka = p.total_tagihan_keseluruhan AND p.sisa = 0 AND p.tgl_pesan = p.tgl_kirim)"; // Bukan pembelian langsung
 
     if (!$is_kas_akun) { // Jika bukan akun Kas, filter berdasarkan akun transaksi
         $where_km_pemesanan[] = "tr.id_akun = ?";
@@ -195,7 +197,10 @@ if (!empty($selected_akun)) {
     $sql_km_langsung = "SELECT 
                         km.tgl_kas_masuk AS tanggal, 
                         km.keterangan AS keterangan_user,
-                        km.keterangan, 
+                        CASE 
+                            WHEN " . ($is_pendapatan_akun ? 'TRUE' : 'FALSE') . " THEN 'Beli Langsung'
+                            ELSE km.keterangan
+                        END AS keterangan, 
                         km.jumlah, 
                         'Kredit' AS tipe_saldo, 
                         tr.id_transaksi,
@@ -204,7 +209,8 @@ if (!empty($selected_akun)) {
                         NULL AS no_pesan, 
                         NULL AS nama_customer 
                         FROM kas_masuk km 
-                        LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi";
+                        LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
+                        LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan";
 
     $where_km_langsung = [];
     $params_km_langsung = [];
@@ -215,7 +221,8 @@ if (!empty($selected_akun)) {
     $params_km_langsung[] = $end_date;
     $types_km_langsung .= "ss";
 
-    $where_km_langsung[] = "tr.id_pesan IS NULL"; // Hanya pembelian langsung
+    // Kondisi untuk pembelian langsung: pesanan yang lunas sekaligus di hari yang sama
+    $where_km_langsung[] = "(tr.id_pesan IS NULL OR (p.uang_muka = p.total_tagihan_keseluruhan AND p.sisa = 0 AND p.tgl_pesan = p.tgl_kirim))"; // Pembelian langsung atau kas masuk tanpa pesanan
 
     if (!$is_kas_akun) { // Jika bukan akun Kas, filter berdasarkan akun transaksi
         $where_km_langsung[] = "tr.id_akun = ?";
@@ -617,27 +624,7 @@ if (!empty($selected_akun)) {
                                 </tr>
                             <?php endif; ?>
 
-                            <!-- Subtotal Pelunasan -->
-                            <?php if ($total_pelunasan > 0) : ?>
-                                <tr class="bg-green-100">
-                                    <td class="px-3 py-2 text-sm font-medium text-gray-900"></td>
-                                    <td class="px-3 py-2 text-sm font-medium text-gray-900">Subtotal Pelunasan</td>
-                                    <td class="px-3 py-2 text-sm font-medium text-gray-900 text-right">Rp <?php echo number_format($total_pelunasan, 0, ',', '.'); ?></td>
-                                    <td class="px-3 py-2 text-sm font-medium text-gray-900 text-center">-</td>
-                                    <td class="px-3 py-2 text-sm font-medium text-gray-900 text-center">-</td>
-                                </tr>
-                            <?php endif; ?>
 
-                            <!-- Subtotal Lainnya -->
-                            <?php if ($total_lainnya > 0) : ?>
-                                <tr class="bg-gray-100">
-                                    <td class="px-3 py-2 text-sm font-medium text-gray-900"></td>
-                                    <td class="px-3 py-2 text-sm font-medium text-gray-900">Subtotal Penjualan Langsung</td>
-                                    <td class="px-3 py-2 text-sm font-medium text-gray-900 text-right">Rp <?php echo number_format($total_lainnya, 0, ',', '.'); ?></td>
-                                    <td class="px-3 py-2 text-sm font-medium text-gray-900 text-center">-</td>
-                                    <td class="px-3 py-2 text-sm font-medium text-gray-900 text-center">-</td>
-                                </tr>
-                            <?php endif; ?>
 
                             <!-- Total Pendapatan -->
                             <tr class="bg-gray-200">
@@ -768,7 +755,11 @@ if (!empty($selected_akun)) {
                                         }
                                     } else {
                                         // Pembelian langsung - grup per tanggal dan keterangan user
-                                        $keterangan_user = $entry['keterangan_user'] ?? $entry['keterangan'] ?? 'Penjualan Langsung';
+                                        // Untuk akun pendapatan, gunakan keterangan dari SQL (sudah di-set sebagai "Beli Langsung")
+                                        // Untuk akun lainnya, gunakan keterangan user atau default
+                                        $keterangan_user = $is_pendapatan_akun
+                                            ? ($entry['keterangan'] ?? 'Beli Langsung')
+                                            : ($entry['keterangan_user'] ?? $entry['keterangan'] ?? 'Penjualan Langsung');
                                         $key = $entry['tanggal'] . '_' . $keterangan_user;
                                         if (!isset($data_langsung[$key])) {
                                             $data_langsung[$key] = [
@@ -798,10 +789,13 @@ if (!empty($selected_akun)) {
 
                             // Tambahkan data pemesanan
                             foreach ($data_pemesanan as $pesan) {
-                                // Gunakan keterangan user jika ada, jika tidak gunakan format default
-                                $keterangan_display = !empty($pesan['keterangan_user'])
-                                    ? $pesan['keterangan_user']
-                                    : 'Total Pemesanan ' . $pesan['no_pesan'] . ' - ' . $pesan['nama_customer'];
+                                // Untuk akun pendapatan, gunakan keterangan default "Pemesanan"
+                                // Untuk akun lainnya, gunakan keterangan user atau format default
+                                $keterangan_display = $is_pendapatan_akun
+                                    ? 'Pemesanan'
+                                    : (!empty($pesan['keterangan_user'])
+                                        ? $pesan['keterangan_user']
+                                        : 'Total Pemesanan ' . $pesan['no_pesan'] . ' - ' . $pesan['nama_customer']);
 
                                 $all_entries[] = [
                                     'tanggal' => $pesan['tanggal'],
@@ -820,7 +814,7 @@ if (!empty($selected_akun)) {
                                 $all_entries[] = [
                                     'tanggal' => $langsung['tanggal'],
                                     'id_transaksi' => $langsung['id_transaksi'],
-                                    'keterangan' => $langsung['keterangan'], // Sudah menggunakan keterangan user
+                                    'keterangan' => $langsung['keterangan'], // Gunakan keterangan yang sudah diproses di data processing
                                     'harga' => $langsung['harga_satuan'], // Gunakan harga dari input user
                                     'qty' => $langsung['total_qty'],
                                     'tipe' => 'kredit',

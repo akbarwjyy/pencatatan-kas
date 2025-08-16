@@ -162,17 +162,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         try {
             $status_pelunasan_final = $sisa_pembayaran_display == 0 ? 'Lunas' : 'Belum Lunas';
 
-            $sql_transaksi = "INSERT INTO transaksi (id_transaksi, id_pesan, id_akun, id_customer, tgl_transaksi, jumlah_dibayar, metode_pembayaran, keterangan, total_tagihan, sisa_pembayaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            $sql_transaksi = "INSERT INTO transaksi (id_transaksi, id_pesan, id_akun, id_customer, tgl_transaksi, jumlah_dibayar, keterangan, total_tagihan, sisa_pembayaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
             if ($stmt_transaksi = $conn->prepare($sql_transaksi)) {
                 $stmt_transaksi->bind_param(
-                    "sssssisssi",
+                    "sssssissi",
                     $generated_id_transaksi,
                     $id_pesan,
                     $id_akun,
                     $id_customer_related,
                     $tgl_transaksi,
                     $jumlah_dibayar,
-                    $metode_pembayaran,
                     $keterangan, // Menggunakan keterangan dari pemesanan/form
                     $total_tagihan_pemesanan,
                     $sisa_pembayaran_display
@@ -298,7 +297,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         value="<?php echo htmlspecialchars($keterangan); ?>"
                         required
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-
                 </div>
 
                 <div class="mb-6">
@@ -309,7 +307,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <span class="text-red-500 text-xs italic mt-1 block"><?php echo $tgl_transaksi_error; ?></span>
                 </div>
             </div>
-
             <div>
 
                 <div class="mb-6">
@@ -336,10 +333,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <input type="text" id="akun_display" disabled
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100">
                 </div>
+
             </div>
         </div>
 
-        <div class="flex items-center justify-center gap-4 mt-8">
+        <div class="flex items-center justify-center gap-4 mt-8"> <!-- justify start, end geser kanan, kiri-->
             <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-6 rounded focus:outline-none focus:shadow-outline">
                 SIMPAN
             </button>

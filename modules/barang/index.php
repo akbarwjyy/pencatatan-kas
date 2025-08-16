@@ -22,7 +22,7 @@ if ($result->num_rows > 0) {
 
 <div class="container mx-auto px-4 py-8">
     <div class="bg-white rounded-lg shadow-md p-6">
-        <h1 class="text-2xl font-bold text-gray-800 mb-4">Manajemen Barang</h1>
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">Daftar Barang</h1>
         <p class="text-gray-600 mb-6">Kelola daftar barang yang tersedia.</p>
 
         <a href="add.php" class="inline-block bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition mb-6">

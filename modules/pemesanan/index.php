@@ -15,13 +15,21 @@ $orders = [];
 if (!$conn) {
     set_flash_message("Koneksi database gagal: " . mysqli_connect_error(), "error");
 } else {
-    // --- START MODIFIKASI: Sesuaikan query SQL dengan struktur tabel pemesanan yang baru ---
-    // Menghapus JOIN ke transaksi dan akun karena kolom-kolom tersebut tidak lagi di pemesanan
-    // Menggunakan total_tagihan_keseluruhan dan keterangan yang baru
+    // --- START MODIFIKASI: Tampilkan hanya pemesanan (exclude pembelian langsung) ---
+    // Kita mengecualikan baris yang:
+    // 1) memiliki flag pembelian_langsung = 1, atau
+    // 2) memenuhi pola pembelian langsung: status Lunas, tgl_pesan = tgl_kirim, dan uang_muka = total_tagihan_keseluruhan
     $sql = "SELECT p.*, c.nama_customer
-            FROM pemesanan p
-            JOIN customer c ON p.id_customer = c.id_customer
-            ORDER BY p.tgl_pesan DESC";
+        FROM pemesanan p
+        JOIN customer c ON p.id_customer = c.id_customer
+        WHERE NOT (
+            (
+                p.status_pesanan = 'Lunas'
+                AND p.tgl_pesan = p.tgl_kirim
+                AND COALESCE(p.uang_muka, 0) = COALESCE(p.total_tagihan_keseluruhan, 0)
+            )
+        )
+        ORDER BY p.tgl_pesan DESC";
     // --- END MODIFIKASI ---
 
     $result = $conn->query($sql);
@@ -39,7 +47,7 @@ if (!$conn) {
 
 <div class="container mx-auto px-4 py-8">
     <div class="bg-white rounded-lg shadow-md p-6">
-        <h1 class="text-2xl font-bold text-gray-800 mb-4">Manajemen Pemesanan</h1>
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">Daftar Pemesanan</h1>
         <p class="text-gray-600 mb-6">Kelola daftar pemesanan produk Ampyang Cap Garuda.</p>
 
         <?php if (has_permission('Admin') || has_permission('Pegawai')) : ?>
@@ -69,8 +77,7 @@ if (!$conn) {
                             <?php /* --- END MODIFIKASI --- */ ?>
                             <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Sisa</th>
                             <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                            <th class="px-2 py-1 border-b text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
-                            <th class="px-2 py-1 border-b text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
+
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
@@ -89,24 +96,6 @@ if (!$conn) {
                                     <span class="px-1 py-0 text-xs rounded <?php echo ($order['sisa'] == 0) ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'; ?>">
                                         <?php echo ($order['sisa'] == 0) ? 'Lunas' : 'Belum'; ?>
                                     </span>
-                                </td>
-                                <td class="px-2 py-1 text-sm"><?php echo htmlspecialchars($order['keterangan'] ?? '-'); ?></td>
-                                <td class="px-2 py-1 text-sm text-center">
-                                    <?php if (has_permission('Admin') || has_permission('Pegawai')) : ?>
-                                        <div class="flex justify-center space-x-1">
-                                            <a href="edit.php?id=<?php echo htmlspecialchars($order['id_pesan']); ?>"
-                                                class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 transition">
-                                                Edit
-                                            </a>
-                                            <a href="delete.php?id=<?php echo htmlspecialchars($order['id_pesan']); ?>"
-                                                class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 transition"
-                                                onclick="return confirm('Apakah Anda yakin ingin menghapus pemesanan ini?');">
-                                                Hapus
-                                            </a>
-                                        </div>
-                                    <?php else : ?>
-                                        <span class="text-gray-400 text-xs">-</span>
-                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

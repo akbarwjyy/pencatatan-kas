@@ -226,12 +226,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     }
 
                     // Tambahkan transaksi untuk uang muka
-                    $sql_transaksi = "INSERT INTO transaksi (id_transaksi, id_pesan, id_akun, id_customer, tgl_transaksi, jumlah_dibayar, metode_pembayaran, keterangan, total_tagihan, sisa_pembayaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    $sql_transaksi = "INSERT INTO transaksi (id_transaksi, id_pesan, id_akun, id_customer, tgl_transaksi, jumlah_dibayar, keterangan, total_tagihan, sisa_pembayaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
                     $keterangan_transaksi =  $keterangan;
                     $metode_pembayaran_transaksi = "Cash"; // Default cash untuk uang muka
 
                     if ($stmt_transaksi = $conn->prepare($sql_transaksi)) {
-                        $stmt_transaksi->bind_param("sssssissii", $id_transaksi_uang_muka, $id_pesan, $id_akun_default, $id_customer, $tgl_pesan, $uang_muka, $metode_pembayaran_transaksi, $keterangan_transaksi, $calculated_total_tagihan_keseluruhan, $sisa);
+                        $stmt_transaksi->bind_param("sssssssii", $id_transaksi_uang_muka, $id_pesan, $id_akun_default, $id_customer, $tgl_pesan, $uang_muka, $keterangan_transaksi, $calculated_total_tagihan_keseluruhan, $sisa);
                         if (!$stmt_transaksi->execute()) {
                             throw new Exception("Gagal menambahkan transaksi uang muka: " . $stmt_transaksi->error);
                         }

@@ -10,11 +10,10 @@ if (!has_permission('Admin') && !has_permission('Pegawai')) {
 // MODIFIKASI: Query yang lebih akurat untuk mendeteksi pembelian langsung
 // Pembelian langsung memiliki karakteristik:
 // 1. status_pesanan = 'Lunas' 
-// 2. metode_pembayaran = 'Tunai'
 // 3. tgl_pesan = tgl_kirim = tgl_transaksi (pembelian pada hari yang sama)
 // 4. uang_muka = total_tagihan_keseluruhan (dibayar penuh)
 
-$sql = "SELECT tr.id_transaksi, tr.id_customer, tr.id_akun, tr.tgl_transaksi, tr.jumlah_dibayar, tr.metode_pembayaran, tr.keterangan, tr.total_tagihan, tr.sisa_pembayaran,
+$sql = "SELECT tr.id_transaksi, tr.id_customer, tr.id_akun, tr.tgl_transaksi, tr.jumlah_dibayar, tr.keterangan, tr.total_tagihan, tr.sisa_pembayaran,
         c.nama_customer, a.nama_akun,
         p.total_quantity,
         p.keterangan AS pemesanan_keterangan,
@@ -24,7 +23,6 @@ $sql = "SELECT tr.id_transaksi, tr.id_customer, tr.id_akun, tr.tgl_transaksi, tr
         LEFT JOIN akun a ON tr.id_akun = a.id_akun
         LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan
         WHERE p.status_pesanan = 'Lunas' 
-        AND tr.metode_pembayaran = 'Tunai'
         AND p.tgl_pesan = p.tgl_kirim 
         AND p.tgl_pesan = tr.tgl_transaksi
         AND p.uang_muka = p.total_tagihan_keseluruhan
@@ -47,7 +45,7 @@ if ($result === false) {
 
 <div class="container mx-auto px-4 py-8">
     <div class="bg-white rounded-lg shadow-md p-6">
-        <h1 class="text-2xl font-bold text-gray-800 mb-4">Manajemen Pembelian Langsung</h1>
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">Daftar Pembelian Langsung</h1>
         <p class="text-gray-600 mb-6">Kelola daftar transaksi penjualan tunai atau pembelian langsung.</p>
 
         <a href="add.php" class="inline-block bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition mb-6">
@@ -71,9 +69,8 @@ if ($result === false) {
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Total Qty</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Jumlah Bayar</th>
-                            <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Metode</th>
                             <th class="px-3 py-2 border-b text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
-                            <th class="px-3 py-2 border-b text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
+
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
@@ -87,39 +84,27 @@ if ($result === false) {
                             <tr class="hover:bg-gray-50">
                                 <td class="px-3 py-2 text-sm text-gray-500"><?php echo htmlspecialchars($transaction['id_transaksi']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['nama_customer'] ?? '-'); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['tgl_transaksi']); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo date('d/m/y', strtotime($transaction['tgl_transaksi'])); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['total_quantity'] ?? 0); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($transaction['jumlah_dibayar'] ?? 0); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['metode_pembayaran']); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['pemesanan_keterangan'] ?? $transaction['keterangan'] ?? '-'); ?></td>
-                                <td class="px-3 py-2 text-sm text-center">
-                                    <div class="flex justify-center space-x-1">
-                                        <a href="edit.php?id=<?php echo htmlspecialchars($transaction['id_transaksi']); ?>"
-                                            class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 transition">
-                                            Edit
-                                        </a>
-                                        <a href="delete.php?id=<?php echo htmlspecialchars($transaction['id_transaksi']); ?>"
-                                            class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 transition"
-                                            onclick="return confirm('Apakah Anda yakin ingin menghapus transaksi ini?');">
-                                            Hapus
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                    <tfoot>
-                        <tr class="bg-gray-100 font-bold">
-                            <td colspan="3" class="px-3 py-2 border-t text-right text-xs uppercase text-gray-700">Total Keseluruhan:</td>
-                            <td class="px-3 py-2 border-t text-sm text-gray-900"><?php echo htmlspecialchars($total_items_sold); ?></td>
-                            <td class="px-3 py-2 border-t text-sm text-gray-900"><?php echo format_rupiah($total_amount_paid); ?></td>
-                            <td colspan="2" class="px-3 py-2 border-t"></td>
-                        </tr>
-                    </tfoot>
-                </table>
             </div>
-        <?php endif; ?>
+            </td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+        <tfoot>
+            <tr class="bg-gray-100 font-bold">
+                <td colspan="3" class="px-3 py-2 border-t text-right text-xs uppercase text-gray-700">Total Keseluruhan:</td>
+                <td class="px-3 py-2 border-t text-sm text-gray-900"><?php echo htmlspecialchars($total_items_sold); ?></td>
+                <td class="px-3 py-2 border-t text-sm text-gray-900"><?php echo format_rupiah($total_amount_paid); ?></td>
+                <td colspan="2" class="px-3 py-2 border-t"></td>
+            </tr>
+        </tfoot>
+        </table>
     </div>
+<?php endif; ?>
+</div>
 </div>
 
 <?php
