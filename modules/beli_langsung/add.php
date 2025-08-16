@@ -22,7 +22,7 @@ $id_akun = '';
 $tgl_transaksi = '';
 $jumlah_dibayar = 0; // Akan diisi dari total item
 $metode_pembayaran = '';
-$keterangan = 'Pembelian Langsung';
+$keterangan = 'Beli Langsung';
 $total_tagihan = 0; // Akan diisi dari total item
 $total_quantity = 0; // Akan diisi dari total item quantity
 
@@ -121,7 +121,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $item_id_barang = sanitize_input($item['id_barang'] ?? '');
             $item_quantity = sanitize_input($item['quantity_item'] ?? 0);
             $item_harga_satuan = sanitize_input($item['harga_satuan_item'] ?? 0);
-            $keterangan = $_POST['keterangan'] ?? 'Pembelian Langsung';
+            $keterangan = $_POST['keterangan'] ?? 'Beli Langsung';
 
             // Validasi setiap item
             if (empty($item_id_barang)) {
@@ -170,69 +170,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Mulai transaksi database
         $conn->begin_transaction();
         try {
-            // --- Implementasi Alur Pembelian Langsung sebagai Pesanan Lunas ---
+            // --- Implementasi Alur Pembelian Langsung dengan Tabel Terpisah ---
 
-            // 1. Generate ID Pesanan untuk "dummy" pemesanan
-            $latest_pesan_sql = "SELECT MAX(CAST(SUBSTRING(id_pesan, 4) AS UNSIGNED)) as last_num FROM pemesanan WHERE id_pesan LIKE 'ORD%'";
-            $latest_pesan_result = $conn->query($latest_pesan_sql);
-            $last_pesan_num = 0;
-            if ($latest_pesan_result && $row = $latest_pesan_result->fetch_assoc()) {
-                $last_pesan_num = intval($row['last_num']);
-            }
-            $new_pesan_num = $last_pesan_num + 1;
-            $id_pesan_dummy = sprintf("ORD%05d", $new_pesan_num); // Format: ORD00001, dst.
-
-            // 2. Masukkan data ke tabel `pemesanan` (sebagai pesanan langsung lunas)
-            // Kolom uang_muka, total_tagihan_keseluruhan, sisa, status_pesanan, keterangan, total_quantity
-            $sql_pemesanan_dummy = "INSERT INTO pemesanan (id_pesan, id_customer, tgl_pesan, tgl_kirim, uang_muka, total_tagihan_keseluruhan, sisa, status_pesanan, keterangan, total_quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            if ($stmt_pemesanan_dummy = $conn->prepare($sql_pemesanan_dummy)) {
-                // Gunakan variabel untuk nilai literal di bind_param
-                $sisa_pemesanan_dummy_var = 0;
-                $status_pesanan_dummy_var = 'Lunas';
-                $stmt_pemesanan_dummy->bind_param(
-                    "ssssdddssi",
-                    $id_pesan_dummy,
-                    $id_customer,
-                    $tgl_transaksi, // tgl_pesan sama dengan tgl_transaksi
-                    $tgl_transaksi, // tgl_kirim sama dengan tgl_transaksi
-                    $calculated_total_tagihan, // uang_muka adalah total tagihan
-                    $calculated_total_tagihan, // total_tagihan_keseluruhan
-                    $sisa_pemesanan_dummy_var, // Gunakan variabel
-                    $status_pesanan_dummy_var, // Gunakan variabel
-                    $keterangan,
-                    $calculated_total_quantity // total_quantity
-                );
-
-                if (!$stmt_pemesanan_dummy->execute()) {
-                    throw new Exception("Gagal menambahkan dummy pemesanan: " . $stmt_pemesanan_dummy->error);
-                }
-                $stmt_pemesanan_dummy->close();
-            } else {
-                throw new Exception("Error prepared statement (dummy pemesanan): " . $conn->error);
-            }
-
-            // 3. Masukkan data ke tabel `detail_pemesanan`
-            $sql_detail_pemesanan = "INSERT INTO detail_pemesanan (id_pesan, id_barang, quantity_item, harga_satuan_item, sub_total_item) VALUES (?, ?, ?, ?, ?)";
-            if ($stmt_detail = $conn->prepare($sql_detail_pemesanan)) {
-                foreach ($items_data as $item_detail) {
-                    $stmt_detail->bind_param(
-                        "ssidd",
-                        $id_pesan_dummy, // Menggunakan id_pesan dari dummy pemesanan
-                        $item_detail['id_barang'],
-                        $item_detail['quantity_item'],
-                        $item_detail['harga_satuan_item'],
-                        $item_detail['sub_total_item']
-                    );
-                    if (!$stmt_detail->execute()) {
-                        throw new Exception("Gagal menambahkan detail pembelian langsung untuk barang " . $item_detail['id_barang'] . ": " . $stmt_detail->error);
-                    }
-                }
-                $stmt_detail->close();
-            } else {
-                throw new Exception("Error prepared statement (detail_pemesanan beli_langsung): " . $conn->error);
-            }
-
-            // 4. Generate ID Transaksi Otomatis
+            // 1. Generate ID Transaksi Otomatis
             $generated_id_transaksi = 'TRX' . strtoupper(substr(uniqid(), 0, 5));
             $check_gen_id_sql = "SELECT id_transaksi FROM transaksi WHERE id_transaksi = ?";
             $stmt_check_gen_id = $conn->prepare($check_gen_id_sql);
@@ -244,12 +184,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
             $stmt_check_gen_id->close();
 
-            // 5. Masukkan data ke tabel `transaksi` (Pembelian Langsung)
-            // --- PERBAIKAN UTAMA: Pastikan parameter binding dan tipe data benar ---
+            // 2. Masukkan data ke tabel `transaksi` (Pembelian Langsung)
+            // --- PERBAIKAN: Set id_pesan = NULL karena beli langsung tidak ada pesanan ---
             $sql_transaksi = "INSERT INTO transaksi (
     id_transaksi, id_pesan, id_akun, id_customer, tgl_transaksi,
     jumlah_dibayar, keterangan, total_tagihan, sisa_pembayaran
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)";
             if ($stmt_transaksi = $conn->prepare($sql_transaksi)) {
                 // Debug: Log nilai sebelum binding
                 error_log("Before binding - tgl_transaksi: " . $tgl_transaksi);
@@ -258,7 +198,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 // Pastikan semua parameter adalah variabel eksplisit dan tipe data benar
                 $bind_id_transaksi = $generated_id_transaksi;
-                $bind_id_pesan_dummy = $id_pesan_dummy;
                 $bind_id_akun = $id_akun;
                 $bind_id_customer = $id_customer;
                 $bind_tgl_transaksi = $tgl_transaksi; // Pastikan ini format DATE yang benar
@@ -269,9 +208,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 // Perbaikan tipe data binding: s=string, d=double/float
                 $stmt_transaksi->bind_param(
-                    "sssssssdd", // 5 string, 1 double, 1 string, 2 double
+                    "ssssdsdd", // 4 string, 1 double, 1 string, 2 double
                     $bind_id_transaksi,
-                    $bind_id_pesan_dummy,
                     $bind_id_akun,
                     $bind_id_customer,
                     $bind_tgl_transaksi,
@@ -289,7 +227,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 throw new Exception("Error prepared statement (transaksi beli_langsung): " . $conn->error);
             }
 
-            // 6. Masukkan data ke tabel `kas_masuk`
+            // 3. Masukkan data ke tabel `detail_beli_langsung`
+            $sql_detail_beli_langsung = "INSERT INTO detail_beli_langsung (id_transaksi, id_barang, quantity_item, harga_satuan_item, sub_total_item) VALUES (?, ?, ?, ?, ?)";
+            if ($stmt_detail_beli = $conn->prepare($sql_detail_beli_langsung)) {
+                foreach ($items_data as $item_detail) {
+                    $stmt_detail_beli->bind_param(
+                        "ssidd",
+                        $generated_id_transaksi, // Menggunakan id_transaksi yang baru digenerate
+                        $item_detail['id_barang'],
+                        $item_detail['quantity_item'],
+                        $item_detail['harga_satuan_item'],
+                        $item_detail['sub_total_item']
+                    );
+                    if (!$stmt_detail_beli->execute()) {
+                        throw new Exception("Gagal menambahkan detail pembelian langsung untuk barang " . $item_detail['id_barang'] . ": " . $stmt_detail_beli->error);
+                    }
+                }
+                $stmt_detail_beli->close();
+            } else {
+                throw new Exception("Error prepared statement (detail_beli_langsung): " . $conn->error);
+            }
+
+            // 4. Masukkan data ke tabel `kas_masuk`
             $timestamp = date("YmdHis");
             $random = mt_rand(1000, 9999);
             $generated_id_kas_masuk = "KM" . $timestamp . $random;
@@ -465,7 +424,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <div class="mb-6">
                     <label for="keterangan" class="block text-gray-700 text-sm font-bold mb-2">Keterangan :</label>
                     <input type="text" id="keterangan" name="keterangan"
-                        value="<?php echo htmlspecialchars($keterangan ?? 'Pembelian Langsung'); ?>"
+                        value="<?php echo htmlspecialchars($keterangan ?? 'Beli Langsung'); ?>"
                         required maxlength="30"
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
                     <span class="text-red-500 text-xs italic mt-1 block"><?php echo $keterangan_error ?? ''; ?></span>

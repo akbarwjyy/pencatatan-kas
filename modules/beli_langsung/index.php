@@ -7,26 +7,25 @@ if (!has_permission('Admin') && !has_permission('Pegawai')) {
     redirect('../../modules/dashboard/index.php'); // Redirect ke dashboard
 }
 
-// MODIFIKASI: Query yang lebih akurat untuk mendeteksi pembelian langsung
-// Pembelian langsung memiliki karakteristik:
-// 1. status_pesanan = 'Lunas' 
-// 3. tgl_pesan = tgl_kirim = tgl_transaksi (pembelian pada hari yang sama)
-// 4. uang_muka = total_tagihan_keseluruhan (dibayar penuh)
+// MODIFIKASI: Query untuk mengambil transaksi beli langsung dari tabel yang benar
+// Setelah implementasi detail_beli_langsung, transaksi beli langsung memiliki karakteristik:
+// 1. tr.id_pesan IS NULL (tidak ada dummy pemesanan lagi)
+// 2. Ada data di detail_beli_langsung
 
 $sql = "SELECT tr.id_transaksi, tr.id_customer, tr.id_akun, tr.tgl_transaksi, tr.jumlah_dibayar, tr.keterangan, tr.total_tagihan, tr.sisa_pembayaran,
         c.nama_customer, a.nama_akun,
-        p.total_quantity,
-        p.keterangan AS pemesanan_keterangan,
-        p.tgl_pesan, p.tgl_kirim, p.uang_muka, p.total_tagihan_keseluruhan, p.status_pesanan
+        -- Hitung total quantity dari detail_beli_langsung
+        (SELECT SUM(dbl.quantity_item) FROM detail_beli_langsung dbl WHERE dbl.id_transaksi = tr.id_transaksi) AS total_quantity,
+        -- Ambil contoh barang dari detail_beli_langsung
+        (SELECT b.nama_barang FROM detail_beli_langsung dbl 
+         JOIN barang b ON dbl.id_barang = b.id_barang 
+         WHERE dbl.id_transaksi = tr.id_transaksi 
+         ORDER BY dbl.id_detail_beli LIMIT 1) AS contoh_barang
         FROM transaksi tr
         LEFT JOIN customer c ON tr.id_customer = c.id_customer
         LEFT JOIN akun a ON tr.id_akun = a.id_akun
-        LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan
-        WHERE p.status_pesanan = 'Lunas' 
-        AND p.tgl_pesan = p.tgl_kirim 
-        AND p.tgl_pesan = tr.tgl_transaksi
-        AND p.uang_muka = p.total_tagihan_keseluruhan
-        AND tr.sisa_pembayaran = 0
+        WHERE tr.id_pesan IS NULL -- Transaksi beli langsung tidak memiliki id_pesan
+        AND EXISTS (SELECT 1 FROM detail_beli_langsung dbl WHERE dbl.id_transaksi = tr.id_transaksi) -- Pastikan ada detail di tabel beli langsung
         ORDER BY tr.tgl_transaksi DESC";
 
 $result = $conn->query($sql);
@@ -87,7 +86,7 @@ if ($result === false) {
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo date('d/m/y', strtotime($transaction['tgl_transaksi'])); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['total_quantity'] ?? 0); ?></td>
                                 <td class="px-3 py-2 text-sm text-gray-900"><?php echo format_rupiah($transaction['jumlah_dibayar'] ?? 0); ?></td>
-                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['pemesanan_keterangan'] ?? $transaction['keterangan'] ?? '-'); ?></td>
+                                <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($transaction['keterangan'] ?? '-'); ?></td>
             </div>
             </td>
             </tr>

@@ -66,6 +66,7 @@ try {
 // Ambil semua data kas masuk sesuai filter tanggal
 $sql = "SELECT km.*, tr.id_pesan, tr.jumlah_dibayar AS jumlah_transaksi, tr.total_tagihan,
         (SELECT nama_akun FROM akun WHERE id_akun = tr.id_akun) AS nama_akun,
+        -- Data untuk pemesanan
         p.total_quantity AS pemesanan_quantity,
         (SELECT dp_sub.harga_satuan_item
          FROM detail_pemesanan dp_sub
@@ -75,7 +76,20 @@ $sql = "SELECT km.*, tr.id_pesan, tr.jumlah_dibayar AS jumlah_transaksi, tr.tota
          FROM detail_pemesanan dp_sub
          JOIN barang b_sub ON dp_sub.id_barang = b_sub.id_barang
          WHERE dp_sub.id_pesan = p.id_pesan
-         ORDER BY dp_sub.id_detail_pesan ASC LIMIT 1) AS first_item_name
+         ORDER BY dp_sub.id_detail_pesan ASC LIMIT 1) AS first_item_name,
+        -- Data untuk beli langsung
+        (SELECT SUM(dbl_sub.quantity_item)
+         FROM detail_beli_langsung dbl_sub
+         WHERE dbl_sub.id_transaksi = tr.id_transaksi) AS beli_langsung_quantity,
+        (SELECT dbl_sub.harga_satuan_item
+         FROM detail_beli_langsung dbl_sub
+         WHERE dbl_sub.id_transaksi = tr.id_transaksi
+         ORDER BY dbl_sub.id_detail_beli ASC LIMIT 1) AS beli_langsung_unit_price,
+        (SELECT b_sub.nama_barang
+         FROM detail_beli_langsung dbl_sub
+         JOIN barang b_sub ON dbl_sub.id_barang = b_sub.id_barang
+         WHERE dbl_sub.id_transaksi = tr.id_transaksi
+         ORDER BY dbl_sub.id_detail_beli ASC LIMIT 1) AS beli_langsung_item_name
         FROM kas_masuk km
         LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
         LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan
@@ -296,16 +310,26 @@ try {
                                     <?php
                                     $display_price_value = 0;
 
-                                    if (isset($income['first_item_unit_price']) && $income['first_item_unit_price'] > 0) {
+                                    // Jika ini adalah transaksi pemesanan (ada id_pesan)
+                                    if (!empty($income['id_pesan']) && isset($income['first_item_unit_price']) && $income['first_item_unit_price'] > 0) {
                                         $display_price_value = $income['first_item_unit_price'];
-                                    } elseif (empty($income['id_pesan'])) {
-                                        if (isset($income['kuantitas']) && $income['kuantitas'] > 0 && isset($income['harga']) && $income['harga'] > 0) {
+                                    }
+                                    // Jika ini adalah transaksi beli langsung (tidak ada id_pesan)
+                                    elseif (empty($income['id_pesan'])) {
+                                        // Prioritas 1: Gunakan harga dari detail_beli_langsung
+                                        if (isset($income['beli_langsung_unit_price']) && $income['beli_langsung_unit_price'] > 0) {
+                                            $display_price_value = $income['beli_langsung_unit_price'];
+                                        }
+                                        // Prioritas 2: Hitung dari kas masuk
+                                        elseif (isset($income['kuantitas']) && $income['kuantitas'] > 0 && isset($income['harga']) && $income['harga'] > 0) {
                                             if (abs($income['harga'] - $income['jumlah']) < 0.01 && $income['kuantitas'] > 0) {
                                                 $display_price_value = $income['jumlah'] / $income['kuantitas'];
                                             } else {
                                                 $display_price_value = $income['harga'];
                                             }
-                                        } else {
+                                        }
+                                        // Prioritas 3: Gunakan harga default
+                                        else {
                                             $display_price_value = $income['harga'] ?? 0;
                                         }
                                     } else {

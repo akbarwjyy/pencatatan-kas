@@ -17,24 +17,30 @@ if (empty($start_date) && empty($end_date)) {
     $end_date = date('Y-m-t');
 }
 
-// Query awal (sudah ada kondisi keterangan)
+// Query awal - setelah implementasi detail_beli_langsung, transaksi beli langsung tidak lagi membuat dummy pemesanan
+// Jadi kita hanya perlu mengambil semua pemesanan yang bukan transaksi langsung (yang memiliki id_pesan di transaksi)
 $sql = "SELECT p.*, c.nama_customer
         FROM pemesanan p
-        JOIN customer c ON p.id_customer = c.id_customer
-        WHERE (p.keterangan IS NULL OR p.keterangan != 'Pembelian Langsung')";
+        JOIN customer c ON p.id_customer = c.id_customer";
 
 // Simpan parameter filter tambahan
 $params = [];
 $param_types = "";
 
 // Tambah filter tanggal ke query
+$where_added = false;
 if (!empty($start_date)) {
-    $sql .= " AND p.tgl_pesan >= ?";
+    $sql .= " WHERE p.tgl_pesan >= ?";
     $params[] = $start_date;
     $param_types .= "s";
+    $where_added = true;
 }
 if (!empty($end_date)) {
-    $sql .= " AND p.tgl_pesan <= ?";
+    if ($where_added) {
+        $sql .= " AND p.tgl_pesan <= ?";
+    } else {
+        $sql .= " WHERE p.tgl_pesan <= ?";
+    }
     $params[] = $end_date;
     $param_types .= "s";
 }
