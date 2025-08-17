@@ -14,10 +14,7 @@ $sql = "SELECT
             COALESCE(tr.id_transaksi, CONCAT('PENDING-', p.id_pesan)) as id_transaksi,
             tr.tgl_transaksi,
             tr.jumlah_dibayar,
-            CASE 
-                WHEN p.tgl_pesan = p.tgl_kirim THEN '-'
-                ELSE p.id_pesan
-            END AS no_pesan,
+            p.id_pesan AS no_pesan, -- Perbaikan: Tampilkan nomor pesan apa adanya untuk pemesanan normal
             p.total_tagihan_keseluruhan AS total_tagihan_pemesanan,
             p.sisa AS sisa_pemesanan,
             p.status_pesanan,
@@ -46,7 +43,7 @@ $sql = "SELECT
             tr.id_transaksi,
             tr.tgl_transaksi,
             tr.jumlah_dibayar,
-            '-' as no_pesan,
+            '-' as no_pesan, -- Untuk beli langsung tetap tampilkan 
             tr.jumlah_dibayar as total_tagihan_pemesanan,
             0 as sisa_pemesanan,
             'Lunas' as status_pesanan,
@@ -60,7 +57,7 @@ $sql = "SELECT
         FROM transaksi tr
         LEFT JOIN customer c ON tr.id_customer = c.id_customer
         LEFT JOIN akun a ON tr.id_akun = a.id_akun -- Tambahkan join ke tabel akun untuk bagian UNION kedua
-        WHERE tr.id_pesan IS NULL
+        WHERE tr.id_pesan IS NULL -- Transaksi beli langsung tidak memiliki id_pesan
         ORDER BY tgl_transaksi DESC";
 // --- END MODIFIKASI ---
 
