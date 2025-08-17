@@ -12,7 +12,7 @@ if (!has_permission('Admin') && !has_permission('Pegawai')) {
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Pragma: no-cache");
 
-// Pastikan kolom harga dan kuantitas ada di tabel kas_masuk
+// Pastikan kolom harga ada di tabel kas_masuk dan hapus kolom kuantitas yang tidak diperlukan
 try {
     $columns_added = false;
 
@@ -25,34 +25,35 @@ try {
         $columns_added = true;
     }
 
-    // Cek apakah kolom kuantitas sudah ada
-    $check_column_sql = "SHOW COLUMNS FROM kas_masuk LIKE 'kuantitas'";
-    $column_result = $conn->query($check_column_sql);
-    if ($column_result->num_rows == 0) {
-        // Kolom kuantitas belum ada, tambahkan
-        $conn->query("ALTER TABLE kas_masuk ADD COLUMN kuantitas INT DEFAULT 0");
-        $columns_added = true;
+    // Hapus kolom kuantitas yang tidak diperlukan
+    $check_kuantitas_sql = "SHOW COLUMNS FROM kas_masuk LIKE 'kuantitas'";
+    $kuantitas_result = $conn->query($check_kuantitas_sql);
+    if ($kuantitas_result->num_rows > 0) {
+        // Kolom kuantitas ada, hapus karena tidak diperlukan
+        $conn->query("ALTER TABLE kas_masuk DROP COLUMN kuantitas");
     }
 
-    // Jika kolom baru ditambahkan, update harga dan kuantitas untuk data lama
+    // Jika kolom baru ditambahkan, update harga untuk data lama
     if ($columns_added) {
         // Logika update otomatis untuk data lama (jika perlu)
     }
 } catch (Exception $e) {
-    // Jika gagal menambahkan kolom, lanjutkan saja
+    // Jika gagal mengubah kolom, lanjutkan saja
 }
 
-// Update kuantitas untuk data yang sudah ada jika belum diisi
+// Update harga untuk data yang sudah ada jika belum diisi
 try {
     $update_sql = "UPDATE kas_masuk km
         LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
         LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan
-        SET km.kuantitas = CASE
-            WHEN p.total_quantity IS NOT NULL AND p.total_quantity > 0 THEN p.total_quantity
-            WHEN km.harga > 0 THEN CEIL(km.jumlah / km.harga)
-            ELSE 1
+        SET km.harga = CASE
+            WHEN p.total_quantity IS NOT NULL AND p.total_quantity > 0 AND km.jumlah > 0 
+                THEN CEIL(km.jumlah / p.total_quantity)
+            WHEN km.harga IS NULL OR km.harga = 0 
+                THEN 12000
+            ELSE km.harga
         END
-        WHERE km.kuantitas = 0";
+        WHERE km.harga IS NULL OR km.harga = 0";
     $conn->query($update_sql);
 } catch (Exception $e) {
     // Jika ada error pada update, lanjutkan saja

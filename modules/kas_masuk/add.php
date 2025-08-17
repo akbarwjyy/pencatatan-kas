@@ -9,11 +9,8 @@ if (!has_permission('Admin') && !has_permission('Pegawai')) {
 }
 
 $id_kas_masuk_error = $tgl_kas_masuk_error = $jumlah_error = $keterangan_error = $id_akun_error = "";
-$harga_error = $kuantitas_error = ""; // Tambahan variabel error baru
 $id_kas_masuk = $tgl_kas_masuk = $keterangan = $id_akun = "";
-$harga = 0; // Inisialisasi variabel baru
-$kuantitas = 0; // Inisialisasi variabel baru
-$jumlah = 0; // Jumlah akan dihitung
+$jumlah = 0; // Jumlah akan diinput langsung
 
 // Ambil daftar akun untuk dropdown
 $accounts = [];
@@ -31,8 +28,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $tgl_kas_masuk = sanitize_input($_POST['tgl_kas_masuk'] ?? '');
     $id_akun = sanitize_input($_POST['id_akun'] ?? '');
     $keterangan = sanitize_input($_POST['keterangan'] ?? '');
-    $harga = sanitize_input($_POST['harga'] ?? 0);
-    $kuantitas = sanitize_input($_POST['kuantitas'] ?? 0);
+    $jumlah = sanitize_input($_POST['jumlah'] ?? 0);
 
     // Validasi input
     if (empty($id_kas_masuk)) {
@@ -49,21 +45,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $id_akun_error = "Akun tidak boleh kosong.";
     }
 
-    // Validasi Harga dan Kuantitas
-    if (!is_numeric($harga) || $harga <= 0) {
-        $harga_error = "Harga harus angka positif.";
+    // Validasi Jumlah
+    if (!is_numeric($jumlah) || $jumlah <= 0) {
+        $jumlah_error = "Jumlah harus angka positif.";
     } else {
-        $harga = (int)$harga;
+        $jumlah = (float)$jumlah;
     }
-
-    if (!is_numeric($kuantitas) || $kuantitas <= 0) {
-        $kuantitas_error = "Kuantitas harus angka positif.";
-    } else {
-        $kuantitas = (int)$kuantitas;
-    }
-
-    // Hitung jumlah setelah validasi harga dan kuantitas
-    $jumlah = $harga * $kuantitas;
 
     if (empty($keterangan)) {
         $keterangan_error = "Keterangan tidak boleh kosong.";
@@ -71,15 +58,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $keterangan_error = "Keterangan maksimal 30 karakter.";
     }
 
-    // Validasi jumlah akhir (setelah dihitung)
-    if ($jumlah <= 0) {
-        $jumlah_error = "Jumlah harus lebih dari 0.";
-    }
-
     // Jika tidak ada error validasi, coba simpan ke database
     if (
         empty($id_kas_masuk_error) && empty($tgl_kas_masuk_error) && empty($id_akun_error) &&
-        empty($harga_error) && empty($kuantitas_error) && empty($jumlah_error) && empty($keterangan_error)
+        empty($jumlah_error) && empty($keterangan_error)
     ) {
         // Cek apakah id_kas_masuk sudah ada di database
         $check_sql = "SELECT id_kas_masuk FROM kas_masuk WHERE id_kas_masuk = ?";
@@ -177,31 +159,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
 
                 // 3. Gunakan ID transaksi yang baru dibuat untuk INSERT ke kas_masuk
-                // Tambahkan kolom harga dan kuantitas jika belum ada
+                // Tambahkan kolom harga jika belum ada, hapus kuantitas jika ada
                 try {
                     // Cek apakah kolom harga sudah ada
                     $check_column_sql = "SHOW COLUMNS FROM kas_masuk LIKE 'harga'";
                     $column_result = $conn->query($check_column_sql);
                     if ($column_result->num_rows == 0) {
                         // Kolom harga belum ada, tambahkan
-                        $conn->query("ALTER TABLE kas_masuk ADD COLUMN harga INT DEFAULT 0");
+                        $conn->query("ALTER TABLE kas_masuk ADD COLUMN harga DECIMAL(15,2) DEFAULT 0");
                     }
 
-                    // Cek apakah kolom kuantitas sudah ada
-                    $check_column_sql = "SHOW COLUMNS FROM kas_masuk LIKE 'kuantitas'";
-                    $column_result = $conn->query($check_column_sql);
-                    if ($column_result->num_rows == 0) {
-                        // Kolom kuantitas belum ada, tambahkan
-                        $conn->query("ALTER TABLE kas_masuk ADD COLUMN kuantitas INT DEFAULT 0");
+                    // Hapus kolom kuantitas jika ada (tidak diperlukan lagi)
+                    $check_kuantitas_sql = "SHOW COLUMNS FROM kas_masuk LIKE 'kuantitas'";
+                    $kuantitas_result = $conn->query($check_kuantitas_sql);
+                    if ($kuantitas_result->num_rows > 0) {
+                        $conn->query("ALTER TABLE kas_masuk DROP COLUMN kuantitas");
                     }
                 } catch (Exception $e) {
-                    // Jika gagal menambahkan kolom, lanjutkan saja
+                    // Jika gagal mengubah kolom, lanjutkan saja
                 }
 
-                $sql = "INSERT INTO kas_masuk (id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan, harga, kuantitas) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                $sql = "INSERT INTO kas_masuk (id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan, harga) VALUES (?, ?, ?, ?, ?, ?)";
 
                 if ($stmt = $conn->prepare($sql)) {
-                    $stmt->bind_param("sssisii", $id_kas_masuk, $generated_id_transaksi, $tgl_kas_masuk, $jumlah, $keterangan, $harga, $kuantitas);
+                    $stmt->bind_param("sssisi", $id_kas_masuk, $generated_id_transaksi, $tgl_kas_masuk, $jumlah, $keterangan, $jumlah);
 
                     if ($stmt->execute()) {
                         $conn->commit(); // Commit transaksi jika semua berhasil
@@ -264,22 +245,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
             <span class="text-red-500 text-xs italic mt-1 block"><?php echo $keterangan_error; ?></span>
         </div>
-        <div class="mb-4">
-            <label for="harga" class="block text-gray-700 text-sm font-bold mb-2">Harga:</label>
-            <input type="number" id="harga" name="harga" value="<?php echo htmlspecialchars($harga); ?>" required min="1"
-                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $harga_error; ?></span>
-        </div>
-        <div class="mb-4">
-            <label for="kuantitas" class="block text-gray-700 text-sm font-bold mb-2">Kuantitas:</label>
-            <input type="number" id="kuantitas" name="kuantitas" value="<?php echo htmlspecialchars($kuantitas); ?>" required min="1"
-                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
-            <span class="text-red-500 text-xs italic mt-1 block"><?php echo $kuantitas_error; ?></span>
-        </div>
         <div class="mb-6">
-            <label for="jumlah_display" class="block text-gray-700 text-sm font-bold mb-2">Jumlah:</label>
-            <input type="text" id="jumlah_display" value="<?php echo format_rupiah($jumlah); ?>" disabled
-                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight bg-gray-100 cursor-not-allowed">
+            <label for="jumlah" class="block text-gray-700 text-sm font-bold mb-2">Jumlah:</label>
+            <input type="number" id="jumlah" name="jumlah" value="<?php echo htmlspecialchars($jumlah); ?>" required min="1" step="0.01"
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500">
             <span class="text-red-500 text-xs italic mt-1 block"><?php echo $jumlah_error; ?></span>
         </div>
         <div class="flex items-center justify-between">
@@ -293,35 +262,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </form>
 </div>
 
-<script>
-    // Fungsi untuk menghitung jumlah otomatis
-    function calculateJumlah() {
-        const hargaInput = document.getElementById('harga');
-        const kuantitasInput = document.getElementById('kuantitas');
-        const jumlahDisplay = document.getElementById('jumlah_display');
 
-        const harga = parseFloat(hargaInput.value) || 0;
-        const kuantitas = parseFloat(kuantitasInput.value) || 0;
-
-        const calculatedJumlah = harga * kuantitas;
-        jumlahDisplay.value = formatRupiah(calculatedJumlah);
-    }
-
-    // Tambahkan event listener untuk memanggil fungsi perhitungan saat input berubah
-    document.getElementById('harga').addEventListener('input', calculateJumlah);
-    document.getElementById('kuantitas').addEventListener('input', calculateJumlah);
-
-    // Panggil fungsi perhitungan saat halaman dimuat untuk nilai awal
-    document.addEventListener('DOMContentLoaded', calculateJumlah);
-
-    // Format Rupiah di sisi klien (JavaScript) (fungsi ini sudah ada di transaksi/add.php, bisa dipindahkan ke script.js jika umum)
-    function formatRupiah(angka) {
-        var reverse = angka.toString().split('').reverse().join(''),
-            ribuan = reverse.match(/\d{1,3}/g);
-        ribuan = ribuan.join('.').split('').reverse().join('');
-        return 'Rp ' + ribuan;
-    }
-</script>
 
 <?php
 // Sertakan footer
