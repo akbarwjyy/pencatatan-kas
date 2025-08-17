@@ -140,7 +140,7 @@ if (!empty($selected_akun)) {
                         tr.id_transaksi,
                         COALESCE(dp.harga_satuan_item, km.harga, 12000) AS harga_input_user,
                         km.harga AS harga_kas_masuk,
-                        km.kuantitas,
+                        -- PERBAIKAN: Hapus kuantitas karena kolom sudah tidak ada
                         p.id_pesan AS no_pesan, 
                         c.nama_customer AS nama_customer,
                         dp.harga_satuan_item AS harga_satuan_pemesanan,
@@ -206,7 +206,7 @@ if (!empty($selected_akun)) {
                         tr.id_transaksi,
                         COALESCE(dbl.harga_satuan_item, km.harga, 12000) AS harga_input_user,
                         km.harga AS harga_kas_masuk,
-                        km.kuantitas,
+                        -- PERBAIKAN: Hapus kuantitas karena kolom sudah tidak ada
                         NULL AS no_pesan, 
                         NULL AS nama_customer,
                         dbl.harga_satuan_item AS harga_satuan_beli_langsung,
@@ -254,7 +254,8 @@ if (!empty($selected_akun)) {
     // --- END MODIFIKASI ---
 
     // --- START MODIFIKASI: Refaktor konstruksi query untuk entri kas keluar (Debit) ---
-    $sql_kk_akun = "SELECT kk.tgl_kas_keluar AS tanggal, kk.keterangan, kk.jumlah, 'Debit' AS tipe_saldo, kk.id_kas_keluar AS id_transaksi, kk.harga, kk.kuantitas,
+    $sql_kk_akun = "SELECT kk.tgl_kas_keluar AS tanggal, kk.keterangan, kk.jumlah, 'Debit' AS tipe_saldo, kk.id_kas_keluar AS id_transaksi, kk.harga,
+                    -- PERBAIKAN: Hapus kuantitas untuk konsistensi
                     NULL AS no_pesan, NULL AS nama_customer 
                     FROM kas_keluar kk 
                     LEFT JOIN akun a ON kk.id_akun = a.id_akun";
@@ -780,7 +781,12 @@ if (!empty($selected_akun)) {
                                         if (empty($data_langsung[$key]['harga_satuan']) && !empty($entry['harga_input_user'])) {
                                             $data_langsung[$key]['harga_satuan'] = $entry['harga_input_user'];
                                         }
-                                        $data_langsung[$key]['total_qty'] += $entry['kuantitas'] ?? 0;
+                                        // PERBAIKAN: Hitung quantity dari harga satuan dan jumlah
+                                        if (!empty($entry['harga_input_user']) && $entry['harga_input_user'] > 0) {
+                                            $data_langsung[$key]['total_qty'] += ceil($entry['jumlah'] / $entry['harga_input_user']);
+                                        } else {
+                                            $data_langsung[$key]['total_qty'] += 1; // Default 1 unit jika tidak bisa hitung
+                                        }
                                     }
                                 } else {
                                     // Kas keluar (debit) - tetap detail
@@ -834,7 +840,7 @@ if (!empty($selected_akun)) {
                                     'id_transaksi' => $keluar['id_transaksi'] ?? '',
                                     'keterangan' => $keluar['keterangan'] ?? 'Pengeluaran',
                                     'harga' => $keluar['harga'] ?? 0,
-                                    'qty' => $keluar['kuantitas'] ?? 0,
+                                    'qty' => ($keluar['harga'] > 0) ? ceil($keluar['jumlah'] / $keluar['harga']) : 1, // PERBAIKAN: Hitung dari harga
                                     'tipe' => 'debit',
                                     'jumlah' => $keluar['jumlah'] ?? 0,
                                     'class' => 'hover:bg-gray-50'
@@ -941,7 +947,7 @@ if (!empty($selected_akun)) {
                                     <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($account_name); ?></td>
                                     <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($entry['keterangan'] ?? '-'); ?></td>
                                     <td class="px-3 py-2 text-sm text-gray-900 text-right"><?php echo ($entry['harga'] > 0) ? 'Rp ' . number_format($entry['harga'], 0, ',', '.') : '-'; ?></td>
-                                    <td class="px-3 py-2 text-sm text-gray-900 text-center"><?php echo ($entry['kuantitas'] > 0) ? $entry['kuantitas'] : '-'; ?></td>
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-center"><?php echo isset($entry['qty']) && $entry['qty'] > 0 ? $entry['qty'] : '-'; ?></td>
                                     <td class="px-3 py-2 text-sm text-gray-900 text-right"><?php echo ($debit > 0) ? 'Rp ' . number_format($debit, 0, ',', '.') : '-'; ?></td>
                                     <td class="px-3 py-2 text-sm text-gray-900 text-right"><?php echo ($kredit > 0) ? 'Rp ' . number_format($kredit, 0, ',', '.') : '-'; ?></td>
                                     <td class="px-3 py-2 text-sm text-gray-900 text-right">Rp <?php echo number_format(abs($current_saldo), 0, ',', '.'); ?></td>

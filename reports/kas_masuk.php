@@ -20,7 +20,7 @@ $end_date = isset($_GET['end_date']) && !empty($_GET['end_date'])
     ? sanitize_input($_GET['end_date'])
     : date('Y-m-t'); // akhir bulan ini
 
-// Pastikan kolom harga dan kuantitas ada di tabel kas_masuk
+// Pastikan kolom harga ada di tabel kas_masuk (HAPUS referensi ke kuantitas)
 try {
     $columns_added = false;
 
@@ -32,32 +32,54 @@ try {
         $columns_added = true;
     }
 
-    // Cek apakah kolom kuantitas sudah ada
-    $check_column_sql = "SHOW COLUMNS FROM kas_masuk LIKE 'kuantitas'";
-    $column_result = $conn->query($check_column_sql);
-    if ($column_result->num_rows == 0) {
-        $conn->query("ALTER TABLE kas_masuk ADD COLUMN kuantitas INT DEFAULT 0");
-        $columns_added = true;
+    // PERBAIKAN: Hapus kolom kuantitas jika masih ada (karena sudah tidak diperlukan)
+    $check_kuantitas_sql = "SHOW COLUMNS FROM kas_masuk LIKE 'kuantitas'";
+    $kuantitas_result = $conn->query($check_kuantitas_sql);
+    if ($kuantitas_result->num_rows > 0) {
+        $conn->query("ALTER TABLE kas_masuk DROP COLUMN kuantitas");
     }
 
     if ($columns_added) {
         // Jika perlu, isi kolom baru untuk data lama
     }
 } catch (Exception $e) {
-    // Jika gagal menambahkan kolom, lanjutkan saja
+    // Jika gagal mengubah kolom, lanjutkan saja
 }
 
-// Update kuantitas untuk data yang sudah ada jika belum diisi
+// PERBAIKAN: Hapus update kuantitas karena kolom sudah tidak ada
+// Update harga untuk data yang sudah ada jika belum diisi dengan harga satuan yang benar
 try {
     $update_sql = "UPDATE kas_masuk km
         LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
         LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan
-        SET km.kuantitas = CASE
-            WHEN p.total_quantity IS NOT NULL AND p.total_quantity > 0 THEN p.total_quantity
-            WHEN km.harga > 0 THEN CEIL(km.jumlah / km.harga)
-            ELSE 1
+        LEFT JOIN (
+            SELECT dp.id_pesan, dp.harga_satuan_item
+            FROM detail_pemesanan dp
+            WHERE dp.id_detail_pesan = (
+                SELECT MIN(dp2.id_detail_pesan) 
+                FROM detail_pemesanan dp2 
+                WHERE dp2.id_pesan = dp.id_pesan
+            )
+        ) dp_first ON p.id_pesan = dp_first.id_pesan
+        LEFT JOIN (
+            SELECT dbl.id_transaksi, dbl.harga_satuan_item
+            FROM detail_beli_langsung dbl
+            WHERE dbl.id_detail_beli = (
+                SELECT MIN(dbl2.id_detail_beli)
+                FROM detail_beli_langsung dbl2
+                WHERE dbl2.id_transaksi = dbl.id_transaksi
+            )
+        ) dbl_first ON tr.id_transaksi = dbl_first.id_transaksi
+        SET km.harga = CASE
+            WHEN dp_first.harga_satuan_item IS NOT NULL AND dp_first.harga_satuan_item > 0
+                THEN dp_first.harga_satuan_item
+            WHEN dbl_first.harga_satuan_item IS NOT NULL AND dbl_first.harga_satuan_item > 0
+                THEN dbl_first.harga_satuan_item
+            WHEN km.harga IS NULL OR km.harga = 0 OR km.harga = km.jumlah
+                THEN 12000
+            ELSE km.harga
         END
-        WHERE km.kuantitas = 0";
+        WHERE km.harga IS NULL OR km.harga = 0 OR km.harga = km.jumlah";
     $conn->query($update_sql);
 } catch (Exception $e) {
     // Jika ada error pada update, lanjutkan saja
@@ -320,17 +342,13 @@ try {
                                         if (isset($income['beli_langsung_unit_price']) && $income['beli_langsung_unit_price'] > 0) {
                                             $display_price_value = $income['beli_langsung_unit_price'];
                                         }
-                                        // Prioritas 2: Hitung dari kas masuk
-                                        elseif (isset($income['kuantitas']) && $income['kuantitas'] > 0 && isset($income['harga']) && $income['harga'] > 0) {
-                                            if (abs($income['harga'] - $income['jumlah']) < 0.01 && $income['kuantitas'] > 0) {
-                                                $display_price_value = $income['jumlah'] / $income['kuantitas'];
-                                            } else {
-                                                $display_price_value = $income['harga'];
-                                            }
+                                        // Prioritas 2: Gunakan harga dari kas_masuk (sudah berisi harga satuan)
+                                        elseif (isset($income['harga']) && $income['harga'] > 0) {
+                                            $display_price_value = $income['harga'];
                                         }
                                         // Prioritas 3: Gunakan harga default
                                         else {
-                                            $display_price_value = $income['harga'] ?? 0;
+                                            $display_price_value = 12000; // Default harga satuan
                                         }
                                     } else {
                                         $display_price_value = $income['harga'] ?? 0;

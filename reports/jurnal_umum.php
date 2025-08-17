@@ -30,8 +30,8 @@ $sql_kas_masuk = "SELECT
                     km.keterangan, 
                     a.nama_akun AS akun_asal, 
                     NULL AS akun_tujuan,
-                    km.harga,
-                    km.kuantitas
+                    km.harga
+                    -- PERBAIKAN: Hapus kuantitas karena kolom sudah tidak ada
                   FROM kas_masuk km
                   LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
                   LEFT JOIN akun a ON tr.id_akun = a.id_akun -- Ambil akun dari transaksi terkait
@@ -56,8 +56,8 @@ if ($stmt_km === false) {
 // Query untuk Kas Keluar
 $sql_kas_keluar = "SELECT kk.tgl_kas_keluar AS tanggal, kk.id_kas_keluar AS id_transaksi, 'Kas Keluar' AS tipe, kk.jumlah, kk.keterangan,
                            NULL AS akun_asal, a.nama_akun AS akun_tujuan,
-                           kk.harga,
-                           kk.kuantitas
+                           kk.harga
+                           -- PERBAIKAN: Hapus kuantitas untuk konsistensi
                    FROM kas_keluar kk
                    JOIN akun a ON kk.id_akun = a.id_akun
                    WHERE kk.tgl_kas_keluar BETWEEN ? AND ?";
@@ -298,18 +298,20 @@ usort($entries, function ($a, $b) {
                                 $credit_account = $entry['akun_asal'] ?? 'Pendapatan';
                                 $kredit_amount = ($entry['jumlah'] ?? 0);
                                 $keterangan_tambahan = "";
-                                if (!empty($entry['kuantitas']) && !empty($entry['harga'])) {
-                                    // $keterangan_tambahan = "(" . ($entry['kuantitas']) . " x " . format_rupiah($entry['harga']) . ")";
-                                }
+                                // PERBAIKAN: Hapus penggunaan kuantitas karena tidak ada lagi
+                                // if (!empty($entry['kuantitas']) && !empty($entry['harga'])) {
+                                //     $keterangan_tambahan = "(" . ($entry['kuantitas']) . " x " . format_rupiah($entry['harga']) . ")";
+                                // }
                             } else { // Kas Keluar
                                 $debit_account = $entry['akun_tujuan'] ?? 'Beban';
                                 $debit_amount = ($entry['jumlah'] ?? 0);
                                 $credit_account = "Kas";
                                 $kredit_amount = ($entry['jumlah'] ?? 0);
                                 $keterangan_tambahan = "";
-                                if (!empty($entry['kuantitas']) && !empty($entry['harga'])) {
-                                    // $keterangan_tambahan = "(" . ($entry['kuantitas']) . " x " . format_rupiah($entry['harga']) . ")";
-                                }
+                                // PERBAIKAN: Hapus penggunaan kuantitas karena tidak ada lagi
+                                // if (!empty($entry['kuantitas']) && !empty($entry['harga'])) {
+                                //     $keterangan_tambahan = "(" . ($entry['kuantitas']) . " x " . format_rupiah($entry['harga']) . ")";
+                                // }
                             }
                             $total_debit_final += $debit_amount;
                             $total_kredit_final += $kredit_amount;
