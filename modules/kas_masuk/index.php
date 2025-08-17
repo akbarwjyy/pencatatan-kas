@@ -71,7 +71,17 @@ $sql = "SELECT km.*, tr.id_pesan, tr.jumlah_dibayar AS jumlah_transaksi, tr.tota
          FROM detail_pemesanan dp_sub
          JOIN barang b_sub ON dp_sub.id_barang = b_sub.id_barang
          WHERE dp_sub.id_pesan = p.id_pesan
-         ORDER BY dp_sub.id_detail_pesan ASC LIMIT 1) AS first_item_name
+         ORDER BY dp_sub.id_detail_pesan ASC LIMIT 1) AS first_item_name,
+        -- Subquery untuk mendapatkan harga satuan dari detail_beli_langsung
+        (SELECT dbl_sub.harga_satuan_item
+         FROM detail_beli_langsung dbl_sub
+         WHERE dbl_sub.id_transaksi = tr.id_transaksi
+         ORDER BY dbl_sub.id_detail_beli ASC LIMIT 1) AS beli_langsung_unit_price,
+        (SELECT b_sub.nama_barang
+         FROM detail_beli_langsung dbl_sub
+         JOIN barang b_sub ON dbl_sub.id_barang = b_sub.id_barang
+         WHERE dbl_sub.id_transaksi = tr.id_transaksi
+         ORDER BY dbl_sub.id_detail_beli ASC LIMIT 1) AS beli_langsung_item_name
         FROM kas_masuk km
         LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
         LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan
@@ -134,9 +144,13 @@ try {
                                     $display_price_label = "";
                                     $display_price_value = 0;
 
+                                    // Prioritas: 1. Harga satuan dari pemesanan, 2. Harga satuan dari beli langsung, 3. Harga total
                                     if (!empty($income['first_item_unit_price']) && $income['first_item_unit_price'] > 0) {
                                         $display_price_label = "Satuan";
                                         $display_price_value = $income['first_item_unit_price'];
+                                    } elseif (!empty($income['beli_langsung_unit_price']) && $income['beli_langsung_unit_price'] > 0) {
+                                        $display_price_label = "Satuan";
+                                        $display_price_value = $income['beli_langsung_unit_price'];
                                     } elseif (!empty($income['harga']) && $income['harga'] > 0) {
                                         $display_price_label = "Total";
                                         $display_price_value = $income['harga'];
