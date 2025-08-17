@@ -252,12 +252,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                     // Untuk kas_masuk, harga dan kuantitas bisa dihitung dari uang muka
                     // Atau bisa diambil dari item pertama jika uang muka hanya untuk satu item
-                    // Untuk kesederhanaan, kita akan gunakan uang muka sebagai jumlah, dan harga/kuantitas sebagai 1 dan uang muka
-                    $km_harga = $uang_muka; // Asumsi uang muka adalah harga jika kuantitas 1
-                    $km_kuantitas = 1; // Asumsi kuantitas 1 untuk uang muka
+                    // Perbaikan: Hapus kolom kuantitas yang sudah tidak ada di tabel kas_masuk
+                    // Hitung harga satuan dari detail pemesanan untuk konsistensi
+                    $km_harga_satuan = 0;
+                    if (!empty($items_data)) {
+                        $km_harga_satuan = (float)$items_data[0]['harga_satuan_item']; // Ambil harga satuan item pertama
+                    }
+                    if ($km_harga_satuan <= 0) {
+                        $km_harga_satuan = 12000; // Default harga satuan jika tidak ada
+                    }
 
-                    if ($stmt_kas_masuk = $conn->prepare("INSERT INTO kas_masuk (id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan, harga, kuantitas) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
-                        $stmt_kas_masuk->bind_param("sssisii", $id_kas_masuk, $id_transaksi_uang_muka, $tgl_pesan, $uang_muka, $keterangan_transaksi, $km_harga, $km_kuantitas);
+                    if ($stmt_kas_masuk = $conn->prepare("INSERT INTO kas_masuk (id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan, harga) VALUES (?, ?, ?, ?, ?, ?)")) {
+                        $stmt_kas_masuk->bind_param("sssdsd", $id_kas_masuk, $id_transaksi_uang_muka, $tgl_pesan, $uang_muka, $keterangan_transaksi, $km_harga_satuan);
                         if (!$stmt_kas_masuk->execute()) {
                             throw new Exception("Gagal menambahkan entri kas masuk uang muka: " . $stmt_kas_masuk->error);
                         }

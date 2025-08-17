@@ -198,7 +198,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 }
             }
 
-            $sql_kas_masuk = "INSERT INTO kas_masuk (id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan, harga, kuantitas) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            // Perbaikan: Hapus kolom kuantitas yang sudah tidak ada di tabel kas_masuk
+            $sql_kas_masuk = "INSERT INTO kas_masuk (id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan, harga) VALUES (?, ?, ?, ?, ?, ?)";
 
             $latest_km_sql = "SELECT MAX(CAST(SUBSTRING(id_kas_masuk, 3) AS UNSIGNED)) as last_num FROM kas_masuk WHERE id_kas_masuk LIKE 'KM%'";
             $latest_km_result = $conn->query($latest_km_sql);
@@ -211,18 +212,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             $keterangan_kas_masuk = $keterangan;
 
+            // Hitung harga satuan dari detail_pemesanan untuk konsistensi
             $harga_satuan_item = 0;
-            if ($quantity_pemesanan_db > 0) {
-                $harga_satuan_item = $total_tagihan_pemesanan / $quantity_pemesanan_db;
+            if ($quantity_pemesanan_db > 0 && $sub_total_pemesanan_db > 0) {
+                $harga_satuan_item = $sub_total_pemesanan_db / $quantity_pemesanan_db;
             }
-            if ($harga_satuan_item == 0) {
-                $harga_satuan_item = 12000;
+            if ($harga_satuan_item <= 0) {
+                $harga_satuan_item = 12000; // Default harga satuan
             }
-
-            $kuantitas = $quantity_pemesanan_db > 0 ? $quantity_pemesanan_db : ceil($jumlah_dibayar / $harga_satuan_item);
 
             if ($stmt_kas_masuk = $conn->prepare($sql_kas_masuk)) {
-                $stmt_kas_masuk->bind_param("sssisii", $id_kas_masuk, $generated_id_transaksi, $tgl_transaksi, $jumlah_dibayar, $keterangan_kas_masuk, $harga_satuan_item, $kuantitas);
+                $stmt_kas_masuk->bind_param("sssdsd", $id_kas_masuk, $generated_id_transaksi, $tgl_transaksi, $jumlah_dibayar, $keterangan_kas_masuk, $harga_satuan_item);
                 if (!$stmt_kas_masuk->execute()) {
                     throw new Exception("Gagal menambahkan entri kas masuk: " . $stmt_kas_masuk->error);
                 }

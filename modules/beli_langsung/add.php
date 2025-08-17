@@ -267,23 +267,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $stmt_check->close();
             }
 
-            $sql_kas_masuk = "INSERT INTO kas_masuk (id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan, harga, kuantitas) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            // Perbaikan: Hapus kolom kuantitas yang sudah tidak ada di tabel kas_masuk
+            $sql_kas_masuk = "INSERT INTO kas_masuk (id_kas_masuk, id_transaksi, tgl_kas_masuk, jumlah, keterangan, harga) VALUES (?, ?, ?, ?, ?, ?)";
             if ($stmt_kas_masuk = $conn->prepare($sql_kas_masuk)) {
-                $km_harga = (float)$calculated_total_tagihan; // Cast ke float
-                $km_kuantitas = (int)$calculated_total_quantity; // Cast ke int
+                // Hitung harga satuan dari detail item pertama untuk konsistensi
+                $km_harga_satuan = 0;
+                if (!empty($items_data)) {
+                    $km_harga_satuan = (float)$items_data[0]['harga_satuan_item']; // Ambil harga satuan item pertama
+                }
 
                 $bind_keterangan_kas_masuk_text = $keterangan; // Variabel untuk string literal
                 $bind_jumlah_kas_masuk = (float)$calculated_total_tagihan; // Cast ke float
 
                 $stmt_kas_masuk->bind_param(
-                    "sssdsdi", // Perbaikan tipe data binding
+                    "sssdsd", // Perbaikan tipe data binding tanpa kuantitas
                     $generated_id_kas_masuk,
                     $generated_id_transaksi,
                     $tgl_transaksi, // Pastikan tanggal benar
                     $bind_jumlah_kas_masuk, // Jumlah kas masuk (float/decimal -> d)
                     $bind_keterangan_kas_masuk_text,
-                    $km_harga, // (float/decimal -> d)
-                    $km_kuantitas // (int -> i)
+                    $km_harga_satuan // Harga satuan (float/decimal -> d)
                 );
 
                 if (!$stmt_kas_masuk->execute()) {

@@ -41,22 +41,48 @@ try {
     // Jika gagal mengubah kolom, lanjutkan saja
 }
 
-// Update harga untuk data yang sudah ada jika belum diisi
+// Update harga untuk data yang sudah ada - perbaiki dengan harga satuan yang benar
 try {
+    // Update harga dengan prioritas: 1. Harga satuan dari detail_pemesanan, 2. Harga satuan dari detail_beli_langsung, 3. Default 12000
     $update_sql = "UPDATE kas_masuk km
         LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
         LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan
+        LEFT JOIN (
+            SELECT dp.id_pesan, dp.harga_satuan_item
+            FROM detail_pemesanan dp
+            WHERE dp.id_detail_pesan = (
+                SELECT MIN(dp2.id_detail_pesan) 
+                FROM detail_pemesanan dp2 
+                WHERE dp2.id_pesan = dp.id_pesan
+            )
+        ) dp_first ON p.id_pesan = dp_first.id_pesan
+        LEFT JOIN (
+            SELECT dbl.id_transaksi, dbl.harga_satuan_item
+            FROM detail_beli_langsung dbl
+            WHERE dbl.id_detail_beli = (
+                SELECT MIN(dbl2.id_detail_beli)
+                FROM detail_beli_langsung dbl2
+                WHERE dbl2.id_transaksi = dbl.id_transaksi
+            )
+        ) dbl_first ON tr.id_transaksi = dbl_first.id_transaksi
         SET km.harga = CASE
-            WHEN p.total_quantity IS NOT NULL AND p.total_quantity > 0 AND km.jumlah > 0 
-                THEN CEIL(km.jumlah / p.total_quantity)
-            WHEN km.harga IS NULL OR km.harga = 0 
-                THEN 12000
-            ELSE km.harga
+            WHEN dp_first.harga_satuan_item IS NOT NULL AND dp_first.harga_satuan_item > 0
+                THEN dp_first.harga_satuan_item
+            WHEN dbl_first.harga_satuan_item IS NOT NULL AND dbl_first.harga_satuan_item > 0
+                THEN dbl_first.harga_satuan_item
+            ELSE 12000
         END
-        WHERE km.harga IS NULL OR km.harga = 0";
+        WHERE km.harga IS NULL OR km.harga = 0 OR km.harga = km.jumlah"; // Termasuk yang harga = jumlah (bermasalah)
     $conn->query($update_sql);
+
+    // Log untuk debugging
+    $affected_rows = $conn->affected_rows;
+    if ($affected_rows > 0) {
+        error_log("Updated $affected_rows records in kas_masuk with correct unit prices");
+    }
 } catch (Exception $e) {
     // Jika ada error pada update, lanjutkan saja
+    error_log("Error updating kas_masuk prices: " . $e->getMessage());
 }
 
 // Ambil semua data kas masuk dari database, join dengan transaksi dan akun
