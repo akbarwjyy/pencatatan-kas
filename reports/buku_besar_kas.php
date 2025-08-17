@@ -204,13 +204,17 @@ if (!empty($selected_akun)) {
                         km.jumlah, 
                         'Kredit' AS tipe_saldo, 
                         tr.id_transaksi,
-                        km.harga AS harga_input_user,
+                        COALESCE(dbl.harga_satuan_item, km.harga, 12000) AS harga_input_user,
+                        km.harga AS harga_kas_masuk,
                         km.kuantitas,
                         NULL AS no_pesan, 
-                        NULL AS nama_customer 
+                        NULL AS nama_customer,
+                        dbl.harga_satuan_item AS harga_satuan_beli_langsung,
+                        'beli_langsung' AS tipe_pembayaran
                         FROM kas_masuk km 
                         LEFT JOIN transaksi tr ON km.id_transaksi = tr.id_transaksi
-                        LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan";
+                        LEFT JOIN pemesanan p ON tr.id_pesan = p.id_pesan
+                        LEFT JOIN detail_beli_langsung dbl ON tr.id_transaksi = dbl.id_transaksi";
 
     $where_km_langsung = [];
     $params_km_langsung = [];
