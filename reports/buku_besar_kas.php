@@ -255,7 +255,11 @@ if (!empty($selected_akun)) {
 
     // --- START MODIFIKASI: Refaktor konstruksi query untuk entri kas keluar (Debit) ---
     $sql_kk_akun = "SELECT kk.tgl_kas_keluar AS tanggal, kk.keterangan, kk.jumlah, 'Debit' AS tipe_saldo, kk.id_kas_keluar AS id_transaksi, kk.harga,
-                    -- PERBAIKAN: Hapus kuantitas untuk konsistensi
+                    -- PERBAIKAN: Hitung QTY dari jumlah dibagi harga untuk akun biaya
+                    CASE 
+                        WHEN kk.harga > 0 THEN CEIL(kk.jumlah / kk.harga)
+                        ELSE 1
+                    END AS qty,
                     NULL AS no_pesan, NULL AS nama_customer 
                     FROM kas_keluar kk 
                     LEFT JOIN akun a ON kk.id_akun = a.id_akun";
@@ -930,15 +934,24 @@ if (!empty($selected_akun)) {
                             foreach ($account_ledger_entries as $entry) :
                                 $debit = 0;
                                 $kredit = 0;
+                                $qty = 0;
 
                                 if ($entry['tipe_saldo'] == 'Kredit') {
                                     // Untuk akun pendapatan, kas masuk adalah kredit
                                     $kredit = $entry['jumlah'] ?? 0;
                                     $current_saldo += $kredit;
+                                    // Hitung QTY untuk kas masuk
+                                    if (isset($entry['harga']) && $entry['harga'] > 0) {
+                                        $qty = ceil($kredit / $entry['harga']);
+                                    } else {
+                                        $qty = 1; // Default jika tidak ada harga
+                                    }
                                 } else {
                                     // Kas keluar adalah debit
                                     $debit = $entry['jumlah'] ?? 0;
                                     $current_saldo -= $debit;
+                                    // QTY untuk kas keluar sudah dihitung di query
+                                    $qty = $entry['qty'] ?? (($entry['harga'] > 0) ? ceil($debit / $entry['harga']) : 1);
                                 }
                             ?>
                                 <tr class="hover:bg-gray-50">
@@ -947,7 +960,7 @@ if (!empty($selected_akun)) {
                                     <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($account_name); ?></td>
                                     <td class="px-3 py-2 text-sm text-gray-900"><?php echo htmlspecialchars($entry['keterangan'] ?? '-'); ?></td>
                                     <td class="px-3 py-2 text-sm text-gray-900 text-right"><?php echo ($entry['harga'] > 0) ? 'Rp ' . number_format($entry['harga'], 0, ',', '.') : '-'; ?></td>
-                                    <td class="px-3 py-2 text-sm text-gray-900 text-center"><?php echo isset($entry['qty']) && $entry['qty'] > 0 ? $entry['qty'] : '-'; ?></td>
+                                    <td class="px-3 py-2 text-sm text-gray-900 text-center"><?php echo ($qty > 0) ? $qty : '-'; ?></td>
                                     <td class="px-3 py-2 text-sm text-gray-900 text-right"><?php echo ($debit > 0) ? 'Rp ' . number_format($debit, 0, ',', '.') : '-'; ?></td>
                                     <td class="px-3 py-2 text-sm text-gray-900 text-right"><?php echo ($kredit > 0) ? 'Rp ' . number_format($kredit, 0, ',', '.') : '-'; ?></td>
                                     <td class="px-3 py-2 text-sm text-gray-900 text-right">Rp <?php echo number_format(abs($current_saldo), 0, ',', '.'); ?></td>
